@@ -1,0 +1,1 @@
+<?php ekogito_the_site_logo(); ?>
