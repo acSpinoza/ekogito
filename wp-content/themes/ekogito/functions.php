@@ -113,7 +113,7 @@ add_action( 'widgets_init', 'ekogito_widgets_init' );
  * Enqueue scripts and styles.
  */
 function ekogito_scripts() {
-	//wp_enqueue_style( 'ekogito-style', get_stylesheet_uri() );
+	wp_enqueue_style( 'ekogito-style', get_stylesheet_uri() );
 
 	wp_enqueue_style( 'uikit-style', get_template_directory_uri() . '/vendor/uikit/uikit.min.css' );
 	wp_enqueue_script( 'uikit-script', get_template_directory_uri() . '/vendor/uikit/uikit.min.js' );
