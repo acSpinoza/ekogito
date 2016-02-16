@@ -126,7 +126,7 @@ function ekogito_scripts() {
 		wp_enqueue_script( 'comment-reply' );
 	}
 }
-add_action( 'wp_enqueue_scripts', 'ekogito_scripts' );
+add_action( 'wp_enqueue_scripts', 'ekogito_scripts', 30 );
 
 /**
  * Implement the Custom Header feature.
