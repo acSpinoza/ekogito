@@ -12,7 +12,7 @@ get_header(); ?>
 			get_template_part( 'components/featured' );
 		}
 	?>
-	<div id="primary" class="content-area uk-width-medium-1-2 uk-container-center">
+	<div id="primary" class="content-area">
 		<main id="main" class="site-main" role="main">
 			<?php if ( have_posts() ) : ?>
 
