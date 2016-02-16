@@ -115,9 +115,6 @@ add_action( 'widgets_init', 'ekogito_widgets_init' );
 function ekogito_scripts() {
 	wp_enqueue_style( 'ekogito-style', get_stylesheet_uri() );
 
-	wp_enqueue_style( 'uikit-style', '//cdnjs.cloudflare.com/ajax/libs/uikit/2.24.3/css/uikit.min.css' );
-	wp_enqueue_script( 'uikit-script', '//cdnjs.cloudflare.com/ajax/libs/uikit/2.24.3/js/uikit.min.js' );
-
 	wp_enqueue_script( 'ekogito-navigation', get_template_directory_uri() . '/assets/js/navigation.js', array(), '20120206', true );
 
 	wp_enqueue_script( 'ekogito-skip-link-focus-fix', get_template_directory_uri() . '/assets/js/skip-link-focus-fix.js', array(), '20130115', true );
@@ -126,7 +123,18 @@ function ekogito_scripts() {
 		wp_enqueue_script( 'comment-reply' );
 	}
 }
-add_action( 'wp_enqueue_scripts', 'ekogito_scripts', 30 );
+add_action( 'wp_enqueue_scripts', 'ekogito_scripts');
+
+/**
+ * Enqueue scripts and styles.
+ */
+function uikit_scripts() {
+
+	wp_enqueue_style( 'uikit-style', '//cdnjs.cloudflare.com/ajax/libs/uikit/2.24.3/css/uikit.min.css' );
+	wp_enqueue_script( 'uikit-script', '//cdnjs.cloudflare.com/ajax/libs/uikit/2.24.3/js/uikit.min.js' );
+
+}
+add_action( 'wp_enqueue_scripts', 'uikit_scripts', 11 );
 
 /**
  * Implement the Custom Header feature.
