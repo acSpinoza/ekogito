@@ -140,6 +140,11 @@ if ( ! defined( 'WP_DEBUG' ) ) {
     define('WP_DEBUG', false);
 }
 
+
+/** Enable W3 Total Cache */
+define('WP_CACHE', true); // Added by W3 Total Cache
+
+
 /* That's all, stop editing! Happy Pressing. */
 
 
