@@ -30,4 +30,3 @@
 		<?php ekogito_entry_footer(); ?>
 	</footer><!-- .entry-footer -->
 </article><!-- #post-## -->
-

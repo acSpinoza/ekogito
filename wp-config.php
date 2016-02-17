@@ -89,10 +89,10 @@ else:
      *
      * If you are only running on Pantheon, you can ignore this block.
      */
-    define('DB_NAME',          'database_name');
-    define('DB_USER',          'database_username');
-    define('DB_PASSWORD',      'database_password');
-    define('DB_HOST',          'database_host');
+    define('DB_NAME',          'wordpress');
+    define('DB_USER',          'root');
+    define('DB_PASSWORD',      'vagrant');
+    define('DB_HOST',          'localhost');
     define('DB_CHARSET',       'utf8');
     define('DB_COLLATE',       '');
     define('AUTH_KEY',         'put your unique phrase here');
