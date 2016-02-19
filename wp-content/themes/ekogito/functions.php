@@ -120,11 +120,6 @@ function ekogito_scripts() {
 
 	wp_enqueue_script( 'ekogito-navigation', get_template_directory_uri() . '/assets/js/navigation.js', array(), '20120206', true );
 
-	wp_enqueue_style( 'spash-navigation-style', get_template_directory_uri() . '/assets/stylesheets/spash-navigation.css' );
-	wp_enqueue_script( 'ekogito-modernizer-navigation', get_template_directory_uri() . '/assets/js/modernizr.custom.js', array(), '20120206', true );
-	wp_enqueue_script( 'ekogito-spash-navigation', get_template_directory_uri() . '/assets/js/spash-navigation.js', array(), '20120206', true );
-
-
 	wp_enqueue_script( 'ekogito-skip-link-focus-fix', get_template_directory_uri() . '/assets/js/skip-link-focus-fix.js', array(), '20130115', true );
 
 	if ( is_singular() && comments_open() && get_option( 'thread_comments' ) ) {
