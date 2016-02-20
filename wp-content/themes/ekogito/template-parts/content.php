@@ -33,7 +33,7 @@ if ( has_post_thumbnail() ) {
 		endif; ?>
 	</header><!-- .entry-header -->
 
-	<div class="entry-content uk-text-center">
+	<div class="entry-content uk-text-justify">
 		<?php
 			the_excerpt();
 		?>
