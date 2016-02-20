@@ -21,7 +21,7 @@
 </head>
 
 <body <?php body_class(); ?>>
-<div id="page" class="site uk-width-large-1-2 uk-container uk-container-center ">
+<div id="page" class="site uk-width-large-7-10 uk-container uk-container-center ">
 	<a class="skip-link screen-reader-text" href="#content"><?php esc_html_e( 'Skip to content', 'ekogito' ); ?></a>
 
 	<header id="masthead" class="site-header" role="banner">
