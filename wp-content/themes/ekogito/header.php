@@ -41,9 +41,19 @@
 			endif; ?>
 		</div><!-- .site-branding -->
 
-		<nav class="uk-navbar" role="navigation">
-			<?php wp_nav_menu( array( 'theme_location' => 'primary', 'menu_id' => 'primary-menu', 'menu_class' => 'uk-navbar-nav' ) ); ?>
-		</nav><!-- #site-navigation -->
+
+		<nav class="uk-navbar">
+			<i class="uk-icon-dot-circle-o uk-icon-large uk-text-danger uk-hidden-small"></i>
+			<?php wp_nav_menu( array( 'theme_location' => 'primary', 'menu_id' => 'primary-menu', 'menu_class' => 'uk-navbar-nav' , 'container_class' => 'uk-navbar-nav uk-hidden-small uk-navbar-flip' ) ); ?>
+      <a href="#offcanvas-1" class="uk-navbar-toggle uk-visible-small" data-uk-offcanvas=""></a>
+    </nav>
+		<div id="offcanvas-1" class="uk-offcanvas">
+		    <div class="uk-offcanvas-bar">
+					<i class="uk-icon-dot-circle-o uk-icon-large uk-text-danger"></i>
+					<?php wp_nav_menu( array( 'theme_location' => 'primary', 'menu_id' => 'primary-menu', 'menu_class' => 'uk-nav uk-nav-offcanvas' ) ); ?>
+		    </div>
+		</div>
+
 
 	</header><!-- #masthead -->
 

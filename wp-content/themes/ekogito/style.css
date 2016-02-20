@@ -871,4 +871,11 @@ object {
   display: block;
 }
 
+/*--------------------------------------------------------------
+# Uikit Nav
+--------------------------------------------------------------*/
+.uk-navbar {
+  background: transparent;
+}
+
 /*# sourceMappingURL=style.css.map */
