@@ -26,7 +26,7 @@
 
 	<header id="masthead" class="site-header" role="banner">
 
-		<nav class="uk-navbar" data-uk-sticky="{boundary:'#define-an-offset'}" >
+		<nav class="uk-navbar" data-uk-sticky >
 			<div class="uk-width-large-7-10 uk-container uk-container-center ">
 				<div class="uk-navbar-nav uk-text-middle ">
 				<ul class="uk-navbar-nav">
