@@ -8,16 +8,16 @@
  */
 
 ?>
-<div class="uk-panel">
-<article id="post-<?php the_ID(); ?>" class="uk-article ">
+<div class="uk-width-medium-1-2">
+<article id="post-<?php the_ID(); ?>" class="uk-article uk-panel uk-panel-box">
 
 	<header class="entry-header uk-text-center">
 
 		<?php
 		// Check if the post has a Post Thumbnail assigned to it.
-if ( has_post_thumbnail() ) {
-    the_post_thumbnail();
-}
+			if ( has_post_thumbnail() ) {
+			    the_post_thumbnail('large');
+			}
 			if ( is_single() ) {
 				the_title( '<h2 class="entry-title uk-h2">', '</h2>' );
 			} else {
@@ -32,6 +32,9 @@ if ( has_post_thumbnail() ) {
 
 	<div class="entry-content uk-text-center">
 		<?php
+			if (!is_single()) {
+				the_excerpt();
+			} else {
 			the_content( sprintf(
 				/* translators: %s: Name of current post. */
 				wp_kses( __( 'Continue reading %s <span class="meta-nav">&rarr;</span>', 'ekogito' ), array( 'span' => array( 'class' => array() ) ) ),
@@ -42,6 +45,7 @@ if ( has_post_thumbnail() ) {
 				'before' => '<div class="page-links">' . esc_html__( 'Pages:', 'ekogito' ),
 				'after'  => '</div>',
 			) );
+			}
 		?>
 	</div><!-- .entry-content -->
 	<p class="entry-meta uk-text-center">

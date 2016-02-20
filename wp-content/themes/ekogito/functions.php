@@ -136,6 +136,7 @@ function ekogito_footer_scripts() {
  wp_enqueue_script( 'jquery', get_template_directory_uri() . '/vendor/jquery/jquery-1.12.0.min.js' );
  wp_enqueue_script( 'uikit-script', get_template_directory_uri() . '/vendor/uikit/uikit.min.js' );
  wp_enqueue_script( 'uikit-script-sticky', get_template_directory_uri() . '/vendor/uikit/sticky.js' );
+ wp_enqueue_script( 'uikit-script-grid', get_template_directory_uri() . '/vendor/uikit/grid.js' );
 
 }
 add_action( 'wp_footer', 'ekogito_footer_scripts' );
@@ -160,15 +161,55 @@ function wpdocs_custom_excerpt_length( $length ) {
 }
 add_filter( 'excerpt_length', 'wpdocs_custom_excerpt_length', 999 );
 
+/**
+ * Add theme support for infinity scroll
+ */
+function twenty_ten_infinite_scroll_init() {
+    add_theme_support( 'infinite-scroll', array(
+        'container' => 'main',
+        'render'    => 'twenty_ten_infinite_scroll_render',
+        'footer'    => 'wrapper',
+    ) );
+}
+add_action( 'after_setup_theme', 'twenty_ten_infinite_scroll_init' );
 
-add_theme_support( 'infinite-scroll', array(
-    'type'           => 'scroll',
-    'footer_widgets' => false,
-    'container'      => 'content',
-    'wrapper'        => true,
-    'render'         => false,
-    'posts_per_page' => false,
-) );
+/**
+ * Set the code to be rendered on for calling posts,
+ * hooked to template parts when possible.
+ *
+ * Note: must define a loop.
+ */
+function twenty_ten_infinite_scroll_render() {
+    get_template_part( 'loop' );
+}
+
+//remove class from the_post_thumbnail
+function the_post_thumbnail_remove_class($output) {
+        $output = preg_replace('/class=".*?"/', '', $output);
+        return $output;
+}
+add_filter('post_thumbnail_html', 'the_post_thumbnail_remove_class');
+
+
+add_filter( 'get_the_archive_title', function ($title) {
+
+    if ( is_category() ) {
+
+            $title = single_cat_title( '', false );
+
+        } elseif ( is_tag() ) {
+
+            $title = single_tag_title( '', false );
+
+        } elseif ( is_author() ) {
+
+            $title = '<span class="vcard">' . get_the_author() . '</span>' ;
+
+        }
+
+    return $title;
+
+});
 
 
 /*

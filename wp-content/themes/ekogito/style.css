@@ -935,4 +935,8 @@ a:visited {
   color: #fff;
 }
 
+infinite-footer {
+  display: none !important;
+}
+
 /*# sourceMappingURL=style.css.map */

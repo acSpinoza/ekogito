@@ -17,11 +17,11 @@ get_header(); ?>
 
 			<header class="page-header">
 				<?php
-					the_archive_title( '<h1 class="page-title">', '</h1>' );
-					the_archive_description( '<div class="taxonomy-description">', '</div>' );
+					the_archive_title( '<h1 class="page-title uk-text-center">', '</h1>' );
+					the_archive_description( '<div class="taxonomy-description uk-text-center">', '</div>' );
 				?>
 			</header><!-- .page-header -->
-
+			<div class="uk-column-1-2">
 			<?php
 			/* Start the Loop */
 			while ( have_posts() ) : the_post();
@@ -42,6 +42,8 @@ get_header(); ?>
 			get_template_part( 'template-parts/content', 'none' );
 
 		endif; ?>
+
+	</div>
 
 		</main><!-- #main -->
 	</div><!-- #primary -->
