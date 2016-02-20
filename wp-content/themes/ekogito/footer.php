@@ -13,8 +13,8 @@
 
 	</div><!-- #content -->
 
-	<footer id="colophon" class="site-footer" role="contentinfo">
-		<div class="site-info">
+	<footer id="colophon" class="site-footer uk-width-large-7-10 uk-container uk-container-center " role="contentinfo">
+		<div class="site-info uk-text-center">
 			<a href="<?php echo esc_url( __( 'https://ekogito.org', 'ekogito' ) ); ?>">Ekogito</a>
 			<span class="sep"> | </span>
 			2016
