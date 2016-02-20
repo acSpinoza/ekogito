@@ -25,20 +25,29 @@ if ( has_post_thumbnail() ) {
 			}
 
 		if ( 'post' === get_post_type() ) : ?>
-		<p class="entry-meta">
-			<?php //ekogito_posted_on(); ?>
-			<?php ekogito_entry_footer(); ?>
-		</p><!-- .entry-meta -->
+
 		<?php
 		endif; ?>
 	</header><!-- .entry-header -->
 
-	<div class="entry-content uk-text-justify">
+	<div class="entry-content uk-text-center">
 		<?php
-			the_excerpt();
+			the_content( sprintf(
+				/* translators: %s: Name of current post. */
+				wp_kses( __( 'Continue reading %s <span class="meta-nav">&rarr;</span>', 'ekogito' ), array( 'span' => array( 'class' => array() ) ) ),
+				the_title( '<span class="screen-reader-text">"', '"</span>', false )
+			) );
+
+			wp_link_pages( array(
+				'before' => '<div class="page-links">' . esc_html__( 'Pages:', 'ekogito' ),
+				'after'  => '</div>',
+			) );
 		?>
 	</div><!-- .entry-content -->
-
+	<p class="entry-meta uk-text-center">
+		<?php //ekogito_posted_on(); ?>
+		<?php ekogito_entry_footer(); ?>
+	</p><!-- .entry-meta -->
 
 </article><!-- #post-## -->
 </div>

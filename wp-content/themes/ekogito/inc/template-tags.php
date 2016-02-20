@@ -45,18 +45,20 @@ if ( ! function_exists( 'ekogito_entry_footer' ) ) :
  */
 function ekogito_entry_footer() {
 	// Hide category and tag text for pages.
-	if ( 'post' === get_post_type() ) {
+	if ( 'post' === get_post_type()  && is_single()) {
+		echo "<div class='uk-text-center'>";
 		/* translators: used between list items, there is a space after the comma */
-		// $categories_list = get_the_category_list( esc_html__( ', ', 'ekogito' ) );
-		// if ( $categories_list && ekogito_categorized_blog() ) {
-		// 	printf( '<span class="cat-links">' . esc_html__( 'Posted in %1$s', 'ekogito' ) . '</span>', $categories_list ); // WPCS: XSS OK.
-		// }
+		$categories_list = get_the_category_list( esc_html__( ', ', 'ekogito' ) );
+		if ( $categories_list && ekogito_categorized_blog()) {
+			printf( '<hr><span class="cat-links">' . esc_html__( ' %1$s ', 'ekogito' ) . '</span><br>', $categories_list ); // WPCS: XSS OK.
+		}
 
 		/* translators: used between list items, there is a space after the comma */
 		$tags_list = get_the_tag_list( '', esc_html__( ', ', 'ekogito' ) );
 		if ( $tags_list ) {
-			printf( '<span class="tags-links">' . esc_html__( 'Tagged %1$s', 'ekogito' ) . '</span>', $tags_list ); // WPCS: XSS OK.
+			printf( '<span class="tags-links uk-text-muted">' . esc_html__( ' %1$s ', 'ekogito' ) . '</span>', $tags_list ); // WPCS: XSS OK.
 		}
+		echo "</div>";
 	}
 
 	// if ( ! is_single() && ! post_password_required() && ( comments_open() || get_comments_number() ) ) {

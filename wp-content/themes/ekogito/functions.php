@@ -116,8 +116,6 @@ add_action( 'widgets_init', 'ekogito_widgets_init' );
 function ekogito_scripts() {
 
 	wp_enqueue_style( 'uikit-style', get_template_directory_uri() . '/vendor/uikit/uikit.min.css' );
-	wp_enqueue_script( 'uikit-script', get_template_directory_uri() . '/vendor/uikit/uikit.min.js' );
-	wp_enqueue_script( 'uikit-script-sticky', get_template_directory_uri() . '/vendor/uikit/sticky.js' );
 
 	wp_enqueue_style( 'ekogito-style', get_stylesheet_uri() );
 
@@ -131,6 +129,16 @@ function ekogito_scripts() {
 
 }
 add_action( 'wp_enqueue_scripts', 'ekogito_scripts' );
+
+
+function ekogito_footer_scripts() {
+
+ wp_enqueue_script( 'jquery', get_template_directory_uri() . '/vendor/jquery/jquery-1.12.0.min.js' );
+ wp_enqueue_script( 'uikit-script', get_template_directory_uri() . '/vendor/uikit/uikit.min.js' );
+ wp_enqueue_script( 'uikit-script-sticky', get_template_directory_uri() . '/vendor/uikit/sticky.js' );
+
+}
+add_action( 'wp_footer', 'ekogito_footer_scripts' );
 
 add_filter('nav_menu_css_class' , 'special_nav_class' , 10 , 2);
 
@@ -153,7 +161,17 @@ function wpdocs_custom_excerpt_length( $length ) {
 add_filter( 'excerpt_length', 'wpdocs_custom_excerpt_length', 999 );
 
 
-/**
+add_theme_support( 'infinite-scroll', array(
+    'type'           => 'scroll',
+    'footer_widgets' => false,
+    'container'      => 'content',
+    'wrapper'        => true,
+    'render'         => false,
+    'posts_per_page' => false,
+) );
+
+
+/*
  * Implement the Custom Header feature.
  */
 require get_template_directory() . '/inc/custom-header.php';

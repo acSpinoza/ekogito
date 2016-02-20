@@ -927,13 +927,11 @@ a:visited {
 /*--------------------------------------------------------------
 # Uikit Footer
 --------------------------------------------------------------*/
-.site-footer,
-footer {
+.site-footer {
   background-color: #333 !important;
   color: #fff;
 }
-.site-footer a,
-footer a {
+.site-footer a {
   color: #fff;
 }
 
