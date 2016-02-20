@@ -117,7 +117,7 @@ function ekogito_scripts() {
 
 	wp_enqueue_style( 'uikit-style', get_template_directory_uri() . '/vendor/uikit/uikit.min.css' );
 	wp_enqueue_script( 'uikit-script', get_template_directory_uri() . '/vendor/uikit/uikit.min.js' );
-	
+
 	wp_enqueue_style( 'ekogito-style', get_stylesheet_uri() );
 
 	wp_enqueue_script( 'ekogito-navigation', get_template_directory_uri() . '/js/navigation.js', array(), '20151215', true );
@@ -130,6 +130,16 @@ function ekogito_scripts() {
 
 }
 add_action( 'wp_enqueue_scripts', 'ekogito_scripts' );
+
+add_filter('nav_menu_css_class' , 'special_nav_class' , 10 , 2);
+
+function special_nav_class ($classes, $item) {
+    if (in_array('current-menu-item', $classes) ){
+        $classes[] = 'uk-active ';
+    }
+    return $classes;
+}
+
 
 /**
  * Implement the Custom Header feature.
