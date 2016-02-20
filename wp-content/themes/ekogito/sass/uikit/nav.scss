@@ -1,0 +1,29 @@
+.uk-navbar {
+    background: transparent;
+    padding-top: 30px;
+}
+
+.uk-fixed-navigation {
+    position: fixed;
+    top: 0;
+    z-index: 1030;
+}
+
+.uk-navbar-nav {
+  li {
+    .no-padding {
+      padding: 0px;
+    }
+  }
+}
+
+.uk-sticky-placeholder {
+  margin: 30px 0 30px 0 !important;
+}
+
+.uk-navbar.uk-active {
+  background-color: rgba(255,255,255,0.95);
+  box-shadow: 0 3px 8px -4px rgba(0, 0, 0, 0.15);
+  margin-top: 30px;
+  padding-bottom: 30px;
+}
