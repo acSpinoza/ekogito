@@ -1,8 +1,8 @@
 <?php
 /**
- * Ekogito Theme Customizer
+ * Ekogito Theme Theme Customizer.
  *
- * @package Ekogito
+ * @package Ekogito_Theme
  */
 
 /**
@@ -21,6 +21,6 @@ add_action( 'customize_register', 'ekogito_customize_register' );
  * Binds JS handlers to make Theme Customizer preview reload changes asynchronously.
  */
 function ekogito_customize_preview_js() {
-	wp_enqueue_script( 'ekogito_customizer', get_template_directory_uri() . '/assets/js/customizer.js', array( 'customize-preview' ), '20130508', true );
+	wp_enqueue_script( 'ekogito_customizer', get_template_directory_uri() . '/js/customizer.js', array( 'customize-preview' ), '20151215', true );
 }
 add_action( 'customize_preview_init', 'ekogito_customize_preview_js' );

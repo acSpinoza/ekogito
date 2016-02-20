@@ -2,9 +2,11 @@
 /**
  * The header for our theme.
  *
- * Displays all of the <head> section and everything up till <div id="content">
+ * This is the template that displays all of the <head> section and everything up until <div id="content">
  *
- * @package Ekogito
+ * @link https://developer.wordpress.org/themes/basics/template-files/#template-partials
+ *
+ * @package Ekogito_Theme
  */
 
 ?><!DOCTYPE html>
@@ -19,17 +21,30 @@
 </head>
 
 <body <?php body_class(); ?>>
-<div id="page" class="hfeed site uk-width-medium-1-2 uk-container uk-container-center ">
+<div id="page" class="site uk-width-large-1-2 uk-container uk-container-center ">
 	<a class="skip-link screen-reader-text" href="#content"><?php esc_html_e( 'Skip to content', 'ekogito' ); ?></a>
 
 	<header id="masthead" class="site-header" role="banner">
+		<div class="site-branding">
+			<?php
+			if ( is_front_page() && is_home() ) : ?>
+				<h1 class="site-title"><a href="<?php echo esc_url( home_url( '/' ) ); ?>" rel="home"><?php bloginfo( 'name' ); ?></a></h1>
+			<?php else : ?>
+				<p class="site-title"><a href="<?php echo esc_url( home_url( '/' ) ); ?>" rel="home"><?php bloginfo( 'name' ); ?></a></p>
+			<?php
+			endif;
 
-		<?php get_template_part( 'components/branding/branding' ); ?>
+			$description = get_bloginfo( 'description', 'display' );
+			if ( $description || is_customize_preview() ) : ?>
+				<p class="site-description"><?php echo $description; /* WPCS: xss ok. */ ?></p>
+			<?php
+			endif; ?>
+		</div><!-- .site-branding -->
 
-		<?php get_template_part( 'components/site-logo/site-logo' ); ?>
-
-		<?php get_template_part( 'components/top-navigation/top-navigation' ); ?>
-
+		<nav id="site-navigation" class="main-navigation" role="navigation">
+			<button class="menu-toggle" aria-controls="primary-menu" aria-expanded="false"><?php esc_html_e( 'Primary Menu', 'ekogito' ); ?></button>
+			<?php wp_nav_menu( array( 'theme_location' => 'primary', 'menu_id' => 'primary-menu' ) ); ?>
+		</nav><!-- #site-navigation -->
 	</header><!-- #masthead -->
 
 	<div id="content" class="site-content">

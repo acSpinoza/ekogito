@@ -1,7 +1,6 @@
 <?php
 /**
- * Sample implementation of the Custom Header feature
- * http://codex.wordpress.org/Custom_Headers
+ * Sample implementation of the Custom Header feature.
  *
  * You can add an optional custom header image to header.php like so ...
  *
@@ -11,7 +10,9 @@
 	</a>
 	<?php endif; // End header image check. ?>
  *
- * @package Ekogito
+ * @link https://developer.wordpress.org/themes/functionality/custom-headers/
+ *
+ * @package Ekogito_Theme
  */
 
 /**
@@ -33,16 +34,18 @@ add_action( 'after_setup_theme', 'ekogito_custom_header_setup' );
 
 if ( ! function_exists( 'ekogito_header_style' ) ) :
 /**
- * Styles the header image and text displayed on the blog
+ * Styles the header image and text displayed on the blog.
  *
  * @see ekogito_custom_header_setup().
  */
 function ekogito_header_style() {
 	$header_text_color = get_header_textcolor();
 
-	// If no custom options for text are set, let's bail
-	// get_header_textcolor() options: HEADER_TEXTCOLOR is default, hide text (returns 'blank') or any hex value.
-	if ( HEADER_TEXTCOLOR == $header_text_color ) {
+	/*
+	 * If no custom options for text are set, let's bail.
+	 * get_header_textcolor() options: Any hex value, 'blank' to hide text. Default: HEADER_TEXTCOLOR.
+	 */
+	if ( HEADER_TEXTCOLOR === $header_text_color ) {
 		return;
 	}
 
@@ -51,7 +54,7 @@ function ekogito_header_style() {
 	<style type="text/css">
 	<?php
 		// Has the text been hidden?
-		if ( 'blank' == $header_text_color ) :
+		if ( ! display_header_text() ) :
 	?>
 		.site-title,
 		.site-description {
@@ -70,4 +73,4 @@ function ekogito_header_style() {
 	</style>
 	<?php
 }
-endif; // ekogito_header_style
+endif;

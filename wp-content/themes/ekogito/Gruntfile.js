@@ -14,7 +14,7 @@ module.exports = function(grunt) {
         },
         // Define the CSS and SASS source files
         files: {
-	        'style.css': 'assets/stylesheets/style.scss'
+	        'style.css': 'sass/style.scss'
       	}
       }
     },
@@ -23,8 +23,8 @@ module.exports = function(grunt) {
     watch: {
       sass: {
         files: [
-          'assets/stylesheets/**/*.scss',
-          'assets/stylesheets/*.scss'
+          'sass/**/*.scss',
+          'sass/*.scss'
         ],
         tasks: ['sass']
       }
