@@ -14,8 +14,10 @@
 
 get_header(); ?>
 
-	<div id="primary" class="content-area">
+	<div id="primary" class="content-area tm-grid-truncate uk-text-center">
 		<main id="main" class="site-main" role="main">
+
+
 
 		<?php
 		if ( have_posts() ) :
@@ -47,7 +49,6 @@ get_header(); ?>
 			get_template_part( 'template-parts/content', 'none' );
 
 		endif; ?>
-
 		</main><!-- #main -->
 	</div><!-- #primary -->
 

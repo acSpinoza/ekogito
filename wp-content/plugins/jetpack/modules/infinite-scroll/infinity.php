@@ -1434,7 +1434,7 @@ class The_Neverending_Home_Page {
 		$credits = apply_filters( 'infinite_scroll_credit', $credits );
 
 		?>
-		<div id="infinite-footer">
+		<div id="infinite-footer" style="display:none">
 			<div class="container">
 				<div class="blog-info">
 					<a id="infinity-blog-title" href="<?php echo home_url( '/' ); ?>" rel="home">
