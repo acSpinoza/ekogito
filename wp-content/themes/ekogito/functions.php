@@ -141,6 +141,10 @@ function ekogito_footer_scripts() {
 }
 add_action( 'wp_footer', 'ekogito_footer_scripts' );
 
+
+//add_filter( 'jetpack_development_mode', '__return_true' );
+
+
 add_filter('nav_menu_css_class' , 'special_nav_class' , 10 , 2);
 
 function special_nav_class ($classes, $item) {
@@ -161,27 +165,6 @@ function wpdocs_custom_excerpt_length( $length ) {
 }
 add_filter( 'excerpt_length', 'wpdocs_custom_excerpt_length', 999 );
 
-/**
- * Add theme support for infinity scroll
- */
-function twenty_ten_infinite_scroll_init() {
-    add_theme_support( 'infinite-scroll', array(
-        'container' => 'main',
-        'render'    => 'twenty_ten_infinite_scroll_render',
-        'footer'    => 'wrapper',
-    ) );
-}
-add_action( 'after_setup_theme', 'twenty_ten_infinite_scroll_init' );
-
-/**
- * Set the code to be rendered on for calling posts,
- * hooked to template parts when possible.
- *
- * Note: must define a loop.
- */
-function twenty_ten_infinite_scroll_render() {
-    get_template_part( 'loop' );
-}
 
 //remove class from the_post_thumbnail
 function the_post_thumbnail_remove_class($output) {

@@ -8,8 +8,7 @@
  */
 
 ?>
-<div class="uk-panel">
-<article id="post-<?php the_ID(); ?>" class="uk-article ">
+<article id="post-<?php the_ID(); ?>" class="uk-article uk-panel">
 
 	<header class="entry-header uk-text-center">
 
@@ -54,4 +53,3 @@
 	</p><!-- .entry-meta -->
 
 </article><!-- #post-## -->
-</div>

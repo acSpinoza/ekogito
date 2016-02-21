@@ -15,7 +15,7 @@
 get_header(); ?>
 
 	<div id="primary" class="content-area">
-		<main id="main" class="site-main" role="main" data-uk-grid="{gutter: 20}">
+		<main id="main" class="site-main" role="main">
 
 		<?php
 		if ( have_posts() ) :

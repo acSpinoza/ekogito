@@ -939,4 +939,11 @@ infinite-footer {
   display: none !important;
 }
 
+/*--------------------------------------------------------------
+# Uikit Layout
+--------------------------------------------------------------*/
+article {
+  margin-bottom: 20px;
+}
+
 /*# sourceMappingURL=style.css.map */
