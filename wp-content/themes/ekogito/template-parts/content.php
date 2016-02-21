@@ -12,13 +12,14 @@
 <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
 	<div class="list uk-panel-box uk-grid uk-grid-collapse uk-text-left" data-uk-grid-margin="">
 
-		<?php if ( has_post_thumbnail() ) { ?>
+		<?php
+		if ( has_post_thumbnail() ) { ?>
 			<div class="uk-width-large-1-3 uk-width-medium-1-2 uk-row-first">
 				<a href="<?php the_permalink() ?>" rel="bookmark">
 					<?php the_post_thumbnail(); ?>
 				</a>
 			</div>
-		<?php } else { echo "string"; }?>
+		<?php } ?>
 
 	  <div class="uk-width-large-2-3 uk-width-medium-1-2 ">
 				<?php
