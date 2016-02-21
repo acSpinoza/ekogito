@@ -9,7 +9,7 @@
 
 get_header(); ?>
 
-	<div id="primary" class="content-area">
+	<div id="primary" class="content-area tm-grid-truncate uk-text-center">
 		<main id="main" class="site-main" role="main">
 
 		<?php
@@ -17,11 +17,10 @@ get_header(); ?>
 
 			<header class="page-header">
 				<?php
-					the_archive_title( '<h1 class="page-title uk-text-center">', '</h1>' );
+					the_archive_title( '<h1 class="page-title uk-text-center">', '</h1><hr>' );
 					the_archive_description( '<div class="taxonomy-description uk-text-center">', '</div>' );
 				?>
 			</header><!-- .page-header -->
-			<div class="uk-column-1-2">
 			<?php
 			/* Start the Loop */
 			while ( have_posts() ) : the_post();
@@ -43,7 +42,7 @@ get_header(); ?>
 
 		endif; ?>
 
-	</div>
+
 
 		</main><!-- #main -->
 	</div><!-- #primary -->

@@ -16,7 +16,11 @@
 		if ( has_post_thumbnail() ) { ?>
 			<div class="uk-width-large-1-3 uk-width-medium-1-2 uk-row-first">
 				<a href="<?php the_permalink() ?>" rel="bookmark">
-					<?php the_post_thumbnail(); ?>
+					<figure class="uk-overlay uk-overlay-hover">
+					<div class="uk-overlay-scale">
+						<?php the_post_thumbnail('large', array('class' => 'uk-overlay-scale')); ?>
+					</div>
+				</figure>
 				</a>
 			</div>
 		<?php } ?>
@@ -31,7 +35,7 @@
 
 			?>
 			<p class="uk-article-meta"><?php ekogito_entry_footer(); ?></p>
-			<hr class="uk-article-divider">
+			<!-- <hr class="uk-article-divider"> -->
 			<p>
 				<?php
 					if (!is_single()) {

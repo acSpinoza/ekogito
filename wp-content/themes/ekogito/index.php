@@ -15,6 +15,9 @@
 get_header(); ?>
 
 	<div id="primary" class="content-area tm-grid-truncate uk-text-center">
+		<header class="entry-header">
+			<h1 class="entry-title">Journal</h1><hr>
+		</header>
 		<main id="main" class="site-main" role="main">
 
 
