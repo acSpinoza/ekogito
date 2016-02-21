@@ -15,7 +15,7 @@
 		<?php
 		// Check if the post has a Post Thumbnail assigned to it.
 			if ( has_post_thumbnail() ) {
-			    the_post_thumbnail('large');
+			    the_post_thumbnail();
 			}
 			if ( is_single() ) {
 				the_title( '<h2 class="entry-title uk-h2">', '</h2>' );

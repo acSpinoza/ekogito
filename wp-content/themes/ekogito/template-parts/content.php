@@ -10,10 +10,17 @@
 ?>
 
 <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
+	<div class="list uk-panel-box uk-grid uk-grid-collapse uk-text-left" data-uk-grid-margin="">
 
-	<div class="uk-panel-box uk-grid uk-text-left" data-uk-grid-margin="">
+		<?php if ( has_post_thumbnail() ) { ?>
+			<div class="uk-width-large-1-3 uk-width-medium-1-2 uk-row-first">
+				<a href="<?php the_permalink() ?>" rel="bookmark">
+					<?php the_post_thumbnail(); ?>
+				</a>
+			</div>
+		<?php } else { echo "string"; }?>
 
-	  <div class="uk-width-large-2-3 uk-width-medium-1-2 uk-row-first">
+	  <div class="uk-width-large-2-3 uk-width-medium-1-2 ">
 				<?php
 					if ( is_single() ) {
 						the_title( '<h2 class="entry-title uk-h2">', '</h2>' );
@@ -43,14 +50,10 @@
 				?>
 			</p>
 		</div>
-			<?php if ( has_post_thumbnail() ) { ?>
-	  <div class="uk-width-large-1-3 uk-width-medium-1-2">
 
-				<?php the_post_thumbnail('large'); ?>
-			</div>
-			<?php } ?>
 
 </div>
+
 
 	<footer class="entry-footer">
 		<?php ekogito_entry_footer(); ?>
