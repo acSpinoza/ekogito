@@ -89,9 +89,9 @@ else:
      *
      * If you are only running on Pantheon, you can ignore this block.
      */
-    define('DB_NAME',          'wordpress');
-    define('DB_USER',          'root');
-    define('DB_PASSWORD',      'vagrant');
+    define('DB_NAME',          'ekogito');
+    define('DB_USER',          'ekogito-user');
+    define('DB_PASSWORD',      'UN2puSsxw3t9QVzd');
     define('DB_HOST',          'localhost');
     define('DB_CHARSET',       'utf8');
     define('DB_COLLATE',       '');
@@ -144,6 +144,8 @@ if ( ! defined( 'WP_DEBUG' ) ) {
 /** Enable W3 Total Cache */
 define('WP_CACHE', true); // Added by W3 Total Cache
 
+
+define( 'WP_POST_REVISIONS', 5 );
 
 /* That's all, stop editing! Happy Pressing. */
 
