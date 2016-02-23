@@ -142,8 +142,14 @@ function ekogito_footer_scripts() {
 add_action( 'wp_footer', 'ekogito_footer_scripts' );
 
 
-add_filter('nav_menu_css_class' , 'special_nav_class' , 10 , 2);
+add_filter( 'the_content', 'insert_featured_image', 20 );
+function insert_featured_image( $content ) {
+    $content = preg_replace( "/<\/p>/", "</p>" . the_post_thumbnail( 'large' ), $content, 1 );
+    return $content;
+}
 
+
+add_filter('nav_menu_css_class' , 'special_nav_class' , 10 , 2);
 function special_nav_class ($classes, $item) {
     if (in_array('current-menu-item', $classes) ){
         $classes[] = 'uk-active ';
