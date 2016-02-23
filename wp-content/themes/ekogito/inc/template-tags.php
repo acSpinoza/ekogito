@@ -50,13 +50,13 @@ function ekogito_entry_footer() {
 		/* translators: used between list items, there is a space after the comma */
 		$categories_list = get_the_category_list( esc_html__( ', ', 'ekogito' ) );
 		if ( $categories_list && ekogito_categorized_blog()) {
-			printf( '<hr><span class="cat-links">' . esc_html__( ' %1$s ', 'ekogito' ) . '</span><br>', $categories_list ); // WPCS: XSS OK.
+			printf( '<hr><span class="cat-links uk-h5">' . esc_html__( ' %1$s ', 'ekogito' ) . '</span><br>', $categories_list ); // WPCS: XSS OK.
 		}
 
 		/* translators: used between list items, there is a space after the comma */
 		$tags_list = get_the_tag_list( '', esc_html__( ', ', 'ekogito' ) );
 		if ( $tags_list ) {
-			printf( '<span class="tags-links uk-text-muted">' . esc_html__( ' %1$s ', 'ekogito' ) . '</span>', $tags_list ); // WPCS: XSS OK.
+			printf( '<span class="tags-links uk-text-muted uk-h6">' . esc_html__( ' %1$s ', 'ekogito' ) . '</span>', $tags_list ); // WPCS: XSS OK.
 		}
 		echo "</div>";
 	}
