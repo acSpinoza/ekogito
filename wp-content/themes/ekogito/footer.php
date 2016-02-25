@@ -15,7 +15,7 @@
 
 	<footer id="colophon" class="site-footer uk-container-center " role="contentinfo">
 		<div class="site-info uk-text-center">
-			<a href="<?php echo esc_url( __( 'https://ekogito.org', 'ekogito' ) ); ?>">Ekogito</a>
+			<a href="<?php echo esc_url( home_url( '/' ) ); ?>">Ekogito</a>
 			<span class="sep"> | </span>
 			2016
 		</div><!-- .site-info -->
