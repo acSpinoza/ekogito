@@ -142,11 +142,11 @@ function ekogito_footer_scripts() {
 add_action( 'wp_footer', 'ekogito_footer_scripts' );
 
 
-add_filter( 'the_content', 'insert_featured_image', 20 );
+/*add_filter( 'the_content', 'insert_featured_image', 20 );
 function insert_featured_image( $content ) {
     $content = preg_replace( "/<\/p>/", "</p>" . the_post_thumbnail( 'large' ), $content, 1 );
     return $content;
-}
+}*/
 
 
 add_filter('nav_menu_css_class' , 'special_nav_class' , 10 , 2);
@@ -222,3 +222,4 @@ require get_template_directory() . '/inc/customizer.php';
  * Load Jetpack compatibility file.
  */
 require get_template_directory() . '/inc/jetpack.php';
+
