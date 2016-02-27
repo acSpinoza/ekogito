@@ -27,14 +27,6 @@
   ga('send', 'pageview');
 
 </script>
-<script>
-console.log("ready");
-jQuery('.read-more-placeholder').hover(function() {
-    console.log("hover");
-  jQuery(this).addClass(' uk-panel-box uk-panel-box-white');
-});
-
-</script>
 <?php wp_head(); ?>
 </head>
 

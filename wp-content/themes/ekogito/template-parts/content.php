@@ -6,21 +6,23 @@
  *
  * @package Ekogito_Theme
  */
-
-if ( has_post_thumbnail() ) { 
-$image = wp_get_attachment_image_src( get_post_thumbnail_id( get_the_ID() ), 'single-post-thumbnail' );
-} 
 ?>
 <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
     <div class="frontpage-grid" data-uk-grid>
+        <?php
+        if ( has_post_thumbnail() ) { 
+        $thumb_id = get_post_thumbnail_id(get_the_ID());
+        $small_screen = wp_get_attachment_image_src($thumb_id,'large-screen', true);
+        $image_url = $small_screen[0];
+        ?>
         <figure class="uk-width-small-1-1 uk-width-medium-1-1 uk-overlay uk-overlay-hover" style="height:170px">
-            <img class="uk-overlay-scale" src="<?php echo $image[0] ?>" alt="Image">
+            <img class="uk-overlay-scale" src="<?php echo($image_url) ?>" alt="Image">
             <div class="uk-overlay-panel uk-overlay-fade uk-overlay-background uk-text-middle">
                 <div class="uk-overlay-panel uk-overlay-icon"></div>
             </div>
             <a class="uk-position-cover" href="<?php echo(get_permalink())  ?>"></a>
         </figure>
-
+        <?php } ?>
         <div class="uk-panel uk-panel-box uk-width-small-1-1 uk-width-medium-1-1 uk-article uk-text-left">
 
             <?php
@@ -46,14 +48,7 @@ $image = wp_get_attachment_image_src( get_post_thumbnail_id( get_the_ID() ), 'si
             if(has_excerpt()) {
     		    the_excerpt();   
     		} 
-    		if ( function_exists( 'sharing_display' ) ) {
-    sharing_display( '', true );
-}
- 
-if ( class_exists( 'Jetpack_Likes' ) ) {
-    $custom_likes = new Jetpack_Likes;
-    echo $custom_likes->post_likes( '' );
-}
+    		echo do_shortcode( '[jpshare]' );
     		?>
     		
             </p>

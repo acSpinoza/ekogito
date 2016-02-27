@@ -5,7 +5,27 @@ module.exports = function(grunt) {
   require('load-grunt-tasks')(grunt);
 
   grunt.initConfig({
-
+    image: {
+      dynamic: {
+        options: {
+          pngquant: true,
+          optipng: true,
+          zopflipng: true,
+          advpng: true,
+          jpegRecompress: false,
+          jpegoptim: true,
+          mozjpeg: true,
+          gifsicle: true,
+          svgo: true
+        },
+        files: [{
+          expand: true,
+          cwd: '../../uploads/',
+          src: ['**/**/*.{png,jpg,gif,svg}'],
+          dest: '../../uploads/'
+        }]
+      }
+    },
     // Sass Task
     sass: {
       dist: {
@@ -32,6 +52,6 @@ module.exports = function(grunt) {
   });
 
   // Register tasks
-  grunt.registerTask('default',['sass','watch']);
+  grunt.registerTask('default',['sass','image','watch']);
 
 };

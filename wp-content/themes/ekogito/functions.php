@@ -142,6 +142,44 @@ function ekogito_footer_scripts() {
 add_action( 'wp_footer', 'ekogito_footer_scripts' );
 
 
+
+
+
+/*
+ * Implement the Custom Header feature.
+ */
+require get_template_directory() . '/inc/custom-header.php';
+
+/**
+ * Custom template tags for this theme.
+ */
+require get_template_directory() . '/inc/template-tags.php';
+
+/**
+ * Custom functions that act independently of the theme templates.
+ */
+require get_template_directory() . '/inc/extras.php';
+
+/**
+ * Customizer additions.
+ */
+require get_template_directory() . '/inc/customizer.php';
+
+/**
+ * Load Jetpack compatibility file.
+ */
+require get_template_directory() . '/inc/jetpack.php';
+
+/*
+ * Change the posts_per_page Infinite Scroll setting from 10 to 20
+ */
+function my_theme_infinite_scroll_settings( $args ) {
+    if ( is_array( $args ) )
+        $args['posts_per_page'] = 4;
+    return $args;
+}
+add_filter( 'infinite_scroll_settings', 'my_theme_infinite_scroll_settings' );
+
 /*add_filter( 'the_content', 'insert_featured_image', 20 );
 function insert_featured_image( $content ) {
     $content = preg_replace( "/<\/p>/", "</p>" . the_post_thumbnail( 'large' ), $content, 1 );
@@ -196,30 +234,3 @@ add_filter( 'get_the_archive_title', function ($title) {
     return $title;
 
 });
-
-
-/*
- * Implement the Custom Header feature.
- */
-require get_template_directory() . '/inc/custom-header.php';
-
-/**
- * Custom template tags for this theme.
- */
-require get_template_directory() . '/inc/template-tags.php';
-
-/**
- * Custom functions that act independently of the theme templates.
- */
-require get_template_directory() . '/inc/extras.php';
-
-/**
- * Customizer additions.
- */
-require get_template_directory() . '/inc/customizer.php';
-
-/**
- * Load Jetpack compatibility file.
- */
-require get_template_directory() . '/inc/jetpack.php';
-

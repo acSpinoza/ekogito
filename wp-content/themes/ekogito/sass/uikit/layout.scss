@@ -35,3 +35,9 @@ article {
 article {
     padding-bottom: 30px;
 }
+
+.uk-overlay-icon{
+    &:before {
+        //content: "\f196";
+    }
+}
