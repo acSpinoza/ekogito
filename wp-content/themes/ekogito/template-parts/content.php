@@ -13,8 +13,8 @@ $image = wp_get_attachment_image_src( get_post_thumbnail_id( get_the_ID() ), 'si
 ?>
 <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
     <div class="frontpage-grid" data-uk-grid>
-        <figure class="uk-width-small-1-1 uk-width-medium-1-1 uk-overlay uk-overlay-hover" style="height:200px">
-            <img src="<?php echo $image[0] ?>" alt="Image">
+        <figure class="uk-width-small-1-1 uk-width-medium-1-1 uk-overlay uk-overlay-hover" style="height:170px">
+            <img class="uk-overlay-scale" src="<?php echo $image[0] ?>" alt="Image">
             <div class="uk-overlay-panel uk-overlay-fade uk-overlay-background uk-text-middle">
                 <div class="uk-overlay-panel uk-overlay-icon"></div>
             </div>
@@ -45,7 +45,17 @@ $image = wp_get_attachment_image_src( get_post_thumbnail_id( get_the_ID() ), 'si
             <?php
             if(has_excerpt()) {
     		    the_excerpt();   
-    		} ?>
+    		} 
+    		if ( function_exists( 'sharing_display' ) ) {
+    sharing_display( '', true );
+}
+ 
+if ( class_exists( 'Jetpack_Likes' ) ) {
+    $custom_likes = new Jetpack_Likes;
+    echo $custom_likes->post_likes( '' );
+}
+    		?>
+    		
             </p>
         </div>
     </div>
