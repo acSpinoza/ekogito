@@ -140,10 +140,8 @@ if ( ! defined( 'WP_DEBUG' ) ) {
     define('WP_DEBUG', true);
 }
 
-
-/** Enable W3 Total Cache */
-define('WP_CACHE', true); // Added by W3 Total Cache
-
+define('WPCACHEHOME', '/var/www/vhosts/ekogito/wp-content/plugins/wp-super-cache/');
+define('WP_CACHE', true);
 
 define( 'WP_POST_REVISIONS', 5 );
 

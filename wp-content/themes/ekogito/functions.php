@@ -119,13 +119,7 @@ function ekogito_scripts() {
 
 	wp_enqueue_style( 'ekogito-style', get_stylesheet_uri() );
 
-	wp_enqueue_script( 'ekogito-navigation', get_template_directory_uri() . '/js/navigation.js', array(), '20151215', true );
 
-	wp_enqueue_script( 'ekogito-skip-link-focus-fix', get_template_directory_uri() . '/js/skip-link-focus-fix.js', array(), '20151215', true );
-
-	if ( is_singular() && comments_open() && get_option( 'thread_comments' ) ) {
-		wp_enqueue_script( 'comment-reply' );
-	}
 
 }
 add_action( 'wp_enqueue_scripts', 'ekogito_scripts' );
@@ -137,6 +131,10 @@ function ekogito_footer_scripts() {
  wp_enqueue_script( 'uikit-script', get_template_directory_uri() . '/vendor/uikit/uikit.min.js' );
  wp_enqueue_script( 'uikit-script-sticky', get_template_directory_uri() . '/vendor/uikit/sticky.js' );
  wp_enqueue_script( 'uikit-script-grid', get_template_directory_uri() . '/vendor/uikit/grid.js' );
+ 
+ wp_enqueue_script( 'ekogito-navigation', get_template_directory_uri() . '/js/navigation.js', array(), '20151215', true );
+
+wp_enqueue_script( 'ekogito-skip-link-focus-fix', get_template_directory_uri() . '/js/skip-link-focus-fix.js', array(), '20151215', true );
 
 }
 add_action( 'wp_footer', 'ekogito_footer_scripts' );
@@ -180,11 +178,6 @@ function my_theme_infinite_scroll_settings( $args ) {
 }
 add_filter( 'infinite_scroll_settings', 'my_theme_infinite_scroll_settings' );
 
-/*add_filter( 'the_content', 'insert_featured_image', 20 );
-function insert_featured_image( $content ) {
-    $content = preg_replace( "/<\/p>/", "</p>" . the_post_thumbnail( 'large' ), $content, 1 );
-    return $content;
-}*/
 
 
 add_filter('nav_menu_css_class' , 'special_nav_class' , 10 , 2);
@@ -206,13 +199,6 @@ function wpdocs_custom_excerpt_length( $length ) {
 }
 add_filter( 'excerpt_length', 'wpdocs_custom_excerpt_length', 999 );
 
-
-//remove class from the_post_thumbnail
-function the_post_thumbnail_remove_class($output) {
-        $output = preg_replace('/class=".*?"/', '', $output);
-        return $output;
-}
-add_filter('post_thumbnail_html', 'the_post_thumbnail_remove_class');
 
 
 add_filter( 'get_the_archive_title', function ($title) {
