@@ -12,10 +12,15 @@ $image = wp_get_attachment_image_src( get_post_thumbnail_id( get_the_ID() ), 'si
 } 
 ?>
 <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
-    <div data-uk-grid>
-        <div class="uk-width-small-1-1 uk-width-medium-1-1">
-            <div class="uk-cover-background" style="min-height: 200px; background-image: url(<?php echo $image[0] ?>);"></div>
-        </div>
+    <div class="frontpage-grid" data-uk-grid>
+        <figure class="uk-width-small-1-1 uk-width-medium-1-1 uk-overlay uk-overlay-hover" style="height:200px">
+            <img src="<?php echo $image[0] ?>" alt="Image">
+            <div class="uk-overlay-panel uk-overlay-fade uk-overlay-background uk-text-middle">
+                <div class="uk-overlay-panel uk-overlay-icon"></div>
+            </div>
+            <a class="uk-position-cover" href="<?php echo(get_permalink())  ?>"></a>
+        </figure>
+
         <div class="uk-panel uk-panel-box uk-width-small-1-1 uk-width-medium-1-1 uk-article uk-text-left">
 
             <?php
@@ -25,6 +30,7 @@ $image = wp_get_attachment_image_src( get_post_thumbnail_id( get_the_ID() ), 'si
     				the_title( '<h2 class="title entry-title uk-h2"><a href="' . esc_url( get_permalink() ) . '" rel="bookmark">', '</a></h2>' );
     			}
     		?>
+    		<hr class="small-hr">
             <p class="uk-article-meta">
             <?php 
     		$categories_list = get_the_category_list( esc_html__( ', ', 'ekogito' ) );
@@ -34,19 +40,14 @@ $image = wp_get_attachment_image_src( get_post_thumbnail_id( get_the_ID() ), 'si
     		the_date( 'l, F j', '', '</h6>' ); 
     		?>
             </p>
-            <hr class="small-hr">
+            
             <p class="uk-article-lead">
             <?php
             if(has_excerpt()) {
     		    the_excerpt();   
     		} ?>
             </p>
-            
-
         </div>
     </div>
-	<footer class="entry-footer">
-		<?php ekogito_entry_footer(); ?>
-	</footer><!-- .entry-footer -->
 </article><!-- #post-## -->
 

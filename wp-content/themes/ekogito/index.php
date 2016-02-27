@@ -19,7 +19,7 @@ get_header(); ?>
 			<h1 class="entry-title">Journal</h1><hr>
 		</header>
 		<main id="main" class="site-main" role="main">
-        <div class="uk-grid-width-medium-1-1 uk-grid-match" data-uk-grid-match="{target:'.uk-panel'}" data-uk-grid="{gutter: 20}">
+        <div class="uk-grid-width-medium-1-1 uk-grid-match" data-uk-grid-match="{target:'.uk-panel'}" data-uk-grid="{gutter: 30}">
 
 
 		<?php
