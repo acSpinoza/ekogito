@@ -132,15 +132,14 @@ function ekogito_footer_scripts() {
  wp_enqueue_script( 'uikit-script-sticky', get_template_directory_uri() . '/vendor/uikit/sticky.js' );
  wp_enqueue_script( 'uikit-script-grid', get_template_directory_uri() . '/vendor/uikit/grid.js' );
  
+ wp_enqueue_script( 'ekogito-custom', get_template_directory_uri() . '/js/custom.js', array(), '20160228', true );
+ 
  wp_enqueue_script( 'ekogito-navigation', get_template_directory_uri() . '/js/navigation.js', array(), '20151215', true );
 
-wp_enqueue_script( 'ekogito-skip-link-focus-fix', get_template_directory_uri() . '/js/skip-link-focus-fix.js', array(), '20151215', true );
+ wp_enqueue_script( 'ekogito-skip-link-focus-fix', get_template_directory_uri() . '/js/skip-link-focus-fix.js', array(), '20151215', true );
 
 }
 add_action( 'wp_footer', 'ekogito_footer_scripts' );
-
-
-
 
 
 /*
@@ -173,7 +172,7 @@ require get_template_directory() . '/inc/jetpack.php';
  */
 function my_theme_infinite_scroll_settings( $args ) {
     if ( is_array( $args ) )
-        $args['posts_per_page'] = 4;
+        $args['posts_per_page'] = 2;
     return $args;
 }
 add_filter( 'infinite_scroll_settings', 'my_theme_infinite_scroll_settings' );
@@ -220,3 +219,4 @@ add_filter( 'get_the_archive_title', function ($title) {
     return $title;
 
 });
+

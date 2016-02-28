@@ -51,11 +51,11 @@
 		</nav>
 		<div id="offcanvas-1" class="uk-offcanvas">
 		    <div class="uk-offcanvas-bar">
-					<ul class="uk-nav uk-nav-offcanvas">
+					<!--<ul class="uk-nav uk-nav-offcanvas">
 						<li class="menu-item">
 							<a class="uk-text-middle uk-nav uk-nav-offcanvas" href="<?php echo esc_url( home_url( '/' ) ); ?>" rel="home"><i class="uk-icon-justify uk-icon-dot-circle-o uk-icon-large uk-text-danger"></i> <?php bloginfo( 'name' ); ?> </a>
 						</li>
-					</ul>
+					</ul>-->
 					<?php wp_nav_menu( array( 'theme_location' => 'primary', 'menu_id' => 'primary-menu', 'menu_class' => 'uk-nav uk-nav-offcanvas' ) ); ?>
 		    </div>
 		</div>

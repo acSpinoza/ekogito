@@ -876,7 +876,7 @@ object {
 --------------------------------------------------------------*/
 .uk-navbar {
   background: transparent;
-  padding-top: 30px;
+  padding-top: 15px;
 }
 
 .uk-fixed-navigation {
@@ -891,12 +891,19 @@ object {
 
 .uk-sticky-placeholder {
   margin: 30px 0 30px 0 !important;
+  height: 80px !important;
+}
+@media screen and (max-width: 400px) {
+  .uk-sticky-placeholder {
+    margin: 15px 0 15px 0 !important;
+    height: 50px !important;
+  }
 }
 
 .uk-navbar.uk-active {
   background-color: rgba(255, 255, 255, 0.95);
   box-shadow: 0 3px 8px -4px rgba(0, 0, 0, 0.15);
-  padding-bottom: 30px;
+  padding-bottom: 15px;
   z-index: 1000;
 }
 
@@ -976,6 +983,15 @@ article {
   height: 34px;
   width: 34px;
   background: url("vendor/uikit/images/plus.svg") 0 0 no-repeat;
+}
+
+.list-post-thumbnail {
+  height: 220px;
+}
+@media screen and (max-width: 400px) {
+  .list-post-thumbnail {
+    height: 150px;
+  }
 }
 
 /*# sourceMappingURL=style.css.map */

@@ -9,27 +9,11 @@
 ?>
 <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
     <div class="frontpage-grid" data-uk-grid>
-        <?php 
-        if (has_post_video()) {
-            $video_url = get_the_post_video_url();
-            $video_id = str_replace("http://youtu.be/","",$video_url);
-            print_r($video_id);
-            $video_embed = "http://www.youtube.com/embed/".$video_id."?vq=hd720&autoplay=0&amp;controls=0&amp;showinfo=0&amp;rel=0&amp;loop=1&amp;modestbranding=1&amp;wmode=transparent&amp;enablejsapi=1&amp;api=1";
-        ?>
-        <div class=" uk-width-small-1-1 uk-width-medium-1-1">
-            <div class="uk-cover" style="height: 200px;">
-                <iframe data-uk-cover="" src="<?php echo $video_embed; ?>" height="315" frameborder="0" allowfullscreen="" "></iframe>            </div>
-            </div>
-        </div>
-        <?php
-        }
-        elseif ( has_post_thumbnail() ) { 
-        $thumb_id = get_post_thumbnail_id(get_the_ID());
-        $small_screen = wp_get_attachment_image_src($thumb_id,'large-screen', true);
-        $image_url = $small_screen[0];
-        ?>
-        <figure class="uk-width-small-1-1 uk-width-medium-1-1 uk-overlay uk-overlay-hover" style="height:170px">
-            <img class="uk-overlay-scale" src="<?php echo($image_url) ?>" alt="Image">
+        <figure class="list-post-thumbnail uk-width-small-1-1 uk-width-medium-1-1 uk-overlay uk-overlay-hover">
+            <?php
+            if( has_post_thumbnail() ) { 
+            the_post_thumbnail();
+            ?>
             <div class="uk-overlay-panel uk-overlay-fade uk-overlay-background uk-text-middle">
                 <div class="uk-overlay-panel uk-overlay-icon"></div>
             </div>

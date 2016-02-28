@@ -54,3 +54,10 @@ article {
         background: url("vendor/uikit/images/plus.svg") 0 0 no-repeat;
     }
 }
+
+.list-post-thumbnail{
+    height: 220px;
+    @media screen and (max-width: 400px) {
+        height: 150px;
+    }
+}
