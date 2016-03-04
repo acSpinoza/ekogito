@@ -20,7 +20,7 @@
             <a class="uk-position-cover" href="<?php echo(get_permalink())  ?>"></a>
         </figure>
         <?php } ?>
-        <div class="uk-panel uk-panel-box uk-width-small-1-1 uk-width-medium-1-1 uk-article uk-text-left">
+        <div class="uk-panel uk-panel-box uk-width-small-1-1 uk-width-medium-1-1 uk-article uk-text-center">
 
             <?php
     			if ( is_single() ) {
@@ -29,7 +29,7 @@
     				the_title( '<h2 class="title entry-title uk-h2"><a href="' . esc_url( get_permalink() ) . '" rel="bookmark">', '</a></h2>' );
     			}
     		?>
-    		<hr class="small-hr">
+    		<hr class="center-hr">
             <p class="uk-article-meta">
             <?php 
     		$categories_list = get_the_category_list( esc_html__( ', ', 'ekogito' ) );

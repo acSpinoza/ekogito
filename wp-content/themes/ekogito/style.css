@@ -960,8 +960,13 @@ infinite-footer {
   margin-right: 90%;
 }
 
+.center-hr {
+  margin-right: 40%;
+  margin-left: 40%;
+}
+
 .frontpage-grid {
-  box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.09);
 }
 
 article {
@@ -992,6 +997,19 @@ article {
   .list-post-thumbnail {
     height: 150px;
   }
+}
+
+.list-post-thumbnail-single {
+  height: 110px;
+}
+@media screen and (max-width: 400px) {
+  .list-post-thumbnail-single {
+    height: 75px;
+  }
+}
+
+.uk-panel.uk-panel-box {
+  background: none;
 }
 
 /*# sourceMappingURL=style.css.map */

@@ -147,6 +147,11 @@ add_action( 'wp_footer', 'ekogito_footer_scripts' );
  */
 require get_template_directory() . '/inc/custom-header.php';
 
+/*
+ * Custom Walker for UiKit.
+ */
+require get_template_directory() . '/inc/menus.php';
+
 /**
  * Custom template tags for this theme.
  */
@@ -170,19 +175,10 @@ require get_template_directory() . '/inc/jetpack.php';
 /*
  * Change the posts_per_page Infinite Scroll setting from 10 to 20
  */
-function my_theme_infinite_scroll_settings( $args ) {
-    if ( is_array( $args ) )
-        $args['posts_per_page'] = 2;
-    return $args;
-}
-add_filter( 'infinite_scroll_settings', 'my_theme_infinite_scroll_settings' );
-
-
-
 add_filter('nav_menu_css_class' , 'special_nav_class' , 10 , 2);
 function special_nav_class ($classes, $item) {
     if (in_array('current-menu-item', $classes) ){
-        $classes[] = 'uk-active ';
+        $classes[] = ' uk-active ';
     }
     return $classes;
 }
@@ -220,3 +216,9 @@ add_filter( 'get_the_archive_title', function ($title) {
 
 });
 
+function filter_ptags_on_images($content){
+    return preg_replace('/<p>\s*(<a .*>)?\s*(<img .* \/>)\s*(<\/a>)?\s*<\/p>/iU', '\1\2\3', $content);
+}
+add_filter('the_content', 'filter_ptags_on_images');
+
+remove_filter( 'the_content', 'wpautop' );

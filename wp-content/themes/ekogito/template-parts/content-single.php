@@ -8,19 +8,29 @@
  */
 
 ?>
-<article id="post-<?php the_ID(); ?>" class="uk-article uk-panel">
+<article id="post-<?php the_ID(); ?>" class="uk-article uk-panel uk-text-center">
 
-	<header class="entry-header uk-text-center">
+    <?php
+    if ( is_single() ) {
+		the_title( '<h2 class="entry-title uk-h2">', '</h2>' );
+	} else {
+		the_title( '<h2 class="entry-title uk-h2"><a href="' . esc_url( get_permalink() ) . '" rel="bookmark">', '</a></h2>' );
+	}
+	//echo "<hr>";
+    ?>
+	<?php
+    if( has_post_thumbnail() && !is_single()) { 
+        $thumb_id = get_post_thumbnail_id();
+        $thumb_url_array = wp_get_attachment_image_src($thumb_id, 'large', true);
+        $thumb_url = $thumb_url_array[0];
+	?>
+    <div class="list-post-thumbnail uk-margin uk-text-contrast uk-text-center uk-flex uk-flex-center uk-flex-middle" data-uk-parallax="{bg: '-200'}" style="background-image: url(<?php echo $thumb_url; ?>);">
+    	<header class="entry-header uk-text-center">
 
 		<?php
 		// Check if the post has a Post Thumbnail assigned to it.
 
-			if ( is_single() ) {
-				the_title( '<h2 class="entry-title uk-h2">', '</h2>' );
-			} else {
-				the_title( '<h2 class="entry-title uk-h2"><a href="' . esc_url( get_permalink() ) . '" rel="bookmark">', '</a></h2>' );
-			}
-			//echo "<hr>";
+			
 			ekogito_entry_footer();
 
 
@@ -29,7 +39,21 @@
 		<?php
 		endif; ?>
 	</header><!-- .entry-header -->
+    </div>
+    <?php } else { ?>
+    	<header class="entry-header uk-text-center">
 
+		<?php
+		// Check if the post has a Post Thumbnail assigned to it.
+
+			ekogito_entry_footer();
+
+		if ( 'post' === get_post_type() ) : ?>
+
+		<?php
+		endif; ?>
+	</header><!-- .entry-header -->
+	<?php } ?>
 	<div class="entry-content uk-text-center">
 		<?php
 			if (!is_single()) {

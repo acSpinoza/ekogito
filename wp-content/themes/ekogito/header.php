@@ -17,6 +17,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="profile" href="http://gmpg.org/xfn/11">
 <link rel="pingback" href="<?php bloginfo( 'pingback_url' ); ?>">
+
 <script>
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
   (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
@@ -45,8 +46,18 @@
 					</li>
 				</ul>
 			</div>
-				<?php wp_nav_menu( array( 'theme_location' => 'primary', 'menu_id' => 'primary-menu', 'menu_class' => 'uk-navbar-nav' , 'container_class' => 'uk-navbar-nav uk-hidden-small uk-navbar-flip' ) ); ?>
-	      <a href="#offcanvas-1" class="uk-navbar-toggle uk-visible-small uk-navbar-flip" data-uk-offcanvas=""></a>
+	        <?php
+			wp_nav_menu( array(
+				'menu'              => 'primary',
+				'theme_location'    => 'primary',
+				'depth'             => 2,
+				'container'         => 'uk-navbar-nav uk-hidden-small uk-navbar-flip',
+				'menu_class'        => 'uk-navbar-nav uk-hidden-small uk-navbar-flip',
+				'fallback_cb'       => 'basey_primary_menu::fallback',
+				'walker'            => new basey_primary_menu())
+			);
+			?>	 
+	        <a href="#offcanvas-1" class="uk-navbar-toggle uk-visible-small uk-navbar-flip" data-uk-offcanvas=""></a>
 			</div>
 		</nav>
 		<div id="offcanvas-1" class="uk-offcanvas">
