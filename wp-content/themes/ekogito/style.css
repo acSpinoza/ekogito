@@ -931,6 +931,29 @@ a:visited {
   color: #373F46;
 }
 
+a:active,
+a:hover {
+  outline: 0;
+}
+
+a,
+.uk-link {
+  color: #525252;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a:hover,
+.uk-link:hover {
+  color: #525252;
+  text-decoration: underline;
+}
+
+#content a:hover {
+  text-decoration: none;
+  border-bottom: 1px solid #525252;
+}
+
 /*--------------------------------------------------------------
 # Uikit Footer
 --------------------------------------------------------------*/
@@ -1010,6 +1033,11 @@ article {
 
 .uk-panel.uk-panel-box {
   background: none;
+}
+
+.jp-carousel-image-meta,
+.jp-carousel-info {
+  display: none;
 }
 
 /*# sourceMappingURL=style.css.map */

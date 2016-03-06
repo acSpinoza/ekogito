@@ -172,6 +172,15 @@ require get_template_directory() . '/inc/customizer.php';
  */
 require get_template_directory() . '/inc/jetpack.php';
 
+
+
+/*function mytheme_infinite_scroll_init() {
+add_theme_support( 'infinite-scroll', array(
+    'posts_per_page' => 2,
+) );
+}
+add_action( 'init', 'mytheme_infinite_scroll_init' );*/
+
 /*
  * Change the posts_per_page Infinite Scroll setting from 10 to 20
  */

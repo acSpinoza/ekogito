@@ -222,7 +222,7 @@ class The_Neverending_Home_Page {
 			// posts_per_page defaults to 7 for scroll, posts_per_page option for click
 			if ( false === $settings['posts_per_page'] ) {
 				if ( 'scroll' === $settings['type'] ) {
-					$settings['posts_per_page'] = 7;
+					$settings['posts_per_page'] = 2;
 				}
 				else {
 					$settings['posts_per_page'] = (int) get_option( 'posts_per_page' );
