@@ -2,8 +2,8 @@
 Contributors: getpantheon, danielbachhuber, mboynes, Outlandish Josh
 Tags: cache, plugin
 Requires at least: 3.0.1
-Tested up to: 4.4.2
-Stable tag: 0.3.0
+Tested up to: 4.5
+Stable tag: 0.4.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -56,6 +56,12 @@ https://github.com/pantheon-systems/wp-redis
 Pull requests and issues are welcome!
 
 == Changelog ==
+
+= 0.4.0 (March 23, 2016) =
+
+* Introduces `wp redis-cli`, a WP-CLI command to launch redis-cli with WordPress' Redis credentials.
+* Bug fix: Ensures fail back mechanism works as expected on multisite, by writing to sitemeta table instead of the active site's options table.
+* Bug fix: Uses 'default' as the default cache group, mirroring WordPress core, such that `$wp_object_cache->add( 'foo', 'bar' )` === `wp_cache_add( 'foo', 'bar' )`.
 
 = 0.3.0 (February 11, 2016) =
 

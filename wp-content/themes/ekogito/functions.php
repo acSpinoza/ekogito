@@ -230,4 +230,7 @@ function filter_ptags_on_images($content){
 }
 add_filter('the_content', 'filter_ptags_on_images');
 
-remove_filter( 'the_content', 'wpautop' );
+//remove_filter( 'the_content', 'wpautop' );
+
+add_filter( 'embed_oembed_html', 'custom_oembed_filter', 10, 4 ) ;
+

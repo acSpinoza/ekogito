@@ -954,6 +954,14 @@ a:hover,
   border-bottom: 1px solid #525252;
 }
 
+blockquote {
+  padding-left: 0;
+  border-left: none;
+  font-size: 16px;
+  line-height: 25px;
+  font-style: italic;
+}
+
 /*--------------------------------------------------------------
 # Uikit Footer
 --------------------------------------------------------------*/
@@ -1038,6 +1046,10 @@ article {
 .jp-carousel-image-meta,
 .jp-carousel-info {
   display: none;
+}
+
+.brd {
+  display: none !important;
 }
 
 /*# sourceMappingURL=style.css.map */

@@ -145,6 +145,8 @@ define('WP_CACHE', true);
 
 define( 'WP_POST_REVISIONS', 5 );
 
+define('FS_METHOD','direct');
+
 /* That's all, stop editing! Happy Pressing. */
 
 

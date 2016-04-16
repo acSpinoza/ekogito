@@ -353,6 +353,11 @@ class WP_Object_Cache {
 	 * @return bool False if cache key and group already exist, true on success
 	 */
 	public function add( $key, $data, $group = 'default', $expire = 0 ) {
+
+		if ( empty( $group ) ) {
+			$group = 'default';
+		}
+
 		if ( function_exists( 'wp_suspend_cache_addition' ) && wp_suspend_cache_addition() ) {
 			return false;
 		}
@@ -397,6 +402,10 @@ class WP_Object_Cache {
 	 * @return false|int False on failure, the item's new value on success.
 	 */
 	public function decr( $key, $offset = 1, $group = 'default' ) {
+
+		if ( empty( $group ) ) {
+			$group = 'default';
+		}
 
 		// The key needs to exist in order to be decremented
 		if ( ! $this->_exists( $key, $group ) ) {
@@ -456,6 +465,11 @@ class WP_Object_Cache {
 	 * @return bool False if the contents weren't deleted and true on success
 	 */
 	public function delete( $key, $group = 'default', $force = false ) {
+
+		if ( empty( $group ) ) {
+			$group = 'default';
+		}
+
 		if ( ! $force && ! $this->_exists( $key, $group ) ) {
 			return false;
 		}
@@ -539,6 +553,11 @@ class WP_Object_Cache {
 	 *		contents on success
 	 */
 	public function get( $key, $group = 'default', $force = false, &$found = null ) {
+
+		if ( empty( $group ) ) {
+			$group = 'default';
+		}
+
 		if ( ! $this->_exists( $key, $group ) ) {
 			$this->cache_misses += 1;
 			return false;
@@ -570,6 +589,11 @@ class WP_Object_Cache {
 	 * @return false|int False on failure, the item's new value on success.
 	 */
 	public function incr( $key, $offset = 1, $group = 'default' ) {
+
+		if ( empty( $group ) ) {
+			$group = 'default';
+		}
+
 		// The key needs to exist in order to be incremented
 		if ( ! $this->_exists( $key, $group ) ) {
 			return false;
@@ -625,6 +649,11 @@ class WP_Object_Cache {
 	 * @return bool False if not exists, true if contents were replaced
 	 */
 	public function replace( $key, $data, $group = 'default', $expire = 0 ) {
+
+		if ( empty( $group ) ) {
+			$group = 'default';
+		}
+
 		if ( ! $this->_exists( $key, $group ) ) {
 			return false;
 		}
@@ -660,6 +689,10 @@ class WP_Object_Cache {
 	 * @return bool Always returns true
 	 */
 	public function set( $key, $data, $group = 'default', $expire = 0 ) {
+
+		if ( empty( $group ) ) {
+			$group = 'default';
+		}
 
 		if ( is_object( $data ) ) {
 			$data = clone $data;
@@ -790,6 +823,10 @@ class WP_Object_Cache {
 	 * @param mixed $value
 	 */
 	protected function _set_internal( $key, $group, $value ) {
+		// Redis converts null to an empty string
+		if ( is_null( $value ) ) {
+			$value = '';
+		}
 		if ( self::USE_GROUPS ) {
 			$multisite_safe_group = $this->multisite && ! isset( $this->global_groups[ $group ] ) ? $this->blog_prefix . $group : $group;
 			if ( ! isset( $this->cache[ $multisite_safe_group ] ) ) {
@@ -968,7 +1005,18 @@ class WP_Object_Cache {
 		}
 
 		if ( $this->is_redis_failback_flush_enabled() && ! $this->do_redis_failback_flush ) {
-			$wpdb->query( "INSERT IGNORE INTO {$wpdb->options} (option_name,option_value) VALUES ('wp_redis_do_redis_failback_flush',1)" );
+			if ( $this->multisite ) {
+				$table = $wpdb->sitemeta;
+				$col1 = 'meta_key';
+				$col2 = 'meta_value';
+			} else {
+				$table = $wpdb->options;
+				$col1 = 'option_name';
+				$col2 = 'option_value';
+			}
+			// @codingStandardsIgnoreStart
+			$wpdb->query( "INSERT IGNORE INTO {$table} ({$col1},{$col2}) VALUES ('wp_redis_do_redis_failback_flush',1)" );
+			// @codingStandardsIgnoreEnd
 			$this->do_redis_failback_flush = true;
 		}
 
@@ -1039,23 +1087,31 @@ class WP_Object_Cache {
 			add_action( 'admin_notices', array( $this, 'wp_action_admin_notices_warn_missing_redis' ) );
 		}
 
-		// $wpdb->options can be unset before multisite loads
-		// It's safe to skip here if unset, because cache will be reinitialized when `$blog_id` is available
-		if ( $this->is_redis_failback_flush_enabled() && ! empty( $wpdb->options ) ) {
-			$this->do_redis_failback_flush = (bool) $wpdb->get_results( "SELECT option_value FROM {$wpdb->options} WHERE option_name='wp_redis_do_redis_failback_flush'" );
+		if ( $this->multisite ) {
+			$table = $wpdb->sitemeta;
+			$col1 = 'meta_key';
+			$col2 = 'meta_value';
+		} else {
+			$table = $wpdb->options;
+			$col1 = 'option_name';
+			$col2 = 'option_value';
+		}
+		if ( $this->is_redis_failback_flush_enabled() ) {
+			// @codingStandardsIgnoreStart
+			$this->do_redis_failback_flush = (bool) $wpdb->get_results( "SELECT {$col2} FROM {$table} WHERE {$col1}='wp_redis_do_redis_failback_flush'" );
+			// @codingStandardsIgnoreEnd
 			if ( $this->is_redis_connected && $this->do_redis_failback_flush ) {
 				$ret = $this->_call_redis( 'flushAll' );
 				if ( $ret ) {
-					$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name='wp_redis_do_redis_failback_flush'" );
+					// @codingStandardsIgnoreStart
+					$wpdb->query( "DELETE FROM {$table} WHERE {$col1}='wp_redis_do_redis_failback_flush'" );
+					// @codingStandardsIgnoreEnd
 					$this->do_redis_failback_flush = false;
 				}
 			}
 		}
 
-		$this->global_prefix = '';
-		if ( function_exists( 'is_multisite' ) ) {
-			$this->global_prefix = ( is_multisite() || defined( 'CUSTOM_USER_TABLE' ) && defined( 'CUSTOM_USER_META_TABLE' ) ) ? '' : $table_prefix;
-		}
+		$this->global_prefix = ( $this->multisite || defined( 'CUSTOM_USER_TABLE' ) && defined( 'CUSTOM_USER_META_TABLE' ) ) ? '' : $table_prefix;
 
 		/**
 		 * @todo This should be moved to the PHP4 style constructor, PHP5
