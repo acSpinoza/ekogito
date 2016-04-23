@@ -1,6 +1,5 @@
 .uk-navbar {
     background: transparent;
-    padding-top: 15px;
 }
 
 .uk-fixed-navigation {
@@ -17,18 +16,64 @@
   }
 }
 
-.uk-sticky-placeholder {
-  margin: 30px 0 30px 0 !important;
-  height: 80px !important;
-  @media screen and (max-width: 400px) {
-        margin: 15px 0 15px 0 !important;
-        height: 50px !important;
-    }
-}
+
 
 .uk-navbar.uk-active {
   background-color: rgba(255,255,255,0.95);
   box-shadow: 0 3px 8px -4px rgba(0, 0, 0, 0.15);
   padding-bottom: 15px;
       z-index: 1000;
+}
+
+
+.home header{
+    position: absolute;
+    z-index: 1;
+    width: 100%;
+}
+
+.uk-button-lean{
+    background: none !important;
+    color: #fff !important;
+    border: 1px solid #fff !important;
+    &:hover {
+        background: rgba(255, 255, 255, 1) !important;
+        color: #333 !important;
+    }
+    span{
+        font-weight: 500 !important;
+    }
+}
+
+.home.sticky-navbar.uk-inactive-js, .sticky-navbar i {
+    background: rgba(255, 255, 255, 0.01);
+    color: rgba(255, 255, 255, 0.7); 
+    -webkit-transition: background ease-out 0.5s;
+    -moz-transition: background ease-out 0.5s;
+    -o-transition: background ease-out 0.5s;
+    transition: background ease-out 0.5s;
+    -webkit-transition: color ease-out 0.5s;
+    -moz-transition: color ease-out 0.5s;
+    -o-transition: color ease-out 0.5s;
+    transition: color ease-out 0.5s;
+}
+
+.home.sticky-navbar.uk-active-js,.sticky-navbar.uk-active-js {
+    background-color: rgba(255, 255, 255, 0.95);
+    -webkit-transition: background ease-out 0.5s;
+    -moz-transition: background ease-out 0.5s;
+    -o-transition: background ease-out 0.5s;
+    transition: background ease-out 0.5s;
+}
+
+.sticky-navbar.uk-active-js .social-ico i,.sticky-navbar.uk-active-js span.uk-contrast.uk-text-large, .sticky-navbar.uk-active-js .uk-contrast a:not([class]) {
+    color: #333 !important; 
+    -webkit-transition: color ease-out 0.5s;
+    -moz-transition: color ease-out 0.5s;
+    -o-transition: color ease-out 0.5s;
+    transition: color ease-out 0.5s;
+}
+
+.sticky-navbar.uk-active-js .uk-navbar-nav > li:hover > a, .sticky-navbar.uk-active-js .uk-navbar-nav > li > a:focus, .sticky-navbar.uk-active-js .uk-navbar-nav > li.uk-open > a, .sticky-navbar.uk-active-js .uk-navbar-nav > li.uk-active > a {
+    border-bottom: 1px solid #333 !important;
 }

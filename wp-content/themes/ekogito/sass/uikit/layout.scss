@@ -1,16 +1,8 @@
-article {
-  //margin-bottom: 20px;
-}
-
-
 .uk-panel-box-white {
     background: rgba(255,255,255,0.85);
     //margin: 10px 0px 0px 10px;
 }
 
-/*.uk-border {
-    box-shadow: rgba(0,0,0, 0.15) 0px 0px 1px;
-}*/
 
 .image-placeholder {
     //min-height: 30px;
@@ -26,23 +18,15 @@ article {
     margin-left: 40%;
 }
 
-
-.uk-article h2.title.uk-h2 {
-    //margin-top: 10px;
-}
-
-
 .frontpage-grid {
     //border-radius: 0 0 4px 4px;
     //box-shadow: 0px 0px 3px rgba(0,0,0,0.1);
     box-shadow: 0 1px 4px rgba(0,0,0,0.09);
 }
 
-
-
-
-article {
-    padding-bottom: 30px;
+.hentry {
+    margin: 0 0 0 0 !important;
+    
 }
 
 .uk-overlay-icon{
@@ -65,18 +49,19 @@ article {
 }
 
 .list-post-thumbnail{
-    height: 220px;
+    max-height: 220px;
     @media screen and (max-width: 400px) {
-        height: 150px;
+        max-height: 150px;
     }
 }
 
 .list-post-thumbnail-single{
-    height: 110px;
+    max-height: 110px;
     @media screen and (max-width: 400px) {
-        height: 75px;
+        max-height: 75px;
     }
 }
+
 
 
 .uk-panel.uk-panel-box {
@@ -92,3 +77,8 @@ article {
 .brd {
     display:none !important;
 }
+
+[data-uk-slideshow-item] {
+  cursor: pointer;
+}
+

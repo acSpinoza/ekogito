@@ -7,8 +7,9 @@
  * @package Ekogito_Theme
  */
 ?>
-<article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
-    <div class="frontpage-grid" data-uk-grid>
+<div class="grid-item">
+<div id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
+    <div class="frontpage-grid">
         <figure class="list-post-thumbnail uk-width-small-1-1 uk-width-medium-1-1 uk-overlay uk-overlay-hover">
             <?php
             if( has_post_thumbnail() ) { 
@@ -51,5 +52,6 @@
             </p>
         </div>
     </div>
-</article><!-- #post-## -->
+</div><!-- #post-## -->
+</div>
 

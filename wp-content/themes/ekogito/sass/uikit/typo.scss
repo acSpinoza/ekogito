@@ -2,10 +2,9 @@
   line-height: 36px;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1, h2, h3, h4, h5, h6, h8, p, span, a {
     font-family: "Open Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
     font-weight: 300;
-    color: #525255;
     text-transform: none;
 }
 
@@ -48,4 +47,23 @@ blockquote {
     font-size: 16px;
     line-height: 25px;
     font-style: italic;
+}
+
+.uk-text-uppercase {
+  text-transform: uppercase;
+}
+.uk-text-lowercase {
+  text-transform: lowercase;
+}
+
+.uk-navbar-nav > li:hover > a, .uk-navbar-nav > li > a:focus, .uk-navbar-nav > li.uk-open > a, .uk-navbar-nav > li.uk-active > a {
+    background-color: transparent !important;
+    outline: none;
+    text-decoration: none !important;
+    border-bottom: 1px solid #fff;
+    color: #fff;
+}
+
+.uk-contrast a:not([class]){
+    font-size: 1.2em;
 }

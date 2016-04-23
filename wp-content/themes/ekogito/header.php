@@ -37,41 +37,52 @@
 
 	<header id="masthead" class="site-header" role="banner">
 
-		<nav class="uk-navbar" data-uk-sticky >
-			<div class="uk-width-large-7-10 uk-container uk-container-center ">
-				<div class="uk-navbar-nav uk-text-middle ">
-				<ul class="uk-navbar-nav">
-					<li class="menu-item ">
-						<a class="no-padding" href="<?php echo esc_url( home_url( '/' ) ); ?>" rel="home"><i class="uk-icon-justify uk-icon-dot-circle-o uk-icon-large uk-text-danger "></i> <?php bloginfo( 'name' ); ?></a>
-					</li>
-				</ul>
-			</div>
-	        <?php
-			wp_nav_menu( array(
-				'menu'              => 'primary',
-				'theme_location'    => 'primary',
-				'depth'             => 2,
-				'container'         => 'uk-navbar-nav uk-hidden-small uk-navbar-flip',
-				'menu_class'        => 'uk-navbar-nav uk-hidden-small uk-navbar-flip',
-				'fallback_cb'       => 'basey_primary_menu::fallback',
-				'walker'            => new basey_primary_menu())
-			);
-			?>	 
-	        <a href="#offcanvas-1" class="uk-navbar-toggle uk-visible-small uk-navbar-flip" data-uk-offcanvas=""></a>
-			</div>
-		</nav>
-		<div id="offcanvas-1" class="uk-offcanvas">
-		    <div class="uk-offcanvas-bar">
-					<!--<ul class="uk-nav uk-nav-offcanvas">
-						<li class="menu-item">
-							<a class="uk-text-middle uk-nav uk-nav-offcanvas" href="<?php echo esc_url( home_url( '/' ) ); ?>" rel="home"><i class="uk-icon-justify uk-icon-dot-circle-o uk-icon-large uk-text-danger"></i> <?php bloginfo( 'name' ); ?> </a>
-						</li>
-					</ul>-->
-					<?php wp_nav_menu( array( 'theme_location' => 'primary', 'menu_id' => 'primary-menu', 'menu_class' => 'uk-nav uk-nav-offcanvas' ) ); ?>
-		    </div>
-		</div>
+    <div class="uk-animation-fade sticky-navbar" data-uk-sticky="{target:'#tm-main', clsinactive:'uk-sticky-no-active', clsactive:'uk-active' }" style="padding: 30px 0 30px 0;">
+        <div class="tm-navbar tm-navbar-overlay tm-navbar-transparent tm-navbar-contrast">
+            <div class="uk-container uk-container-center">
 
+                <nav class="uk-navbar">
+
+                    <a class="uk-navbar-brand" href="<?php echo esc_url( home_url( '/' ) ); ?>" rel="home">
+                        <i class="uk-icon-justify uk-icon-dot-circle-o uk-icon-large uk-text-danger "></i>
+                        <span class="uk-contrast uk-text-large" style="color:#fff"><?php bloginfo( 'name' ); ?></span>
+                    </a>
+
+                    <div class="uk-navbar-flip uk-hidden-small uk-contrast">
+                     
+                            <?php
+                			wp_nav_menu( array(
+                				'menu'              => 'primary',
+                				'theme_location'    => 'primary',
+                				'depth'             => 2,
+                				'container'         => 'uk-navbar-nav',
+                				'menu_class'        => 'uk-navbar-nav',
+                				'fallback_cb'       => 'basey_primary_menu::fallback',
+                				'walker'            => new basey_primary_menu())
+                			);
+                			?>	 
+                			<a class="uk-navbar-brand social-ico" href="https://www.facebook.com/ekogito.co" rel="Facebook Ekogito">
+                                <i class="uk-icon-justify uk-icon-facebook"></i>
+                            </a> 
+                            <a class="uk-navbar-brand social-ico" href="https://twitter.com/ekogito" rel="Twitter Ekogito">
+                                <i class="uk-icon-justify uk-icon-twitter"></i>
+                            </a> 
+
+
+                    </div>
+
+                    <div class="uk-navbar-flip uk-visible-small">
+                        <a href="#offcanvas" class="uk-navbar-toggle uk-contrast" data-uk-offcanvas=""></a>
+                    </div>
+
+                </nav>
+
+            </div>
+        </div>
+    </div>
 
 	</header><!-- #masthead -->
+	
 
-	<div id="content" class="site-content uk-width-large-7-10 uk-container uk-container-center ">
+
+	<div id="content" class="site-content">

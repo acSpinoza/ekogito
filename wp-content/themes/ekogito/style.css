@@ -876,7 +876,6 @@ object {
 --------------------------------------------------------------*/
 .uk-navbar {
   background: transparent;
-  padding-top: 15px;
 }
 
 .uk-fixed-navigation {
@@ -889,22 +888,63 @@ object {
   padding: 0px;
 }
 
-.uk-sticky-placeholder {
-  margin: 30px 0 30px 0 !important;
-  height: 80px !important;
-}
-@media screen and (max-width: 400px) {
-  .uk-sticky-placeholder {
-    margin: 15px 0 15px 0 !important;
-    height: 50px !important;
-  }
-}
-
 .uk-navbar.uk-active {
   background-color: rgba(255, 255, 255, 0.95);
   box-shadow: 0 3px 8px -4px rgba(0, 0, 0, 0.15);
   padding-bottom: 15px;
   z-index: 1000;
+}
+
+.home header {
+  position: absolute;
+  z-index: 1;
+  width: 100%;
+}
+
+.uk-button-lean {
+  background: none !important;
+  color: #fff !important;
+  border: 1px solid #fff !important;
+}
+.uk-button-lean:hover {
+  background: white !important;
+  color: #333 !important;
+}
+.uk-button-lean span {
+  font-weight: 500 !important;
+}
+
+.home.sticky-navbar.uk-inactive-js, .sticky-navbar i {
+  background: rgba(255, 255, 255, 0.01);
+  color: rgba(255, 255, 255, 0.7);
+  -webkit-transition: background ease-out 0.5s;
+  -moz-transition: background ease-out 0.5s;
+  -o-transition: background ease-out 0.5s;
+  transition: background ease-out 0.5s;
+  -webkit-transition: color ease-out 0.5s;
+  -moz-transition: color ease-out 0.5s;
+  -o-transition: color ease-out 0.5s;
+  transition: color ease-out 0.5s;
+}
+
+.home.sticky-navbar.uk-active-js, .sticky-navbar.uk-active-js {
+  background-color: rgba(255, 255, 255, 0.95);
+  -webkit-transition: background ease-out 0.5s;
+  -moz-transition: background ease-out 0.5s;
+  -o-transition: background ease-out 0.5s;
+  transition: background ease-out 0.5s;
+}
+
+.sticky-navbar.uk-active-js .social-ico i, .sticky-navbar.uk-active-js span.uk-contrast.uk-text-large, .sticky-navbar.uk-active-js .uk-contrast a:not([class]) {
+  color: #333 !important;
+  -webkit-transition: color ease-out 0.5s;
+  -moz-transition: color ease-out 0.5s;
+  -o-transition: color ease-out 0.5s;
+  transition: color ease-out 0.5s;
+}
+
+.sticky-navbar.uk-active-js .uk-navbar-nav > li:hover > a, .sticky-navbar.uk-active-js .uk-navbar-nav > li > a:focus, .sticky-navbar.uk-active-js .uk-navbar-nav > li.uk-open > a, .sticky-navbar.uk-active-js .uk-navbar-nav > li.uk-active > a {
+  border-bottom: 1px solid #333 !important;
 }
 
 /*--------------------------------------------------------------
@@ -914,10 +954,9 @@ object {
   line-height: 36px;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1, h2, h3, h4, h5, h6, h8, p, span, a {
   font-family: "Open Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
   font-weight: 300;
-  color: #525255;
   text-transform: none;
 }
 
@@ -962,6 +1001,26 @@ blockquote {
   font-style: italic;
 }
 
+.uk-text-uppercase {
+  text-transform: uppercase;
+}
+
+.uk-text-lowercase {
+  text-transform: lowercase;
+}
+
+.uk-navbar-nav > li:hover > a, .uk-navbar-nav > li > a:focus, .uk-navbar-nav > li.uk-open > a, .uk-navbar-nav > li.uk-active > a {
+  background-color: transparent !important;
+  outline: none;
+  text-decoration: none !important;
+  border-bottom: 1px solid #fff;
+  color: #fff;
+}
+
+.uk-contrast a:not([class]) {
+  font-size: 1.2em;
+}
+
 /*--------------------------------------------------------------
 # Uikit Footer
 --------------------------------------------------------------*/
@@ -984,9 +1043,6 @@ infinite-footer {
   background: rgba(255, 255, 255, 0.85);
 }
 
-/*.uk-border {
-    box-shadow: rgba(0,0,0, 0.15) 0px 0px 1px;
-}*/
 .small-hr {
   margin-right: 90%;
 }
@@ -1000,8 +1056,8 @@ infinite-footer {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.09);
 }
 
-article {
-  padding-bottom: 30px;
+.hentry {
+  margin: 0 0 0 0 !important;
 }
 
 .uk-overlay-icon:before {
@@ -1022,20 +1078,20 @@ article {
 }
 
 .list-post-thumbnail {
-  height: 220px;
+  max-height: 220px;
 }
 @media screen and (max-width: 400px) {
   .list-post-thumbnail {
-    height: 150px;
+    max-height: 150px;
   }
 }
 
 .list-post-thumbnail-single {
-  height: 110px;
+  max-height: 110px;
 }
 @media screen and (max-width: 400px) {
   .list-post-thumbnail-single {
-    height: 75px;
+    max-height: 75px;
   }
 }
 
@@ -1050,6 +1106,10 @@ article {
 
 .brd {
   display: none !important;
+}
+
+[data-uk-slideshow-item] {
+  cursor: pointer;
 }
 
 /*# sourceMappingURL=style.css.map */

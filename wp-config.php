@@ -147,6 +147,10 @@ define( 'WP_POST_REVISIONS', 5 );
 
 define('FS_METHOD','direct');
 
+define( 'WP_AUTO_UPDATE_CORE', true );
+
+
+
 /* That's all, stop editing! Happy Pressing. */
 
 
@@ -158,3 +162,5 @@ if ( !defined('ABSPATH') )
 
 /** Sets up WordPress vars and included files. */
 require_once(ABSPATH . 'wp-settings.php');
+
+add_filter( 'auto_update_plugin', '__return_true' );
