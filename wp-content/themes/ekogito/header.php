@@ -15,6 +15,7 @@
 <meta name="google-site-verification" content="9zcZW3HSSMZ_zmyzu7sPk0QouoNNqdSIjM-8wfWDjSk" />
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Ekogito | Habitat groupé - Eco hameau - Coworking">
 <link rel="profile" href="http://gmpg.org/xfn/11">
 <link rel="pingback" href="<?php bloginfo( 'pingback_url' ); ?>">
 
@@ -37,7 +38,7 @@
 
 	<header id="masthead" class="site-header" role="banner">
 
-    <div class="uk-animation-fade sticky-navbar" data-uk-sticky="{target:'#tm-main', clsinactive:'uk-sticky-no-active', clsactive:'uk-active' }" style="padding: 30px 0 30px 0;">
+    <div class="uk-animation-fade sticky-navbar" data-uk-sticky="{animation: 'uk-animation-fade',target:'#tm-main', clsinactive:'uk-sticky-no-active', clsactive:'uk-active' }" style="padding: 30px 0 30px 0;">
         <div class="tm-navbar tm-navbar-overlay tm-navbar-transparent tm-navbar-contrast">
             <div class="uk-container uk-container-center">
 

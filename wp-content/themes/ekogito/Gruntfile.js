@@ -26,29 +26,40 @@ module.exports = function(grunt) {
         }]
       }
     },
+    uglify: {
+        js_files: {
+          files: {
+            'dist/script.min.js': ['js/**/*.js']
+          }
+        }
+    },
     // Sass Task
     sass: {
       dist: {
         options: {
-	        style: 'expanded'
+	        style: 'compressed'
         },
         // Define the CSS and SASS source files
         files: {
-	        'style.css': 'sass/style.scss'
+	        'dist/style.min.css': 'sass/style.scss'
       	}
       }
     },
 
     // Watch Task
     watch: {
+        js: {
+            files: [
+              'js/**/*.js',
+              'js/*.js'
+            ],
+            tasks: ['uglify']
+      },
       sass: {
         files: [
           'sass/**/*.scss',
           'sass/*.scss'
         ],
-        options: {
-          livereload: true,
-        },
         tasks: ['sass']
       },
       files: {
@@ -56,14 +67,11 @@ module.exports = function(grunt) {
           '**/*.php',
           '*.php'
         ],
-        options: {
-          livereload: true,
-        }
       }
     }
   });
 
   // Register tasks
-  grunt.registerTask('default',['sass','image','watch']);
+  grunt.registerTask('default',['sass','image','watch', 'uglify']);
 
 };
