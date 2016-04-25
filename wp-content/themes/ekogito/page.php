@@ -14,8 +14,8 @@
 
 get_header(); ?>
 
-	<div id="primary" class="content-area uk-grid">
-		<main id="main" class="site-main uk-width-6-10 uk-container-center" role="main">
+	<div id="primary" class="content-area content-area uk-container uk-container-center">
+		<main id="main" class="site-main" role="main">
 
 			<?php
 			while ( have_posts() ) : the_post();

@@ -13,12 +13,18 @@
  */
 get_header(); ?>
 
-	<div id="primary" class="content-area uk-grid">
-		<main id="main" class="site-main uk-width-6-10 uk-container-center" role="main">
+	<div id="primary" class="content-area uk-container uk-container-center">
+		<main id="main" class="site-main" data-uk-grid role="main">
 
 		<?php
 		if ( have_posts() ) :
+			if ( is_home() && ! is_front_page() ) : ?>
+				<header>
+					<h1 class="page-title screen-reader-text"><?php single_post_title(); ?></h1>
+				</header>
 
+			<?php
+			endif;
 			/* Start the Loop */
 			while ( have_posts() ) : the_post();
 				/*

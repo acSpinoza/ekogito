@@ -7,7 +7,7 @@
  * @package Ekogito_Theme
  */
 ?>
-<div class="grid-item">
+<div class="grid-item uk-width-small-1-1 uk-width-medium-1-2 uk-width-large-1-3 uk-animation-fade" data-uk-scrollspy="{cls:'uk-animation-fade'}">
 <div id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
     <div class="frontpage-grid">
         <figure class="list-post-thumbnail uk-width-small-1-1 uk-width-medium-1-1 uk-overlay uk-overlay-hover">

@@ -9,7 +9,7 @@
 
 get_header(); ?>
 
-	<div id="primary" class="content-area tm-grid-truncate uk-text-center">
+	<div id="primary" class="content-area content-area uk-container uk-container-center">
 		<main id="main" class="site-main" role="main">
     
     		<?php

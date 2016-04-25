@@ -62,10 +62,10 @@
                 				'walker'            => new basey_primary_menu())
                 			);
                 			?>	 
-                			<a class="uk-navbar-brand social-ico" href="https://www.facebook.com/ekogito.co" rel="Facebook Ekogito">
+                			<a class="uk-navbar-brand social-ico" href="https://www.facebook.com/ekogito.co" target="_blank" rel="Facebook Ekogito">
                                 <i class="uk-icon-justify uk-icon-facebook"></i>
                             </a> 
-                            <a class="uk-navbar-brand social-ico" href="https://twitter.com/ekogito" rel="Twitter Ekogito">
+                            <a class="uk-navbar-brand social-ico" href="https://twitter.com/ekogito" target="_blank" rel="Twitter Ekogito">
                                 <i class="uk-icon-justify uk-icon-twitter"></i>
                             </a> 
 

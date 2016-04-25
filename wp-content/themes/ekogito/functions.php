@@ -246,7 +246,3 @@ function filter_ptags_on_images($content){
 
 //add_filter( 'embed_oembed_html', 'custom_oembed_filter', 10, 4 ) ;
 
-add_theme_support( 'infinite-scroll', array(
-    'container' => 'content',
-    'footer' => 'page',
-) );

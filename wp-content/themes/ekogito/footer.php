@@ -21,10 +21,10 @@
 
                         <ul class="uk-grid uk-grid-medium uk-flex uk-flex-center">
                             <li>
-                                <a href="https://www.facebook.com/ekogito.co" class="uk-icon-hover uk-icon-small uk-icon-facebook"></a>
+                                <a href="https://www.facebook.com/ekogito.co" target="_blank" class="uk-icon-hover uk-icon-small uk-icon-facebook"></a>
                             </li>
                             <li>
-                                <a href="https://twitter.com/ekogito" class="uk-icon-hover uk-icon-small uk-icon-twitter"></a>
+                                <a href="https://twitter.com/ekogito" target="_blank" class="uk-icon-hover uk-icon-small uk-icon-twitter"></a>
                             </li>
                         </ul>
                         <ul class="uk-subnav uk-margin uk-flex uk-flex-center">
