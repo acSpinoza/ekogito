@@ -46,16 +46,16 @@ if ( ! function_exists( 'ekogito_entry_footer' ) ) :
 function ekogito_entry_footer() {
 	// Hide category and tag text for pages.
 	if ( 'post' === get_post_type()  && is_single()) {
-		echo "<div class='uk-text-center'>";
+		echo "<div>";
 		/* translators: used between list items, there is a space after the comma */
 		$categories_list = get_the_category_list( esc_html__( ', ', 'ekogito' ) );
 		if ( $categories_list && ekogito_categorized_blog()) {
-			printf( '<span class="cat-links uk-h5">' . esc_html__( ' %1$s ', 'ekogito' ) . '</span>', $categories_list ); // WPCS: XSS OK.
+			printf( '<span class="uk-text-muted uk-h6 category-links">' . esc_html__( ' %1$s ', 'ekogito' ) . '</span>', $categories_list ); // WPCS: XSS OK.
 		}
 		/* translators: used between list items, there is a space after the comma */
-		$tags_list = get_the_tag_list( '', esc_html__( ', ', 'ekogito' ) );
+		$tags_list = get_the_tag_list( '', esc_html__( '', 'ekogito' ) );
 		if ( $tags_list ) {
-			printf( '<hr><span class="tags-links uk-text-muted uk-h6">' . esc_html__( ' %1$s ', 'ekogito' ) . '</span>', $tags_list ); // WPCS: XSS OK.
+			printf( '<span class="tags-links uk-text-muted uk-h6">' . esc_html__( ' %1$s ', 'ekogito' ) . '</span>', $tags_list ); // WPCS: XSS OK.
 		}
 		
 

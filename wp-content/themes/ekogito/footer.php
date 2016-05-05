@@ -44,13 +44,13 @@
     <div id="offcanvas" class="uk-offcanvas">
         <div class="uk-offcanvas-bar uk-offcanvas-bar-flip">
 
-            <ul class="uk-nav uk-nav-offcanvas">
+            <ul class="uk-nav uk-nav-offcanvas" data-uk-nav>
 
                 <?php
     			wp_nav_menu( array(
     				'menu'              => 'primary',
     				'theme_location'    => 'primary',
-    				'depth'             => 2,
+    				'depth'             => 1,
     				'container'         => 'uk-nav uk-nav-offcanvas',
     				'menu_class'        => 'uk-nav uk-nav-offcanvas',
     				'fallback_cb'       => 'basey_primary_menu::fallback',
@@ -62,6 +62,17 @@
 
         </div>
     </div>
+
+<?php 
+/*  if ( function_exists( 'sharing_display' ) ) {
+    sharing_display( '', true );
+}
+ 
+if ( class_exists( 'Jetpack_Likes' ) ) {
+    $custom_likes = new Jetpack_Likes;
+    echo $custom_likes->post_likes( '' );
+}*/
+?>
 
 
 <?php wp_footer(); ?>

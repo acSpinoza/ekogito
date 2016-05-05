@@ -77,3 +77,48 @@
 .sticky-navbar.uk-active-js .uk-navbar-nav > li:hover > a, .sticky-navbar.uk-active-js .uk-navbar-nav > li > a:focus, .sticky-navbar.uk-active-js .uk-navbar-nav > li.uk-open > a, .sticky-navbar.uk-active-js .uk-navbar-nav > li.uk-active > a {
     border-bottom: 1px solid #333 !important;
 }
+
+.uk-nav-offcanvas .uk-dropdown-navbar {
+    left: 0px !important;
+    margin-left: 25px !important;
+}
+
+
+
+.uk-contrast .uk-nav li>a, .uk-contrast .uk-nav li>a:hover {
+    text-decoration: none;
+    background-color: transparent;
+}
+
+.uk-modal-caption {
+    bottom: initial;
+    background-color: #fff;
+    color: #333;
+    margin-bottom: 5%;
+    h1 {
+        margin: 0px;
+        padding: 0px;
+    }
+    p{
+        padding: 0px;
+        white-space: initial;
+    }
+}
+
+[data-uk-slideshow-item] {
+  cursor: pointer;
+}
+
+
+.uk-dropdown-navbar {
+    background: transparent !important;
+}
+
+.uk-active-js{
+        .uk-dropdown-navbar {
+        margin-top: 0;
+        background: rgba(255,255,255,0.95) !important;
+        color: #444444;
+    }
+}
+    

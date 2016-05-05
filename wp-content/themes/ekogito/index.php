@@ -14,7 +14,7 @@
 get_header(); ?>
 
 	<div id="primary" class="content-area uk-container uk-container-center">
-		<main id="main" class="site-main" data-uk-grid role="main">
+		<main id="main" class="site-main data-uk-scrollspy="{cls:'uk-animation-fade', target:'.grid-item', delay:300}" data-uk-grid="{gutter: 0}" role="main">
 
 		<?php
 		if ( have_posts() ) :
