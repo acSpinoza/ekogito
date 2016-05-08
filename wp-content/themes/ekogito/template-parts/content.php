@@ -7,21 +7,35 @@
  * @package Ekogito_Theme
  */
 ?>
-<div class="grid-item uk-width-small-1-1 uk-width-medium-1-2 uk-width-large-1-3 uk-animation-fade" data-uk-scrollspy="{cls:'uk-animation-fade'}">
+<?php
+if(has_post_thumbnail()){ 
+    $thumb_id = get_post_thumbnail_id();
+    $thumb_url_array = wp_get_attachment_image_src($thumb_id, 'large');
+    $thumb_url = $thumb_url_array[0];
+}
+?>
+<div class="uk-scrollspy-inview">
 <div id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
     <div class="frontpage-grid">
         <figure class="list-post-thumbnail uk-width-small-1-1 uk-width-medium-1-1 uk-overlay uk-overlay-hover">
-            <?php
-            if( has_post_thumbnail() ) { 
+<?php
             the_post_thumbnail();
-            ?>
-            <div class="uk-overlay-panel uk-overlay-fade uk-overlay-background uk-text-middle">
-                <div class="uk-overlay-panel uk-overlay-icon"></div>
-            </div>
-            <a class="uk-position-cover" href="<?php echo(get_permalink())  ?>"></a>
+            ?>            <figcaption class="uk-overlay-panel uk-overlay-background uk-flex uk-flex-center uk-flex-middle uk-text-center">
+                <div>
+                <a href="<?php echo esc_url( get_permalink()); ?>"><i class="uk-icon-plus uk-icon-large"></i></a>
+                <br>
+                <br>
+                <?php
+                sharing_display( '', true );
+                if ( class_exists( 'Jetpack_Likes' ) ) {
+                    $custom_likes = new Jetpack_Likes;
+                    echo $custom_likes->post_likes( '' );
+                }
+                ?>                
+                </div>
+            </figcaption>
         </figure>
-        <?php } ?>
-        <div class="uk-panel uk-panel-box uk-width-small-1-1 uk-width-medium-1-1 uk-article uk-text-center">
+        <div class="uk-panel uk-panel-box uk-width-small-1-1 uk-width-medium-1-1 uk-article uk-text-center no-sharing">
 
             <?php
     			if ( is_single() ) {

@@ -14,34 +14,63 @@
 get_header(); ?>
 
 	<div id="primary" class="content-area uk-container uk-container-center">
-		<main id="main" class="site-main data-uk-scrollspy="{cls:'uk-animation-fade', target:'.grid-item', delay:300}" data-uk-grid="{gutter: 0}" role="main">
-
+		<main id="main" class="site-main" role="main">
+		<header class="entry-header uk-animation-slide-bottom">
+	    <div class="uk-grid uk-flex-middle" data-uk-grid-margin="" data-uk-grid-match>
+            <div class="uk-width-medium-8-10 uk-row-first">
+                <div class="sharedaddy sd-sharing-enabled">
+                    <div class="robots-nocontent sd-block sd-social sd-social-icon sd-sharing">
+                        <div class="sd-content">
+                            <ul>
+                                <li>
+                                    <h1>Journal</h1>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <?php
+        		    ekogito_entry_footer();
+                ?>
+            </div>
+            <div class="uk-width-medium-2-10 uk-flex-middle">
+                <div class="uk-cover-background uk-hidden-small" style="max-height:150px;background-image: url(<?php echo $thumb_url; ?>);">
+                    <img class="uk-invisible" src="<?php echo $thumb_url; ?>" width="600" height="460" alt="">
+                </div>
+            </div>
+        </div>
+	</header><!-- .entry-header -->
+		<hr>
+        
 		<?php
 		if ( have_posts() ) :
-			if ( is_home() && ! is_front_page() ) : ?>
-				<header>
-					<h1 class="page-title screen-reader-text"><?php single_post_title(); ?></h1>
-				</header>
 
-			<?php
-			endif;
 			/* Start the Loop */
+			echo '<div class="uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-medium-1-3" data-uk-grid="{gutter: 30}">';
 			while ( have_posts() ) : the_post();
+
 				/*
 				 * Include the Post-Format-specific template for the content.
 				 * If you want to override this in a child theme, then include a file
 				 * called content-___.php (where ___ is the Post Format name) and that will be used instead.
 				 */
 				get_template_part( 'template-parts/content', get_post_format() );
+
 			endwhile;
+            echo '</div>';
+            echo '<div id="navigation" class="uk-flex uk-flex-middle uk-text-center uk-container-center">';
 			the_posts_navigation();
+			echo '</div>';
+
 		else :
+
 			get_template_part( 'template-parts/content', 'none' );
+
 		endif; ?>
 
 		</main><!-- #main -->
 	</div><!-- #primary -->
 
 <?php
-get_sidebar();
+//get_sidebar();
 get_footer();

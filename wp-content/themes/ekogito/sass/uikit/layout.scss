@@ -168,6 +168,12 @@ header .sd-content {
     }
 }
 
+.sharedaddy .sd-content {
+    a:hover{
+        border-bottom: none !important;
+    }
+}
+
 .uk-cover-background{
     border-radius: 2px;
 }
@@ -176,3 +182,19 @@ header .sd-content ul li{
     padding: 5px 0 !important;
 }
 
+#primary{
+    margin-bottom: 3%;
+}
+
+/*body {
+  margin: 0px;
+  padding: 0px;
+}*/
+
+.no-sharing .sharedaddy{
+    display: none;
+}
+
+p.jp-relatedposts-post-context {
+    display: none;
+}

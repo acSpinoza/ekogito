@@ -1,0 +1,155 @@
+.scifi-facets-widget {
+  overflow: hidden;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+.scifi-facets-widget ul,
+.scifi-facets-widget li {
+  margin: 0;
+  list-style: none;
+}
+.scifi-facets-group-title {
+  padding: .4em 0;
+  font-size: 1.2em;
+}
+.scifi-facets-format-tags .scifi-facets-group-title:after,
+.scifi-facets-group-time.scifi-facets-format-links .scifi-facets-group-title:after {
+  content: '\25b2';
+  float: right;
+  opacity: .5;
+  -moz-transition: transform 150ms ease;
+  -webkit-transition: transform 150ms ease;
+  transition: transform 150ms ease;
+}
+.scifi-facets-group-time.scifi-facets-format-links .scifi-facets-group-title.scifi-facets-state-open:after {
+  transform: rotate(-180deg);
+}
+
+
+/**
+ * Ordering
+ */
+.scifi-facets-ordering {
+  margin: 2%;
+}
+.scifi-facets-order-selector-asc:before,
+.scifi-facets-order-selector-desc:before {
+  font: bolder 2.2em monospace;
+}
+.scifi-facets-order-selector-asc span:before {
+  content: '\25b2';
+}
+.scifi-facets-order-selector-desc span:before {
+  content: '\25bc'
+}
+
+
+/**
+ * Formatter: select, multiselect
+ */
+.scifi-facets-select-multiple,
+.scifi-facets-select {
+  box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  width: 96%;
+  margin: 2%;
+  border: 0;
+  font-size: 1.2em;
+  color: #666;
+}
+
+
+/**
+ * Formatter: links
+ */
+.scifi-facets-format-links .scifi-facets-group-list .menu li a {
+  display: block;
+  padding: .3em .4em;
+}
+
+
+/**
+ * Formatter: time/links
+ */
+.scifi-facets-group-time.scifi-facets-format-links .scifi-facets-group-items {
+  margin: 0;
+  padding: 0;
+}
+.scifi-facets-group-time.scifi-facets-format-links .scifi-facets-group-items li {
+  margin: 0 0 0 1em;
+  list-style: none inside;
+}
+.scifi-facets-group-time.scifi-facets-format-links .scifi-facets-group-items li a {
+  padding: .3em .4em;
+  display: block;
+}
+.scifi-facets-group-time.scifi-facets-format-links .scifi-facets-includeall {
+  padding: .4em 0;
+  display: block;
+}
+.scifi-facet-item-count:before {
+  content: '(';
+}
+.scifi-facet-item-count:after {
+  content: ')';
+}
+
+/**
+ * Formatter: tags
+ */
+.scifi-facets-tags-active {
+  overflow: hidden;
+  clear: both;
+}
+.scifi-facets-tags-inactive {
+  clear: both;
+  max-height: 200px;
+  overflow: auto;
+}
+.scifi-facets-tags-active li {
+  float: left;
+  margin: 1%;
+}
+.scifi-facets-tags-active li a {
+  display: block;
+  padding: .2em .3em .2em .3em;
+  background: #eee;
+}
+.scifi-facets-tags-active li a:hover {
+  background: #ddd;
+}
+.scifi-facets-tags-active li a:before {
+  display: inline-block;
+  line-height: 1em;
+  vertical-align: middle;
+  padding: 0 2px;
+  margin-right: 0.3em;
+  border-radius: 100%;
+  font: bolder 10px monospace;
+  content: '\00D7';
+  color: #fff;
+}
+.scifi-facets-tags-active li a:hover:before {
+  background: #DB8181;
+}
+.scifi-facets-tags-inactive li {
+  line-height: 1.4em;
+  vertical-align: middle;
+  margin-right: 2%;
+}
+.scifi-facets-tags-inactive li a {
+  display: block;
+  padding: .2em .4em;
+}
+.scifi-facets-tags-inactive li a:before {
+  content: '+';
+  font: bolder 16px monospace;
+  margin-right: .3em;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+}

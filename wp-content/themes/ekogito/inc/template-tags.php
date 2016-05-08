@@ -46,7 +46,7 @@ if ( ! function_exists( 'ekogito_entry_footer' ) ) :
 function ekogito_entry_footer() {
 	// Hide category and tag text for pages.
 	if ( 'post' === get_post_type()  && is_single()) {
-		echo "<div>";
+		echo "<div class='uk-hidden-small'>";
 		/* translators: used between list items, there is a space after the comma */
 		$categories_list = get_the_category_list( esc_html__( ', ', 'ekogito' ) );
 		if ( $categories_list && ekogito_categorized_blog()) {

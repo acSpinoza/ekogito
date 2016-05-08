@@ -146,13 +146,12 @@ add_action( 'wp_enqueue_scripts', 'ekogito_scripts' );
 
 function ekogito_footer_scripts_sharing() {
     if(is_singular() && !is_front_page()){
-   wp_enqueue_script( 'ekogito-script-sharing', get_template_directory_uri() . '/js/sharing.js');
+    wp_enqueue_script( 'ekogito-script-sharing', get_template_directory_uri() . '/js/sharing.js');
       
     }
+    
 }
-
-
-    add_action( 'wp_footer', 'ekogito_footer_scripts_sharing' );
+add_action( 'wp_footer', 'ekogito_footer_scripts_sharing' );
 
  
 

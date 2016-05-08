@@ -57,15 +57,32 @@ UIkit.on('init.uk.component', function(e, name, component) {
 });
 
 
-/*(function($) {
- $('.uk-slideshow li').hover(function(){
-   console.log(this);
-   $(this).find('figcaption').fadeOut();
-  
+jQuery(window).bind("load", function($) {
+ //$('.navigation').addClass('uk-flex uk-flex-middle uk-container-center');
+  // function to set the height on fly
+ function autoHeight() {
+   $('#primary').css('min-height', 0);
+   $('#primary').css('min-height', (
+     $(document).height() 
+     - $('#masthead').height() 
+     - $('#colophon').height()
+   ));
+ }
+
+ // onDocumentReady function bind
+ $(window).bind("load", function() {
+   autoHeight();
  });
-  $('.uk-slideshow li').mouseout(function(){
-   console.log(this);
-   $(this).find('figcaption').fadeIn();
-  
- })
-}(jQuery));*/
+
+ // onResize bind of the function
+ $(window).bind("load", function() {
+   autoHeight();
+ });
+ 
+ 
+
+}(jQuery));
+
+jQuery(document).ready(function($) {
+ jQuery('.navigation.posts-navigation').removeClass('navigation posts-navigation').addClass('uk-flex uk-flex-middle uk-text-center uk-container-center');
+}(jQuery));

@@ -72,6 +72,6 @@ module.exports = function(grunt) {
   });
 
   // Register tasks
-  grunt.registerTask('default',['sass','image','watch', 'uglify']);
+  grunt.registerTask('default',['sass','watch', 'uglify']);
 
 };
