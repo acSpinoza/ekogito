@@ -22,7 +22,7 @@
   background-color: rgba(255,255,255,0.95);
   box-shadow: 0 3px 8px -4px rgba(0, 0, 0, 0.15);
   padding-bottom: 15px;
-      z-index: 1000;
+      z-index: 9999;
 }
 
 
@@ -45,7 +45,9 @@
     }
 }
 
-.home.sticky-navbar.uk-inactive-js, .sticky-navbar i {
+
+.home.sticky-navbar.uk-inactive-js, 
+.sticky-navbar i {
     background: rgba(255, 255, 255, 0.01);
     color: rgba(255, 255, 255, 0.7); 
     -webkit-transition: background ease-out 0.5s;
@@ -58,7 +60,9 @@
     transition: color ease-out 0.5s;
 }
 
-.home.sticky-navbar.uk-active-js,.sticky-navbar.uk-active-js {
+
+.home.sticky-navbar.uk-active-js,
+.sticky-navbar.uk-active-js {
     background-color: rgba(255, 255, 255, 0.95);
     -webkit-transition: background ease-out 0.5s;
     -moz-transition: background ease-out 0.5s;
@@ -119,6 +123,11 @@
         margin-top: 0;
         background: rgba(255,255,255,0.95) !important;
         color: #444444;
+        z-index: 9999;
     }
 }
     
+    
+.website-logo{
+    padding: 0;
+}

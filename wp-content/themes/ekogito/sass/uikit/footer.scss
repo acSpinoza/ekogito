@@ -13,3 +13,17 @@ infinite-footer{
 #navigation{
     padding: 30px;
 }
+
+.uk-offcanvas-bar{
+    .menu-primary-container{
+        padding-top: 15px;
+    }
+    ul a {
+        color: #FFFFFF;
+        padding: 5px;
+    }
+}
+
+a.uk-navbar-toggle.uk-contrast{
+    color: #fff;
+}

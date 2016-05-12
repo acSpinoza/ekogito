@@ -58,6 +58,7 @@ UIkit.on('init.uk.component', function(e, name, component) {
 
 
 jQuery(window).bind("load", function($) {
+    
  //$('.navigation').addClass('uk-flex uk-flex-middle uk-container-center');
   // function to set the height on fly
  function autoHeight() {
@@ -72,10 +73,11 @@ jQuery(window).bind("load", function($) {
  // onDocumentReady function bind
  $(window).bind("load", function() {
    autoHeight();
+   
  });
 
  // onResize bind of the function
- $(window).bind("load", function() {
+ $(window).bind("resize", function() {
    autoHeight();
  });
  
@@ -84,5 +86,11 @@ jQuery(window).bind("load", function($) {
 }(jQuery));
 
 jQuery(document).ready(function($) {
- jQuery('.navigation.posts-navigation').removeClass('navigation posts-navigation').addClass('uk-flex uk-flex-middle uk-text-center uk-container-center');
+    jQuery('.navigation.posts-navigation').removeClass('navigation posts-navigation').addClass('uk-flex uk-flex-middle uk-text-center uk-container-center');
+    jQuery('.uk-offcanvas-bar .menu-item-has-children a').first().append('  <i class="uk-icon-chevron-down"></i>');
+    jQuery('.sticky-navbar').removeClass('uk-animation-fade sticky-navbar').addClass('sticky-navbar uk-sticky-no-active uk-inactive-js');
+/*$(document).ready(function() {
+    console.log('now');
+                $( ".articles-grid-" ).delay( 800 ).css('visibility','visible').hide().show('slow');
+            });*/
 }(jQuery));

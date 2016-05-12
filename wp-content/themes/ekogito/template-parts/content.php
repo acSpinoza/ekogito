@@ -6,15 +6,13 @@
  *
  * @package Ekogito_Theme
  */
-?>
-<?php
+
 if(has_post_thumbnail()){ 
     $thumb_id = get_post_thumbnail_id();
     $thumb_url_array = wp_get_attachment_image_src($thumb_id, 'large');
     $thumb_url = $thumb_url_array[0];
 }
 ?>
-<div class="uk-scrollspy-inview">
 <div id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
     <div class="frontpage-grid">
         <figure class="list-post-thumbnail uk-width-small-1-1 uk-width-medium-1-1 uk-overlay uk-overlay-hover">
@@ -67,5 +65,4 @@ if(has_post_thumbnail()){
         </div>
     </div>
 </div><!-- #post-## -->
-</div>
 

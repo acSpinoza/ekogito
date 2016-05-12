@@ -44,7 +44,7 @@
 
                 <nav class="uk-navbar">
 
-                    <a class="uk-navbar-brand" href="<?php echo esc_url( home_url( '/' ) ); ?>" rel="home">
+                    <a class="uk-navbar-brand website-logo" href="<?php echo esc_url( home_url( '/' ) ); ?>" rel="home">
                         <i class="uk-icon-justify uk-icon-dot-circle-o uk-icon-large uk-text-danger "></i>
                         <span class="uk-contrast uk-text-large" style="color:#fff"><?php bloginfo( 'name' ); ?></span>
                     </a>

@@ -49,12 +49,7 @@
                 <?php
     			wp_nav_menu( array(
     				'menu'              => 'primary',
-    				'theme_location'    => 'primary',
-    				'depth'             => 1,
-    				'container'         => 'uk-nav uk-nav-offcanvas',
-    				'menu_class'        => 'uk-nav uk-nav-offcanvas',
-    				'fallback_cb'       => 'basey_primary_menu::fallback',
-    				'walker'            => new basey_primary_menu())
+    				'theme_location'    => 'primary')
     			);
     			?>	 
 
