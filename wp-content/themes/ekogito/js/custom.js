@@ -89,8 +89,13 @@ jQuery(document).ready(function($) {
     jQuery('.navigation.posts-navigation').removeClass('navigation posts-navigation').addClass('uk-flex uk-flex-middle uk-text-center uk-container-center');
     jQuery('.uk-offcanvas-bar .menu-item-has-children a').first().append('  <i class="uk-icon-chevron-down"></i>');
     jQuery('.sticky-navbar').removeClass('uk-animation-fade sticky-navbar').addClass('sticky-navbar uk-sticky-no-active uk-inactive-js');
+  
+    jQuery('figure.uk-overlay.uk-overlay-hover p').css('margin', 0).css('height', 0);
+  
 /*$(document).ready(function() {
     console.log('now');
                 $( ".articles-grid-" ).delay( 800 ).css('visibility','visible').hide().show('slow');
             });*/
+  
+  
 }(jQuery));

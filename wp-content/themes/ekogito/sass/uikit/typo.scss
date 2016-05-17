@@ -3,7 +3,7 @@
 }
 
 h1, h2, h3, h4, h5, h6, h8, p, span, a {
-    font-family: "Open Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-family: "Open Sans","Helvetica Neue",Helvetica,Arial,sans-serif !important;
     font-weight: 300;
     text-transform: none;
 }
@@ -64,6 +64,3 @@ blockquote {
     color: #fff;
 }
 
-.uk-contrast a:not([class]){
-    font-size: 1.2em;
-}

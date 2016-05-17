@@ -43,7 +43,7 @@ get_header(); ?>
 		if ( have_posts() ) :
 
 			/* Start the Loop */
-			echo '<div class="articles-grid uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-medium-1-3" data-uk-grid="{gutter: 30}">';
+			echo '<div class="articles-grid uk-grid-width-small-1-2 uk-grid-width-medium-1-3 uk-grid-width-medium-1-4" data-uk-grid="{gutter: 30}">';
 			while ( have_posts() ) : the_post();
 
 				/*
