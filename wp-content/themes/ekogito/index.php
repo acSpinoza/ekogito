@@ -16,7 +16,7 @@ get_header(); ?>
 
 	<div id="primary" class="content-area uk-container uk-container-center">
 		<main id="main" class="site-main" role="main">
-		<header class="entry-header uk-animation-slide-bottom">
+		<header class="entry-header uk-animation-fade">
 	    <div class="uk-grid uk-flex-middle" data-uk-grid-margin="" data-uk-grid-match>
             <div class="uk-width-medium-10-10 uk-row-first">
                 <div class="sharedaddy sd-sharing-enabled">

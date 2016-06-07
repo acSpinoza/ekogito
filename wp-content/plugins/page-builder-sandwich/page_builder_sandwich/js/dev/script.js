@@ -1,5 +1,155 @@
 /* globals ContentTools, ContentEdit, ContentSelect, pbsParams, PBSEditor, HS */
 
+/**
+ * IE 10 & IE 11 doesn't support SVG.innerHTML. This polyfill adds it.
+ *
+ * @see https://github.com/phaistonian/SVGInnerHTML
+ */
+
+/* jshint ignore:start */
+(function (view) {
+
+var
+    constructors    = ['SVGSVGElement', 'SVGGElement']
+    , dummy         = document.createElement('dummy');
+
+if (!constructors[0] in view) {
+    return false;
+}
+
+if (Object.defineProperty) {
+
+    var innerHTMLPropDesc = {
+
+        get : function () {
+
+            dummy.innerHTML = '';
+
+            Array.prototype.slice.call(this.childNodes)
+            .forEach(function (node, index) {
+                dummy.appendChild(node.cloneNode(true));
+            });
+
+            return dummy.innerHTML;
+        },
+
+        set : function (content) {
+            var
+                self        = this
+                , parent    = this
+                , allNodes  = Array.prototype.slice.call(self.childNodes)
+
+                , fn        = function (to, node) {
+                    if (node.nodeType !== 1) {
+                        return false;
+                    }
+
+                    var newNode = document.createElementNS('http://www.w3.org/2000/svg', node.nodeName);
+
+                    Array.prototype.slice.call(node.attributes)
+                    .forEach(function (attribute) {
+                        newNode.setAttribute(attribute.name, attribute.value);
+                    });
+
+                    if (node.nodeName === 'TEXT') {
+                        newNode.textContent = node.innerHTML;
+                    }
+
+                    to.appendChild(newNode);
+
+                    if (node.childNodes.length) {
+
+                        Array.prototype.slice.call(node.childNodes)
+                        .forEach(function (node, index) {
+                            fn(newNode, node);
+                        });
+
+                    }
+                };
+
+            // /> to </tag>
+            content = content.replace(/<(\w+)([^<]+?)\/>/, '<$1$2></$1>');
+
+            // Remove existing nodes
+            allNodes.forEach(function (node, index) {
+                node.parentNode.removeChild(node);
+            });
+
+
+            dummy.innerHTML = content;
+
+            Array.prototype.slice.call(dummy.childNodes)
+            .forEach(function (node) {
+                fn(self, node);
+            });
+
+        }
+        , enumerable        : true
+        , configurable      : true
+    };
+
+    try {
+        constructors.forEach(function (constructor, index) {
+            Object.defineProperty(window[constructor].prototype, 'innerHTML', innerHTMLPropDesc);
+        });
+    } catch (ex) {
+        // TODO: Do something meaningful here
+    }
+
+} else if (Object['prototype'].__defineGetter__) {
+
+    constructors.forEach(function (constructor, index) {
+        window[constructor].prototype.__defineSetter__('innerHTML', innerHTMLPropDesc.set);
+        window[constructor].prototype.__defineGetter__('innerHTML', innerHTMLPropDesc.get);
+    });
+
+}
+
+} (window));
+/* jshint ignore:end */
+
+/**
+ * IE doesn't support constructor.name. This polyfill adds it.
+ *
+ * @see http://matt.scharley.me/2012/03/monkey-patch-name-ie.html
+ */
+ 
+if (Function.prototype.name === undefined && Object.defineProperty !== undefined) {
+    Object.defineProperty(Function.prototype, 'name', {
+        get: function() {
+            var funcNameRegex = /function\s([^(]{1,})\(/;
+            var results = (funcNameRegex).exec((this).toString());
+            return (results && results.length > 1) ? results[1].trim() : '';
+        },
+        set: function() {}
+    });
+}
+
+/**
+ * Custom events cause errors in in IE 11. This polyfill fixes it.
+ *
+ * @see http://stackoverflow.com/a/31783177/174172
+ */
+(function () {
+
+	function CustomEvent ( event, params ) {
+		params = params || { bubbles: false, cancelable: false, detail: undefined };
+		var evt = document.createEvent( 'CustomEvent' );
+		evt.initCustomEvent( event, params.bubbles, params.cancelable, params.detail );
+		return evt;
+	}
+
+	// Only do this for IE11 & IE10
+	if ( ( !! window.MSInputMethodContext && !! document.documentMode ) ||
+		 ( navigator.appVersion.indexOf( 'MSIE 10' ) !== -1 ) ) {
+
+		CustomEvent.prototype = window.Event.prototype;
+
+		window.CustomEvent = CustomEvent;
+	}
+})();
+
+
 ContentEdit.INDENT = '';
 ContentEdit.DEFAULT_MAX_ELEMENT_WIDTH = 2000;
 
@@ -18,7 +168,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			localStorage.removeItem( 'pbs-open-' + pbsParams.post_id );
 			var starterInterval = setInterval( function() {
 				if ( document.querySelector( '.ct-widget--active' ) ) {
-					document.querySelector('.ct-ignition__button--edit').dispatchEvent( new Event( 'click' ) );
+					document.querySelector('.ct-ignition__button--edit').dispatchEvent( new CustomEvent( 'click' ) );
 					clearInterval( starterInterval );
 				}
 			}, 200);
@@ -138,6 +288,13 @@ window.addEventListener( 'DOMContentLoaded', function() {
 		payload.append( 'save_nonce', pbsParams.save_nonce );
 		payload.append( 'post_id', pbsParams.post_id );
 
+		// Change the post status.
+		// This is filled up by the other save buttons in _content-tools-UI.js
+		if ( pbsParams.new_post_status ) {
+			payload.append( 'post_status', pbsParams.new_post_status );
+			pbsParams.new_post_status = undefined;
+		}
+
 		// If there are pseudo element styles that need to be saved, include those.
 		var styles = '';
 		if ( document.querySelector( 'style#pbs-style' ) ) {
@@ -223,7 +380,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 		clearInterval( window._pbsBodyTransitionInterval );
 		window._pbsBodyTransitionInterval = setInterval(function() {
 			window._pbsBodyTransitionIntervalNum++;
-			window.dispatchEvent(new Event('resize'));
+			window.dispatchEvent( new CustomEvent( 'resize' ) );
 			if ( window._pbsBodyTransitionIntervalNum >= 30 ) {
 				clearInterval( window._pbsBodyTransitionInterval );
 			}
@@ -245,7 +402,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 		clearInterval( window._pbsBodyTransitionInterval );
 		window._pbsBodyTransitionInterval = setInterval(function() {
 			window._pbsBodyTransitionIntervalNum++;
-			window.dispatchEvent(new Event('resize'));
+			window.dispatchEvent( new CustomEvent( 'resize' ) );
 			if ( window._pbsBodyTransitionIntervalNum >= 30 ) {
 				clearInterval( window._pbsBodyTransitionInterval );
 			}
@@ -565,6 +722,38 @@ window.PBSEditor.generateUniqueClassName = function() {
 
 
 /**
+ * Adds raw pseudo element styles directly into the style tag dedicated to pseudo element styles.
+ * Similar to window.PBSEditor.addPseudoElementStyles, except that this doesn't
+ * perform any duplication checks and just directly adds the styles.
+ * @param string styles The styles to add.
+ * @return string The added styles.
+ */
+window.PBSEditor.addPseudoElementStylesRaw = function( styles ) {
+
+	// Create style tag if it doesn't exist yet.
+	var styleTag = document.querySelector( 'style#pbs-style' );
+	if ( ! styleTag ) {
+		styleTag = document.createElement( 'style' );
+		styleTag.setAttribute( 'id', 'pbs-style' );
+		document.body.appendChild( styleTag );
+	}
+	var currentStyles = styleTag.innerHTML + styles;
+
+	// Taint the whole editor.
+	var mainRegion = ContentTools.EditorApp.get().regions()['main-content'];
+	if ( typeof mainRegion._debouncedTaint === 'undefined' ) {
+		mainRegion._debouncedTaint = _.debounce( function() {
+			this.taint();
+		}.bind( mainRegion ), 400 );
+	}
+	mainRegion._debouncedTaint();
+
+	// Save the new styles.
+	styleTag.innerHTML = currentStyles;
+	return styles;
+};
+
+/**
  * Adds a pseudo element style. Adds the style tag used by PBS if it doesn't exist yet.
  * @param string selector The full selector (with the pseudo element) to add
  * @param object styles An object containing the style-name & style-value pairs to add
@@ -677,7 +866,7 @@ window.PBSEditor.removePseudoElementStyles = function( selector, styles ) {
 	var selectorPattern = selector.replace( /\./g, '\\.' );
 
 	// Remove the style from the style tag.
-	var re;
+	var re, stylesMatch;
 	var currentStyles = styleTag.innerHTML;
 
 	for ( var i = 0; i < styles.length; i++ ) {
@@ -739,7 +928,7 @@ window.PBSEditor.convertSVGToBackgroundImage = function( svgElement ) {
 	// Prefix with data:image/svg+xml,
 	svgString = 'url("data:image/svg+xml,' + svgString + '")';
 	return svgString;
-}
+};
 
 
 
@@ -925,7 +1114,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	}, 200);
 });
 
-/* globals ContentTools */
+/* globals ContentTools, pbsParams */
 
 /**
  * Override the CT editor to use the buttons we placed in the WP admin bar.
@@ -951,6 +1140,29 @@ ContentTools.IgnitionUI.prototype.mount = function() {
 	this._domEdit.addEventListener('click', function() {
 		window.scrollTo( 0, this.prevScrollY );
 	});
+
+	// Save & change post status buttons.
+	document.querySelector( '#wp-admin-bar-gambit_builder_save_options #pbs-save-publish' ).addEventListener( 'click', function(ev) {
+		ev.preventDefault();
+		pbsParams.new_post_status = 'publish';
+		this._domConfirm.click();
+		document.querySelector('#pbs-save-button').setAttribute( 'data-current-post-type', 'publish' );
+		this._domConfirm.querySelector('.ab-item').childNodes[1].nodeValue = pbsParams.labels.save_and_update;
+	}.bind(this));
+	document.querySelector( '#wp-admin-bar-gambit_builder_save_options #pbs-save-draft' ).addEventListener( 'click', function(ev) {
+		ev.preventDefault();
+		pbsParams.new_post_status = 'draft';
+		this._domConfirm.click();
+		document.querySelector('#pbs-save-button').setAttribute( 'data-current-post-type', 'draft' );
+		this._domConfirm.querySelector('.ab-item').childNodes[1].nodeValue = pbsParams.labels.save_as_draft;
+	}.bind(this));
+	document.querySelector( '#wp-admin-bar-gambit_builder_save_options #pbs-save-pending' ).addEventListener( 'click', function(ev) {
+		ev.preventDefault();
+		pbsParams.new_post_status = 'pending';
+		this._domConfirm.click();
+		document.querySelector('#pbs-save-button').setAttribute( 'data-current-post-type', 'pending' );
+		this._domConfirm.querySelector('.ab-item').childNodes[1].nodeValue = pbsParams.labels.save_as_pending;
+	}.bind(this));
 
 	wp.hooks.doAction( 'pbs.ct.mounted' );
 
@@ -1777,7 +1989,8 @@ PBSEditor.Overlay = (function() {
 	};
 
 	Overlay.prototype._show = function( element ) {
-		if ( element._domElement ) {
+		var root = ContentEdit.Root.get();
+		if ( element._domElement && ! root.dragging() ) {
 			this._domElement.style.display = 'flex';
 			this.show( element );
 		}
@@ -4385,7 +4598,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	};
 })();
 
-/* globals ContentEdit, ContentSelect, pbsSelectorMatches, __extends, PBSEditor */
+/* globals ContentEdit, ContentSelect, pbsSelectorMatches, __extends, PBSEditor, ContentTools, HTMLString */
 
 /**
  * Divs
@@ -4785,6 +4998,12 @@ ContentEdit.DivRow = (function(_super) {
 	DivRow.prototype.mount = function() {
 		DivRow.__super__.mount.call(this);
 		this.addCSSClass('pbs-row');
+
+		// Generate a unique class if there isn't one yet.
+		var currentClass = this._domElement.getAttribute( 'class' );
+		if ( ! currentClass.match( /pbs_row_uid_/ ) ) {
+			this.addCSSClass( 'pbs_row_uid_' + Math.floor((1 + Math.random()) * 0x10000000).toString(36) );
+		}
 
 		// Full-width rows get busted when mounting, this fixes them.
 		if ( window._pbsFixRowWidth ) {
@@ -5301,6 +5520,12 @@ ContentEdit.DivCol = (function(_super) {
 		// Make sure columns have a .pbs-col class
 		this.addCSSClass('pbs-col');
 
+		// Generate a unique class if there isn't one yet.
+		var currentClass = this._domElement.getAttribute( 'class' );
+		if ( ! currentClass.match( /pbs_col_uid_/ ) ) {
+			this.addCSSClass( 'pbs_col_uid_' + Math.floor((1 + Math.random()) * 0x10000000).toString(36) );
+		}
+
 		// Check how many empty paragraphs are there.
 		var numEmpties = 0;
 		var numNonEmpties = 0;
@@ -5808,6 +6033,51 @@ wp.hooks.addFilter( 'pbs.save', function( html ) {
 	return html;
 } );
 
+
+/**
+ * Fixes issue: When pasting multiple lines of text inside a row, the text gets pasted OUTSIDE the row.
+ * Problem: CT checks if the parent is not of type 'Region'
+ * Solution: Check also if the parent is a 'DivRow'.
+ * Most of this code comes from _EditorApp.prototype.paste
+ */
+(function() {
+	var _EditorApp = ContentTools.EditorApp.getCls();
+	var proxied = _EditorApp.prototype.paste;
+	_EditorApp.prototype.paste = function(element, clipboardData) {
+		var content, encodeHTML, i, insertAt, insertIn, insertNode, item, lastItem, line, lineLength, lines, type, _i, _len;
+        content = clipboardData.getData('text/plain');
+        lines = content.split('\n');
+        lines = lines.filter(function(line) {
+			return line.trim() !== '';
+        });
+        if (!lines) {
+			return proxied.call( this, element, clipboardData );
+        }
+		encodeHTML = HTMLString.String.encode;
+        type = element.type();
+		if ( type === 'PreText' || type === 'ListItemText' || element.parent().type() !== 'DivRow' ) {
+			return proxied.call( this, element, clipboardData );
+		}
+		// We're sure that the element is inside a Row.
+		if ( lines.length > 1 || ! element.content ) {
+            insertNode = element;
+			insertIn = insertNode.parent();
+			insertAt = insertIn.children.indexOf(insertNode) + 1;
+			for (i = _i = 0, _len = lines.length; _i < _len; i = ++_i) {
+				line = lines[i];
+				line = encodeHTML(line);
+				item = new ContentEdit.Text('p', {}, line);
+				lastItem = item;
+				insertIn.attach(item, insertAt + i);
+			}
+			lineLength = lastItem.content.length();
+			lastItem.focus();
+			return lastItem.selection(new ContentSelect.Range(lineLength, lineLength));
+		}
+		return proxied.call( this, element, clipboardData );
+	};
+})();
+
 /* globals ContentEdit, __extends, PBSEditor, pbsParams */
 
 ContentEdit.Icon = ( function( _super ) {
@@ -6185,37 +6455,54 @@ wp.hooks.addFilter( 'pbs.toolbar.shortcode.label', function( scBase ) {
 
 
 
+
 /* globals ContentEdit, ContentTools */
+
+
 
 
 
 // Remove the size class when resizing images, so that WP can detect
 
+
 // that we now have a custom size.
+
 
 var root = ContentEdit.Root.get();
 
+
 root._overrideImageOnStopResizing = root._onStopResizing;
+
 
 root._onStopResizing = function(ev) {
 
 
 
+
+
 	if ( this._resizing.constructor.name === 'Image' ) {
+
 
 		var match = this._resizing._attributes['class'].match( /size-\w+/ );
 
+
 		if ( match ) {
+
 
 			this._resizing.removeCSSClass( match[0] );
 
+
 		}
+
 
 	}
 
 
 
+
+
 	return this._overrideImageOnStopResizing(ev);
+
 
 }.bind(root);
 
@@ -6223,51 +6510,79 @@ root._onStopResizing = function(ev) {
 
 
 
+
+
+
 // Open the edit Media Manager window on double click
+
 
 ContentEdit.Image.prototype._onDblclick = function() {
 
+
 	this.openMediaManager();
 
+
 };
+
+
 
 
 
 ContentEdit.Image.prototype.openMediaManager = function() {
 
+
 	var frame = wp.media.editor.open( 'edit', {
+
 
 		frame: 'image',
 
+
 		state: 'image-details',
+
 
 		metadata: _pbsImageGetMetaData( this._domElement )
 
+
 	});
+
+
 
 
 
 	frame.state('image-details').on( 'update', function( imageData ) {
 
+
 		_pbsUpdateNonCaptionedImageCTElement( this, imageData );
+
 
 	}.bind(this) );
 
 
 
+
+
 	// Delete the frame's state so that opening another frame won't have the settings
+
 
 	// of the previous frame.
 
+
 	frame.on('close', function() {
+
 
 		wp.media.editor.remove( 'edit' );
 
+
 		frame.detach();
+
 
 	});
 
+
 };
+
+
+
 
 
 
@@ -6275,13 +6590,20 @@ ContentEdit.Image.prototype.openMediaManager = function() {
 
 // Remove image edit event listener.
 
+
 ContentEdit.Image.prototype._removeDOMEventListeners = function() {
+
 
 	this._domElement.removeEventListener('dblclick', this._onDblClickBound);
 
+
 	window.removeEventListener('keydown', this._onKeyDownBound );
 
+
 };
+
+
+
 
 
 
@@ -6289,7 +6611,10 @@ ContentEdit.Image.prototype._removeDOMEventListeners = function() {
 
 // Simpler mounting, don't add an anchor tag.
 
+
 ContentEdit.Image.prototype.mount = function() {
+
+
 
 
 
@@ -6297,87 +6622,132 @@ ContentEdit.Image.prototype.mount = function() {
 
 
 
+
+
 	// Remove responsive attributes added in by WordPress since these are
+
 
 	// dynamically added on creation.
 
+
 	if ( this._attributes ) {
+
 
 		var responsiveAttributes = [ 'srcset', 'sizes', 'data-lazy-loaded', 'data-lazy-src', 'data-pin-nopin', 'src-orig', 'scale' ];
 
+
 		for ( i = 0; i < responsiveAttributes.length; i++ ) {
+
 
 			if ( this._attributes[ responsiveAttributes[ i ] ] ) {
 
+
 				delete this._attributes[ responsiveAttributes[ i ]  ];
+
 
 			}
 
+
 		}
 
+
 	}
+
+
 
 
 
 	// Remove alignnone. We won't support alignnone since they are problematic.
 
+
 	if ( this._attributes ) {
+
 
 		if ( this._attributes['class'] ) {
 
+
 			var classes = this._attributes['class'].split( ' ' );
+
 
 			if ( classes.indexOf( 'alignnone' ) !== -1 ) {
 
+
 				classes[ classes.indexOf( 'alignnone' ) ] = 'aligncenter';
+
 
 				this._attributes['class'] = classes.join( ' ' );
 
+
 			}
+
 
 		}
 
+
 	}
+
+
 
 
 
   	this._domElement = document.createElement('img');
 
+
     for ( i in this._attributes ) {
+
 
 		if ( this._attributes.hasOwnProperty( i ) ) {
 
+
 			if ( this._attributes[ i ] ) {
+
 
 				this._domElement.setAttribute( i, this._attributes[ i ] );
 
+
 			}
 
+
 		}
+
 
 	}
 
 
 
+
+
 	// Edit image edit event listener.
 
+
 	this._onDblClickBound = this._onDblclick.bind(this);
+
 
 	this._domElement.addEventListener('dblclick', this._onDblClickBound);
 
 
 
+
+
 	// Character press event listener.
 
+
 	this._onKeyDownBound = this._onKeyDown.bind(this);
+
 
 	window.addEventListener('keydown', this._onKeyDownBound );
 
 
 
+
+
 	return ContentEdit.Image.__super__.mount.call(this);
 
+
 };
+
+
+
 
 
 
@@ -6385,47 +6755,71 @@ ContentEdit.Image.prototype.mount = function() {
 
 // If typed while an image is focused, create a new paragraph.
 
+
 ContentEdit.Image.prototype._onKeyDown = function(ev) {
+
 
 	// If ONLY shift is pressed, don't do anything.
 
+
 	if ( ev.keyCode === 16 || ev.keyCode === 91 || ev.keyCode === 93 ) {
+
 
 		return;
 
+
 	}
+
 
 	// If ctrl is pressed, don't do anything.
 
+
 	if ( ev.ctrlKey || ev.metaKey ) {
+
 
 		return;
 
+
 	}
+
 
 	// If something else is selected, don't do anything.
 
+
 	if ( ['input', 'select', 'textarea', 'button'].indexOf( ev.target.tagName.toLowerCase() ) !== -1 ) {
+
 
 		return;
 
+
 	}
+
 
 	if ( this.isFocused() ) {
 
 
 
+
+
 		// This fixes the bug where an empty div is added when pressing enter.
+
 
 		ev.preventDefault();
 
 
 
+
+
 		ContentTools.Tools.Paragraph.apply(this, null, function() {});
+
 
 	}
 
+
 };
+
+
+
 
 
 
@@ -6433,37 +6827,56 @@ ContentEdit.Image.prototype._onKeyDown = function(ev) {
 
 // Simpler droppers
 
+
 ContentEdit.Image._dropBoth = function(element, target, placement) {
+
 
 	var insertIndex;
 
+
 	element.parent().detach(element);
+
 
 	insertIndex = target.parent().children.indexOf(target);
 
+
 	if (placement[0] === 'below' && placement[1] === 'center') {
+
 
 		insertIndex += 1;
 
+
 	}
+
 
 	element.removeCSSClass('alignleft');
 
+
 	element.removeCSSClass('alignright');
+
 
 	element.removeCSSClass('aligncenter');
 
+
 	element.removeCSSClass('alignnone');
+
 
 	if (['left', 'right', 'center'].indexOf( placement[1] ) !== -1 ) {
 
+
 		element.addCSSClass('align' + placement[1]);
+
 
 	}
 
+
 	return target.parent().attach(element, insertIndex);
 
+
 };
+
+
+
 
 
 
@@ -6471,19 +6884,29 @@ ContentEdit.Image._dropBoth = function(element, target, placement) {
 
 // Override the droppers to allow for 'alignleft', 'alignright', 'aligncenter',
 
+
 // classes instead of just 'align-left' and 'align-right'.
+
 
 ContentEdit.Image.droppers = {
 
+
 	'Image': ContentEdit.Image._dropBoth,
+
 
 	'PreText': ContentEdit.Image._dropBoth,
 
+
 	'Static': ContentEdit.Image._dropBoth,
+
 
 	'Text': ContentEdit.Image._dropBoth
 
+
 };
+
+
+
 
 
 
@@ -6491,49 +6914,72 @@ ContentEdit.Image.droppers = {
 
 wp.hooks.addFilter( 'pbs.shortcode.allow_raw_edit', function( allow, scBase, element ) {
 
+
 	if ( scBase === 'caption' ) {
+
 
 		var target = element._domElement.querySelector( 'img' );
 
 
 
+
+
 		var frame = wp.media.editor.open( 'edit', {
+
 
 			frame: 'image',
 
+
 			state: 'image-details',
+
 
 			metadata: _pbsImageGetMetaData( target )
 
+
 		});
+
+
 
 
 
 		frame.state('image-details').on( 'update', function( imageData ) {
 
+
 			_pbsUpdateNonCaptionedImage( target, imageData );
+
 
 		} );
 
 
 
+
+
 		// Delete the frame's state so that opening another frame won't have the settings
+
 
 		// of the previous frame.
 
+
 		frame.on('close', function() {
+
 
 			wp.media.editor.remove( 'edit' );
 
+
 			frame.detach();
+
 
 		});
 
+
 		return false;
+
 
 	}
 
+
 	return allow;
+
 
 } );
 
@@ -6541,41 +6987,63 @@ wp.hooks.addFilter( 'pbs.shortcode.allow_raw_edit', function( allow, scBase, ele
 
 
 
+
+
+
 /************************************************************************************
+
 
  * From updateImage function js/tinymce/plugins/wpeditimage/plugins.js
 
+
  ************************************************************************************/
+
 
 var _pbsToolbarImageHasTextContent = function( node ) {
 
+
 	return node && !! ( node.textContent || node.innerText );
+
 
 };
 
+
 var _pbsToolbarImageGetParent = function ( node, className ) {
+
 
 	while ( node && node.parentNode ) {
 
+
 		if ( node.className && ( ' ' + node.className + ' ' ).indexOf( ' ' + className + ' ' ) !== -1 ) {
 
+
 			return node;
+
 
 		}
 
 
 
+
+
 		node = node.parentNode;
+
 
 	}
 
 
 
+
+
 	return false;
+
 
 };
 
+
 var _pbsUpdateNonCaptionedImage = function( imageNode, imageData ) {
+
+
 
 
 
@@ -6583,235 +7051,354 @@ var _pbsUpdateNonCaptionedImage = function( imageNode, imageData ) {
 
 
 
+
+
 	// classes = tinymce.explode( imageData.extraClasses, ' ' );
+
 
 	classes = imageData.extraClasses.split( ' ' );
 
 
 
+
+
 	if ( ! classes ) {
+
 
 		classes = [];
 
+
 	}
+
+
 
 
 
 	if ( ! imageData.caption ) {
 
+
 		classes.push( 'align' + imageData.align );
 
+
 	}
+
+
 
 
 
 	if ( imageData.attachment_id ) {
 
+
 		classes.push( 'wp-image-' + imageData.attachment_id );
+
 
 		if ( imageData.size && imageData.size !== 'custom' ) {
 
+
 			classes.push( 'size-' + imageData.size );
+
 
 		}
 
+
 	}
+
+
 
 
 
 	width = imageData.width;
 
+
 	height = imageData.height;
+
+
 
 
 
 	if ( imageData.size === 'custom' ) {
 
+
 		width = imageData.customWidth;
+
 
 		height = imageData.customHeight;
 
+
 	}
+
+
 
 
 
 	attrs = {
 
+
 		src: imageData.url,
+
 
 		width: width || null,
 
+
 		height: height || null,
+
 
 		alt: imageData.alt,
 
+
 		title: imageData.title || null,
+
 
 		'class': classes.join( ' ' ) || null
 
+
 	};
+
+
 
 
 
 	// dom.setAttribs( imageNode, attrs );
 
+
 	for ( var key in attrs ) {
+
 
 		if ( attrs.hasOwnProperty( key ) ) {
 
+
 			imageNode.setAttribute( key, attrs[ key ] );
+
 
 		}
 
+
 	}
+
+
 
 
 
 	linkAttrs = {
 
+
 		href: imageData.linkUrl,
+
 
 		rel: imageData.linkRel || null,
 
+
 		target: imageData.linkTargetBlank ? '_blank': null,
 
+
 		'class': imageData.linkClassName || null
+
 
 	};
 
 
 
+
+
 	if ( imageNode.parentNode && imageNode.parentNode.nodeName === 'A' && ! _pbsToolbarImageHasTextContent( imageNode.parentNode ) ) {
 
+
 		// Update or remove an existing link wrapped around the image
+
 
 		if ( imageData.linkUrl ) {
 
 
 
+
+
 			// Update the attributes of the link
+
 
 			// dom.setAttribs( imageNode.parentNode, linkAttrs );
 
+
 			for ( key in linkAttrs ) {
+
 
 				if ( linkAttrs.hasOwnProperty( key ) ) {
 
+
 					if ( linkAttrs[ key ] !== null ) {
+
 
 						imageNode.parentNode.setAttribute( key, linkAttrs[ key ] );
 
+
 					}
+
 
 				}
 
+
 			}
+
 
 		} else {
 
 
 
+
+
 			// Unwrap the image from the link.
+
 
 			// dom.remove( imageNode.parentNode, true );
 
+
 			var oldA = imageNode.parentNode;
 
+
 			oldA.parentNode.insertBefore( imageNode, oldA );
+
 
 			oldA.parentNode.removeChild( oldA );
 
 
 
+
+
 		}
+
+
 
 
 
 	} else if ( imageData.linkUrl ) { // If a link was added to a non-linked image
 
+
 		// if ( linkNode = dom.getParent( imageNode, 'a' ) ) {
+
 
 		var linkNode = _pbsToolbarImageGetParent( imageNode, 'a' );
 
+
 		if ( linkNode ) {
+
 
 			// The image is inside a link together with other nodes,
 
+
 			// or is nested in another node, move it out
+
 
 			// dom.insertAfter( imageNode, linkNode );
 
+
 			imageNode.parentNode.insertBefore( linkNode, imageNode.nextSibling);
 
+
 		}
+
+
 
 
 
 		// Add link wrapped around the image
 
+
 		// linkNode = dom.create( 'a', linkAttrs );
+
 
 		linkNode = document.createElement('a');
 
+
 		for ( var i in linkAttrs ) {
+
 
 			if ( linkAttrs.hasOwnProperty( i ) ) {
 
+
 				if ( linkAttrs[ i ] !== null ) {
+
 
 					linkNode.setAttribute( i, linkAttrs[ i ] );
 
+
 				}
+
 
 			}
 
+
 		}
+
 
 		imageNode.parentNode.insertBefore( linkNode, imageNode );
 
+
 		linkNode.appendChild( imageNode );
 
+
 	}
+
+
 
 
 
 	// captionNode = editor.dom.getParent( imageNode, '.mceTemp' );
 
+
 	captionNode = _pbsToolbarImageGetParent( imageNode, '.mceTemp' );
+
+
 
 
 
 	if ( imageNode.parentNode && imageNode.parentNode.nodeName === 'A' && ! _pbsToolbarImageHasTextContent( imageNode.parentNode ) ) {
 
+
 		node = imageNode.parentNode;
+
 
 	} else {
 
+
 		node = imageNode;
 
+
 	}
+
+
 
 
 
 	// Find the main Text element
 
+
 	var textElement = null;
+
 
 	var currElement = node;
 
+
 	while ( currElement ) {
+
 
 		if ( currElement._ceElement ) {
 
+
 			textElement = currElement._ceElement;
+
 
 			break;
 
+
 		}
+
 
 		currElement = currElement.parentNode;
 
+
 	}
+
+
+
 
 
 
@@ -6819,65 +7406,97 @@ var _pbsUpdateNonCaptionedImage = function( imageNode, imageData ) {
 
 	// Captioned image.
 
+
 	var parent, index, newElem;
+
 
 	if ( imageData.caption ) {
 
 
 
+
+
 		id = imageData.attachment_id ? 'attachment_' + imageData.attachment_id : null;
+
 
 		align = 'align' + ( imageData.align || 'none' );
 
 
 
+
+
 		// Default data
+
 
 		var scData = {
 
+
 			tag: 'caption',
+
 
 			type: 'closed',
 
+
 			content: node.outerHTML + ' ' + imageData.caption,
+
 
 			attrs: {
 
+
 				id: id,
+
 
 				align: align,
 
+
 				width: width
 
+
 			}
+
 
 		};
 
 
 
+
+
 		// Generate the shortcode
+
 
 		var shortcode = new wp.shortcode( scData ).string();
 
+
 		parent = textElement.parent();
+
 
 		index = parent.children.indexOf( textElement );
 
 
 
+
+
 		shortcode = wp.shortcode.next( 'caption', shortcode, 0 );
+
 
 		newElem = ContentEdit.Shortcode.createShortcode( shortcode );
 
+
 		parent.attach( newElem, index );
+
 
 		parent.detach( textElement );
 
 
 
+
+
 		newElem.ajaxUpdate( true );
 
+
 		newElem.focus();
+
+
 
 
 
@@ -6885,49 +7504,75 @@ var _pbsUpdateNonCaptionedImage = function( imageNode, imageData ) {
 
 
 
+
+
 	} else {
+
+
 
 
 
 		// Normal image.
 
+
 		parent = textElement.parent();
+
 
 		index = parent.children.indexOf( textElement );
 
+
 		newElem = ContentEdit.Image.fromDOMElement( node );
+
 
 		parent.attach( newElem, index );
 
+
 		parent.detach( textElement );
+
 
 		newElem.focus();
 
+
 	}
+
 
 };
 
+
 var _pbsToolbarImageGetParent = function ( node, className ) {
+
 
 	while ( node && node.parentNode ) {
 
+
 		if ( node.className && ( ' ' + node.className + ' ' ).indexOf( ' ' + className + ' ' ) !== -1 ) {
 
+
 			return node;
+
 
 		}
 
 
 
+
+
 		node = node.parentNode;
+
 
 	}
 
 
 
+
+
 	return false;
 
+
 };
+
+
+
 
 
 
@@ -6937,205 +7582,309 @@ var _pbsUpdateNonCaptionedImageCTElement = function( imageNode, imageData ) {
 
 
 
+
+
 	var classes, id, attrs, linkAttrs, width, height, align;
+
+
 
 
 
 	// classes = tinymce.explode( imageData.extraClasses, ' ' );
 
+
 	classes = imageData.extraClasses.split( ' ' );
+
+
 
 
 
 	if ( ! classes ) {
 
+
 		classes = [];
 
+
 	}
+
+
 
 
 
 	if ( ! imageData.caption ) {
 
+
 		classes.push( 'align' + imageData.align );
 
+
 	}
+
+
 
 
 
 	if ( imageData.attachment_id ) {
 
+
 		classes.push( 'wp-image-' + imageData.attachment_id );
+
 
 		if ( imageData.size && imageData.size !== 'custom' ) {
 
+
 			classes.push( 'size-' + imageData.size );
+
 
 		}
 
+
 	}
+
+
 
 
 
 	width = imageData.width;
 
+
 	height = imageData.height;
+
+
 
 
 
 	if ( imageData.size === 'custom' ) {
 
+
 		width = imageData.customWidth;
+
 
 		height = imageData.customHeight;
 
+
 	}
+
+
 
 
 
 	attrs = {
 
+
 		src: imageData.url,
+
 
 		width: width || null,
 
+
 		height: height || null,
+
 
 		alt: imageData.alt,
 
+
 		title: imageData.title || null,
+
 
 		'class': classes.join( ' ' ) || null
 
+
 	};
+
+
 
 
 
 	// The aspect ratio might have changed.
 
+
 	imageNode._aspectRatio = height / width;
+
 
 	imageNode.size([width, height]);
 
 
 
+
+
 	// Add the classes
+
 
 	imageNode.removeCSSClass('alignleft');
 
+
 	imageNode.removeCSSClass('alignright');
+
 
 	imageNode.removeCSSClass('aligncenter');
 
+
 	imageNode.removeCSSClass('alignnone');
+
 
 	for ( var i = 0; i < classes.length; i++ ) {
 
+
 		if ( classes[ i ] ) {
+
 
 			imageNode.addCSSClass( classes[ i ] );
 
+
 		}
 
+
 	}
+
+
 
 
 
 	// Add the other attributes
 
+
 	for ( var key in attrs ) {
+
 
 		if ( ! attrs.hasOwnProperty( key ) ) {
 
+
 			continue;
 
+
 		}
+
 
 		if ( key === 'class' ) {
 
+
 			continue;
 
+
 		}
+
 
 		if ( attrs[ key ] !== null ) {
 
+
 			imageNode.attr( key, attrs[ key ] );
+
 
 		} else {
 
+
 			imageNode.removeAttr( key );
+
 
 		}
 
+
 	}
+
+
 
 
 
 	linkAttrs = {
 
+
 		href: imageData.linkUrl,
+
 
 		rel: imageData.linkRel || null,
 
+
 		target: imageData.linkTargetBlank ? '_blank': null,
 
+
 		'class': imageData.linkClassName || null
+
 
 	};
 
 
 
+
+
 	if ( imageNode.a ) {
+
 
 		if ( imageData.linkUrl ) {
 
+
 			// Update the attributes of the link
+
 
 			// dom.setAttribs( imageNode.parentNode, linkAttrs );
 
+
 			for ( key in linkAttrs ) {
+
 
 				if ( linkAttrs.hasOwnProperty( key ) ) {
 
+
 					if ( linkAttrs[ key ] !== null ) {
+
 
 						imageNode.a[ key ] = linkAttrs[ key ];
 
+
 					} else {
+
 
 						delete imageNode.a[ key ];
 
+
 					}
+
 
 				}
 
+
 			}
+
 
 		} else {
 
+
 			imageNode.a = null;
 
+
 		}
+
 
 	} else if ( imageData.linkUrl ) {
 
+
 		imageNode.a = {};
+
 
 		for ( key in linkAttrs ) {
 
+
 			if ( linkAttrs.hasOwnProperty( key ) ) {
+
 
 				if ( linkAttrs[ key ] !== null ) {
 
+
 					imageNode.a[ key ] = linkAttrs[ key ];
+
 
 				}
 
+
 			}
+
 
 		}
 
+
 	}
+
+
+
 
 
 
@@ -7143,59 +7892,88 @@ var _pbsUpdateNonCaptionedImageCTElement = function( imageNode, imageData ) {
 
 	// We always come from a non-captioned image, transform into a caption shortcode and
 
+
 	// never from a captioned image (that's another function)
+
 
 	if ( imageData.caption ) {
 
 
 
+
+
 		id = imageData.attachment_id ? 'attachment_' + imageData.attachment_id : null;
+
 
 		align = 'align' + ( imageData.align || 'none' );
 
 
 
+
+
 		// Default data
+
 
 		var scData = {
 
+
 			tag: 'caption',
+
 
 			type: 'closed',
 
+
 			content: imageNode.html() + ' ' + imageData.caption,
+
 
 			attrs: {
 
+
 				id: id,
+
 
 				align: align,
 
+
 				width: width
 
+
 			}
+
 
 		};
 
 
 
+
+
 		// Generate the shortcode
+
 
 		var shortcode = new wp.shortcode( scData );//.string();
 
 
 
+
+
 		var newElem = ContentEdit.Shortcode.createShortcode( wp.shortcode.next( 'caption', shortcode.string(), 0 ) );
+
 
 		var index = imageNode.parent().children.indexOf( imageNode );
 
+
 		imageNode.parent().attach( newElem, index );
+
 
 		imageNode.parent().detach( imageNode );
 
+
 		newElem.ajaxUpdate( true );
 
+
 		return;
+
+
 
 
 
@@ -7203,7 +7981,12 @@ var _pbsUpdateNonCaptionedImageCTElement = function( imageNode, imageData ) {
 
 
 
+
+
 };
+
+
+
 
 
 
@@ -7211,25 +7994,37 @@ var _pbsUpdateNonCaptionedImageCTElement = function( imageNode, imageData ) {
 
 // From js/tinymce/plugins/wpeditimage/plugin.js
 
+
 var _pbsImageGetMetaData = function( img ) {
+
+
 
 
 
 	// Modified from extractImageData() in plugin.js
 
+
 	var attachmentID = img.getAttribute('class').match(/wp-image-(\d+)/);
+
 
 	var align = img.getAttribute('class').match(/align(\w+)/);
 
+
 	var size = img.getAttribute('class').match(/size-(\w+)/);
+
 
 	var i;
 
 
 
+
+
 	var tmpClasses = img.getAttribute('class').split(' ');
 
+
 	var extraClasses = [];
+
+
 
 
 
@@ -7237,83 +8032,124 @@ var _pbsImageGetMetaData = function( img ) {
 
 
 
+
+
 	// Extract classes on Image Elements
+
 
 	if ( img._ceElement ) {
 
+
 		if ( img._ceElement.a && img._ceElement.a['class'] ) {
+
 
 			var aClasses = img._ceElement.a['class'].split(' ');
 
+
 			for ( i = 0; i < aClasses.length; i++ ) {
+
 
 				if ( ! aClasses[ i ].match(classRegex) ) {
 
+
 					extraClasses.push( aClasses[ i ] );
+
 
 				}
 
+
 			}
+
 
 		}
 
+
 	}
+
+
 
 
 
 	for ( i = 0; i < tmpClasses.length; i++ ) {
 
+
 		if ( ! tmpClasses[ i ].match(classRegex) ) {
+
 
 			extraClasses.push( tmpClasses[ i ] );
 
+
 		}
+
 
 	}
 
 
 
+
+
 	var metadata = {
+
 
 		attachment_id: attachmentID ? attachmentID[1] : false,
 
+
 		size: size ? size[1] : 'custom',
+
 
 		caption: '',
 
+
 		align: align ? align[1] : 'none',
+
 
 		extraClasses: extraClasses.join(' '),
 
+
 		link: false,
+
 
 		linkUrl: '',
 
+
 		linkClassName: '',
+
 
 		linkTargetBlank: false,
 
+
 		linkRel: '',
+
 
 		title: ''
 
+
 	};
+
 
 	metadata.url = img.getAttribute('src');
 
+
 	metadata.alt = img.getAttribute('alt');
+
 
 	metadata.title = img.getAttribute('title');
 
 
 
+
+
 	var width = img.getAttribute('width');
+
 
 	var height = img.getAttribute('height');
 
 
 
+
+
 	metadata.customWidth = metadata.width = width;
+
 
 	metadata.customHeight = metadata.height = height;
 
@@ -7321,49 +8157,75 @@ var _pbsImageGetMetaData = function( img ) {
 
 
 
+
+
+
 	// Extract caption
+
 
 	var captionClassName = [];
 
+
 	var captionBlock = img.parentNode;
+
 
 	while ( captionBlock !== null && typeof captionBlock.classList !== 'undefined' ) {
 
 
 
+
+
 		if ( captionBlock.classList.contains( 'wp-caption' ) ) {
+
 
 			break;
 
+
 		}
 
+
 		captionBlock = captionBlock.parentNode;
+
 
 	}
 
 
 
+
+
 	if ( captionBlock && captionBlock.classList ) {
+
 
 		var classes = captionBlock.classList;
 
 
 
+
+
 		for ( i = 0; i < classes.length; i++ ) {
+
 
 			var c = classes.item( i );
 
+
 			if ( /^align/.test( c ) ) {
+
 
 				metadata.align = c.replace( 'align', '' );
 
+
 			} else if ( c && c !== 'wp-caption' ) {
+
 
 				captionClassName.push( c );
 
+
 			}
 
+
 		}
+
+
 
 
 
@@ -7371,57 +8233,88 @@ var _pbsImageGetMetaData = function( img ) {
 
 
 
+
+
 		var caption = captionBlock.querySelector('.wp-caption-text');
+
 
 		if ( caption ) {
 
+
 			metadata.caption = caption.innerHTML.replace( /<br[^>]*>/g, '$&\n' ).replace( /^<p>/, '' ).replace( /<\/p>$/, '' );
+
 
 		}
 
+
 	}
+
+
 
 
 
 	// Extract linkTo
 
+
 	if ( img.parentNode && img.parentNode.nodeName === 'A' ) {
+
 
 		var link = img.parentNode;
 
+
 		metadata.linkUrl = link.getAttribute( 'href' );
+
 
 		metadata.linkTargetBlank = link.getAttribute( 'target' ) === '_blank' ? true : false;
 
+
 		metadata.linkRel = link.getAttribute( 'rel' );
+
 
 		metadata.linkClassName = link.className;
 
+
 	}
+
 
 	// Extract linkTo for Image Elements
 
+
 	if ( img._ceElement ) {
+
 
 		if ( img._ceElement.a ) {
 
+
 			metadata.linkUrl = img._ceElement.a.href;
+
 
 			metadata.linkTargetBlank = img._ceElement.a.target === '_blank' ? true : false;
 
+
 			metadata.linkRel = img._ceElement.a.rel;
+
 
 			metadata.linkClassName = img._ceElement.a['class'];
 
+
 		}
 
+
 	}
+
+
 
 
 
 	return metadata;
 
+
 };
+
+
+
+
 
 
 
@@ -7431,105 +8324,156 @@ var _pbsImageGetMetaData = function( img ) {
 
 // Upon load, unwrap all images from their paragraph tags so that they can all be rendered as Image Elements.
 
+
 /**
+
 
 Scenarios:
 
+
 <p><img>blahblah</p> --> <img><p>blahblah</p>
+
 
 <p>start<img>end</p> --> <p>start</p><img><p>end</p>
 
+
 */
+
 
 window.addEventListener( 'DOMContentLoaded', function() {
 
+
 	if ( ! document.querySelector('[data-name="main-content"]') ) {
+
 
 		return;
 
+
 	}
+
+
 
 
 
 	var editableArea = document.querySelector('[data-name="main-content"]');
 
+
 	var selector = 'a:not([data-ce-tag]) > img.alignright, a:not([data-ce-tag]) > img.alignleft, a:not([data-ce-tag]) > img.aligncenter, a:not([data-ce-tag]) > img.alignnone, p > img.alignright, p > img.alignleft, p > img.aligncenter, p > img.alignnone';
+
+
 
 
 
 	while ( editableArea.querySelector( selector ) ) {
 
+
 		var el = editableArea.querySelector( selector );
+
 
 		var mainImageNode = el;
 
+
 		if ( el.parentNode.tagName === 'A' ) {
+
 
 			mainImageNode = el.parentNode;
 
+
 			mainImageNode.setAttribute('data-ce-tag', 'img');
 
+
 		}
+
+
 
 
 
 		if ( mainImageNode.parentNode.tagName === 'P' ) {
 
+
 			var p = mainImageNode.parentNode;
+
 
 			var startingIndex = p.innerHTML.indexOf( mainImageNode.outerHTML );
 
+
 			var endingIndex = startingIndex + mainImageNode.outerHTML.length;
 
+
 			var tip = p.innerHTML.substr(0, startingIndex).trim();
+
 
 			var tail = p.innerHTML.substr(endingIndex).trim();
 
 
 
+
+
 			var newContent = '';
+
 
 			var clonedPNode;
 
+
 			if ( tip !== '' ) {
 
+
 				clonedPNode = p.cloneNode();
+
 
 				clonedPNode.innerHTML = tip;
 
+
 				newContent += clonedPNode.outerHTML;
 
+
 			}
+
 
 			newContent += mainImageNode.outerHTML;
 
+
 			if ( tail !== '' ) {
+
 
 				clonedPNode = p.cloneNode();
 
+
 				clonedPNode.innerHTML = tail;
+
 
 				newContent += clonedPNode.outerHTML;
 
+
 			}
+
 
 			p.outerHTML = newContent;
 
+
 		}
 
+
 	}
+
+
 
 
 
 	// WordPress adds br tags after images in certain scenario, remove them
 
+
 	// since we do not need them.
+
 
 	while ( editableArea.querySelector('img ~ br, [data-ce-tag="img"] ~ br') ) {
 
+
 		editableArea.querySelector('img ~ br, [data-ce-tag="img"] ~ br').remove();
 
+
 	}
+
 
 });
 
@@ -7537,51 +8481,77 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 
 
+
+
+
 /*******************************************************************************
+
 
  * Clean image tags on saving.
 
+
  *******************************************************************************/
+
 
 wp.hooks.addFilter( 'pbs.save', function( html ) {
 
 
 
+
+
 	// Remove the data-ce-tag="img" left by CT.
+
 
 	html = html.replace( /\sdata-ce-tag=["']img["']/g, '' );
 
 
 
+
+
 	// Remove the empty class left by CT.
+
 
 	html = html.replace( /(<a[^>]*)\sclass((\s|>)[^>]*>)/g, '$1$2' );
 
 
 
+
+
 	// Put back images inside paragraph tags.
+
 
 	html = html.replace( /((<a[^>]+>\s*)?<img[^>]*>(\s*<\/a>)?)\s*(<p[^>]*>)/g, '$4$1' );
 
 
 
+
+
 	// Wrap images which aren't inside paragraph tags inside paragraph tags.
 
+
 	html = html.replace( /(<[^pa][^>]*>\s*)(<img[^>]*>)/g, '$1<p>$2</p>' );
+
 
 	html = html.replace( /(<[^p][^>]*>\s*)(<a[^>]+>\s*<img[^>]*>\s*<\/a>)/g, '$1<p>$2</p>' );
 
 
 
+
+
 	// Remove br tags after images since WP sometimes adds them.
+
 
 	html = html.replace( /((<a[^>]+>\s*)?<img[^>]*>(\s*<\/a>)?)\s*(<br[^>]*>)*/g, '$1' );
 
 
 
+
+
 	return html;
 
+
 } );
+
 
 
 /**
@@ -7609,6 +8579,26 @@ wp.hooks.addFilter( 'pbs.toolbar.shortcode.label', function( scBase ) {
 		return pbsParams.labels.widget;
 	}
 	return scBase;
+} );
+
+
+/**
+ * Widgets which are (previously) used in the content, but have been disabled in the site will still
+ * show up in the content. Their templates would not be available anymore, this would cause
+ * errors, so override the section creation and disable it.
+ *
+ * Instead of displaying the widget settings in the inspector, it now reverts to just a normal shortcode.
+ */
+wp.hooks.addFilter( 'pbs.inspector.do_add_section_options', function( doContinue, optionName, model, divGroup, element, toolboxUI ) {
+	if ( optionName === 'widgetSettings' && model && model.attributes && model.attributes.widget ) {
+
+		// doContinue = true only if the widget template is there.
+		doContinue = !! document.querySelector( '#tmpl-pbs-widget-' + model.attributes.widget );
+		if ( ! doContinue ) {
+			toolboxUI.addGenericShortcodeOptions( divGroup, element );
+		}
+	}
+	return doContinue;
 } );
 
 /**
@@ -7940,10 +8930,47 @@ window.addEventListener( 'DOMContentLoaded', function() {
  */
 window.addEventListener( 'DOMContentLoaded', function() {
 
+	// Only do this if the editor is present.
 	if ( ! document.querySelector( '[data-name="main-content"]' ) ) {
 		return;
 	}
 
+
+	/**
+	 * Appends all the widget templates into the page.
+	 */
+	var appendWidgetTemplates = function( ajaxResponse ) {
+
+		// Store it so we won't have to do this next time.
+		localStorage.setItem( 'pbs_get_widget_templates_hash', pbsParams.widget_list_hash );
+		localStorage.setItem( 'pbs_get_widget_templates', ajaxResponse );
+
+		// Append the templates into the body.
+		var dummy = document.createElement( 'DIV' );
+		dummy.innerHTML = ajaxResponse;
+
+		while ( dummy.firstChild ) {
+			document.body.appendChild( dummy.firstChild );
+		}
+	};
+
+
+	/**
+	 * Check if we have a stored set of widget templates from a previous page load,
+	 * use those to make things faster.
+	 */
+	var storedWidgetHash = localStorage.getItem( 'pbs_get_widget_templates_hash' );
+	var storedWidgets = localStorage.getItem( 'pbs_get_widget_templates' );
+
+	if ( storedWidgetHash === pbsParams.widget_list_hash && storedWidgets ) {
+		appendWidgetTemplates( storedWidgets );
+		return;
+	}
+
+
+	/**
+	 * Perform an ajax call to get all the widget templates.
+	 */
 	var payload = new FormData();
 	payload.append( 'action', 'pbs_get_widget_templates' );
 	payload.append( 'nonce', pbsParams.widget_nonce );
@@ -7952,15 +8979,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 	xhr.onload = function() {
 		if (xhr.status >= 200 && xhr.status < 400) {
-
-			// Append the templates into the body.
-			var dummy = document.createElement( 'DIV' );
-			dummy.innerHTML = xhr.responseText;
-
-			while ( dummy.firstChild ) {
-				document.body.appendChild( dummy.firstChild );
-			}
-		} else {
+			appendWidgetTemplates( xhr.responseText );
 		}
 	};
 
@@ -8123,7 +9142,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 	// When something's focused, trigger the inspector to update
 	ContentEdit.Root.get().bind('focus', function ( element ) {
-		var editor = ContentTools.EditorApp.get();
+		// var editor = ContentTools.EditorApp.get();
 
 		if ( ! element.isFocused() ) {
 			if ( element.focus ) {
@@ -8144,7 +9163,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 	// When something's focused, trigger the inspector to update
 	ContentEdit.Root.get().bind('drop', function ( element ) {
-		var editor = ContentTools.EditorApp.get();
+		// var editor = ContentTools.EditorApp.get();
 
 		if ( ! element.isFocused() ) {
 			if ( element.focus ) {
@@ -8172,8 +9191,8 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			// Remember the scroll position.
 			window._inspectorOrigScrollTop = document.querySelector('.ct-toolbox').scrollTop;
 
-			var editor = ContentTools.EditorApp.get();
-			editor._toolbox.clearSections();
+			// var editor = ContentTools.EditorApp.get();
+			// editor._toolbox.clearSections();
 		}, 1 );
 
 	});
@@ -8201,6 +9220,7 @@ ContentTools.ToolboxUI.prototype.mount = function() {
 		var heading = document.createElement('div');
 		heading.innerHTML = label;
 		heading.classList.add( 'pbs-group-title' );
+		heading.classList.add( 'pbs-collapsable-title' );
 		heading.classList.add( cls + '-title' );
 		group.insertBefore( heading, group.firstChild );
 		wp.hooks.doAction( 'inspector.group_title.create', group );
@@ -8265,8 +9285,21 @@ ContentTools.ToolboxUI.prototype.addSectionOptions = function( divGroup, option,
 					subGroup.setAttribute( 'data-subgroup', subGroupName );
 					divGroup.appendChild( subGroup );
 
+					// Create the group title (subtitle)
 					if ( option.group !== 'default' ) {
 						subGroup.innerHTML = '<div class="pbs-option-subtitle pbs-tool-option">' + option.group + '</div>';
+
+						// For shortcodes, groupings are accordions. Make it collapsable.
+						if ( element.constructor.name === 'Shortcode' ) {
+							subGroup.firstChild.classList.add( 'pbs-collapsable-title' );
+
+							// Grouping is applied to shortcodes to make them into an accordion,
+							// Opening one, closes all the other settings.
+							subGroup.setAttribute( 'data-collapse-group', element.constructor.name.toLowerCase() );
+							if ( divGroup.querySelectorAll( '[data-subgroup]' ).length > 1 ) {
+								window.pbsCollapseSection( subGroup );
+							}
+						}
 					}
 				}
 				subGroup.appendChild( optionWrapper );
@@ -8290,6 +9323,10 @@ ContentTools.ToolboxUI.prototype.addSectionOptions = function( divGroup, option,
 
 			}
 
+			if ( ! wp.hooks.applyFilters( 'pbs.inspector.do_add_section_options', true, optionName, model, divGroup, element, this ) ) {
+				return;
+			}
+
 			// this._domInspector.insertBefore( optionWrapper, this._domInspector.firstChild );
 			var o = new PBSOption[ optionName ]({
 				optionSettings: option,
@@ -8298,10 +9335,188 @@ ContentTools.ToolboxUI.prototype.addSectionOptions = function( divGroup, option,
 			});
 			_pbsCreatedViews.push( o.render() );
 
+			divGroup.view = o;
+
+			// Dependency.
+			this.applyOptionDependencies( o );
+
 			return;
 		}
 	}
+
 };
+
+
+ContentTools.ToolboxUI.prototype.applyOptionDependencies = function( view ) {
+	if ( ! view.optionSettings.depends ) {
+		return;
+	}
+
+	// We need an array for the input.
+	var depends = view.optionSettings.depends;
+	if ( typeof depends.length !== 'number' ) {
+		depends = [ depends ];
+	}
+
+	// Listen to changes on attributes we are dependent on.
+	view.listenTo( view.model, 'change', function() {
+		var allConditions = [];
+		for ( var i = 0; i < depends.length; i++ ) {
+			if ( ! depends[ i ].id || ! depends[ i ].value ) {
+				continue;
+			}
+
+			var id = depends[ i ].id;
+			var value = depends[ i ].value;
+			var currentValue = this.model.get( id );
+			var makeVisible = false;
+
+			// Put all normal strings into an array to combine the checking process later on for strings..
+			// Turn all value: 'string' into value: [ 'string' ]
+			if ( typeof value === 'string' ) {
+				if ( value.toLowerCase().trim() !== '__not_empty' && value.toLowerCase().trim() !== '__empty' && ! value.match( /^(>=?|<=?|==|!=)(.*)/ ) ) {
+					value = [ value ];
+				}
+			}
+
+			/**
+			 * Checkers.
+			 */
+
+			// value: false
+			if ( value === false || ( typeof value === 'string' && value.toLowerCase().trim() === 'false' ) ) {
+				if ( typeof currentValue === 'undefined' ) {
+					makeVisible = true;
+				} else if ( typeof currentValue === 'string' && currentValue.toLowerCase().trim() === 'false' ) {
+					makeVisible = true;
+				} else if ( typeof currentValue === 'string' && currentValue.toLowerCase().trim() === '' ) {
+					makeVisible = true;
+				} else if ( typeof currentValue === 'boolean' && ! currentValue ) {
+					makeVisible = true;
+				} else if ( ! currentValue ) {
+					makeVisible = true;
+				}
+
+			// value: true
+			} else if ( value === true || ( typeof value === 'string' && value.toLowerCase().trim() === 'true' ) ) {
+				if ( typeof currentValue === 'string' && currentValue.toLowerCase().trim() === 'true' ) {
+					makeVisible = true;
+				} else if ( typeof currentValue === 'boolean' && currentValue ) {
+					makeVisible = true;
+				} else if ( currentValue ) {
+					makeVisible = true;
+				}
+
+			// value: [ string, ... ]
+			} else if ( typeof value === 'object' && typeof value.length === 'number' ) {
+				var k;
+				var brokenByUnmatch = false;
+				var onceMatched = false;
+				var allNegatives = true;
+				for ( k = 0; k < value.length; k++ ) {
+					if ( ! value[ k ].match( /^!(.*)/ ) ) {
+						allNegatives = false;
+						break;
+					}
+				}
+				for ( k = 0; k < value.length; k++ ) {
+					if ( value[ k ].match( /^!(.*)/ ) ) {
+						var text = value[ k ].match( /^!(.*)/ );
+						text = text[1];
+						if ( text === currentValue ) {
+							brokenByUnmatch = true;
+							break;
+						}
+					} else {
+						if ( value[ k ] === currentValue ) {
+							onceMatched = true;
+							break;
+						}
+					}
+				}
+
+				if ( allNegatives && ! brokenByUnmatch ) {
+					makeVisible = true;
+				} else if ( ! brokenByUnmatch && onceMatched ) {
+					makeVisible = true;
+				}
+
+			// value: '__not_empty'
+			} else if ( value.toLowerCase().trim() === '__not_empty' ) {
+				if ( typeof currentValue === 'string' && currentValue.trim() !== '' ) {
+					makeVisible = true;
+				} else if ( typeof currentValue === 'boolean' && currentValue ) {
+					makeVisible = true;
+				}
+
+			// value: '__empty'
+			} else if ( value.toLowerCase().trim() === '__empty' ) {
+				if ( typeof currentValue === 'undefined' ) {
+					makeVisible = true;
+				} else if ( currentValue.trim() === '' ) {
+					makeVisible = true;
+				}
+
+			// value: '<num', '<=num', '>num', '>=num', '==num', '!=num'
+			} else if ( value.match( /^(>=?|<=?|==|!=)(.*)/ ) ) {
+				var matches = value.match( /^(>=?|<=?|==|!=)(.*)/ );
+				var operator = matches[1];
+				var num = matches[2];
+
+				if ( num.match( /\./ ) ) {
+					num = parseFloat( num );
+				} else {
+					num = parseInt( num, 10 );
+				}
+
+				if ( typeof currentValue === 'undefined' ) {
+					currentValue = 0;
+				} else if ( currentValue.match( /\./ ) ) {
+					currentValue = parseFloat( currentValue );
+				} else {
+					currentValue = parseInt( currentValue, 10 );
+				}
+
+				if ( operator === '<' ) {
+					makeVisible = currentValue < num;
+				} else if ( operator === '<=' ) {
+					makeVisible = currentValue <= num;
+				} else if ( operator === '>' ) {
+					makeVisible = currentValue > num;
+				} else if ( operator === '>=' ) {
+					makeVisible = currentValue >= num;
+				} else if ( operator === '!=' ) {
+					makeVisible = currentValue !== num;
+				} else {
+					makeVisible = currentValue === num;
+				}
+
+			}
+
+			allConditions.push( makeVisible );
+		}
+
+		// Check if all the dependencies are met.
+		var allTrue = true;
+		for ( i = 0; i < allConditions.length; i++ ) {
+			if ( ! allConditions[ i ] ) {
+				allTrue = false;
+			}
+		}
+
+		// Hide or show the option.
+		if ( allTrue ) {
+			this.$el.fadeIn();
+		} else {
+			this.$el.fadeOut();
+		}
+
+
+	} );
+
+	view.model.trigger( 'change', view.model );
+};
+
 
 ContentTools.ToolboxUI.prototype.addGenericShortcodeOptions = function( divGroup, element ) {
 
@@ -8358,13 +9573,19 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 	if ( this._previouslySelectedElement === domElement ) {
 		return;
 	}
-	this.clearSections();
+
+	this._newGroups = [];
+	this._currentGroupIndex = 0;
+	if ( typeof this._oldGroups === 'undefined' ) {
+		this._oldGroups = [];
+	}
+
+	// this.clearSections();
 	this._previouslySelectedElement = domElement;
 
 	if ( typeof this._domInspectorGroups === 'undefined' ) {
 		this._domInspectorGroups = [];
 	}
-
 
 	/**
 	 * Create the inspector for the first DOM element selected if possible.
@@ -8406,26 +9627,19 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 
 			// Create the group.
 			group = this.constructor.createDiv( ['ct-tool-group', 'pbs-inspector-group', 'pbs-dom-group'] );
-			this._domElement.appendChild( group );
-			this._domInspectorGroups.push( group );
+			group.groupType = matchedPattern;
 
 			// Create the title.
 			heading = document.createElement('DIV');
 			heading.classList.add( 'pbs-group-title' );
+			heading.classList.add( 'pbs-collapsable-title' );
 			heading.classList.add( 'pbs-dom-title' );
 			heading.innerHTML = pbsParams.labels.inspector_title.replace( '%s', label );
 			group.insertBefore( heading, group.firstChild );
 
 			wp.hooks.doAction( 'inspector.group_title.create', group );
+			this.placeGroup( group );
 
-			// Animate the show effect.
-			group.classList.add( 'pbs-inspector-hide' );
-			group.delayedShow = function() {
-				setTimeout( function() {
-					this.classList.remove( 'pbs-inspector-hide' );
-				}.bind( this ), 100 );
-			};
-			group.delayedShow();
 
 			currElemModel = new Backbone.Model({
 				element: currDomElement
@@ -8481,11 +9695,12 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 
 
 	var finishedElemTypes = [];
+	var currElemModel;
 	for ( i = 0; i < hierarchy.length; i++ ) {
 		currElem = hierarchy[ i ];
 
 		var elemType = currElem.constructor.name;
-		var currElemModel, groupClasses;
+		var groupClasses;
 
 		elemType = wp.hooks.applyFilters( 'pbs.inspector.elemtype', elemType, currElem );
 
@@ -8520,26 +9735,19 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 			groupClasses.push( 'pbs-shortcode-' + currElem.sc_base + '-group' );
 		}
 		group = this.constructor.createDiv( groupClasses );
-		this._domElement.appendChild( group );
-		this._domInspectorGroups.push( group );
+		group.groupType = elemType;
 
 		// Create the title.
 		heading = document.createElement('DIV');
 		heading.classList.add( 'pbs-group-title' );
+		heading.classList.add( 'pbs-collapsable-title' );
 		heading.classList.add( 'pbs-' + currElem.cssTypeName() + '-title' );
 		heading.innerHTML = pbsParams.labels.inspector_title.replace( '%s', label );
 		group.insertBefore( heading, group.firstChild );
 
 		wp.hooks.doAction( 'inspector.group_title.create', group );
+		this.placeGroup( group );
 
-		// Animate the show effect.
-		group.classList.add( 'pbs-inspector-hide' );
-		group.delayedShow = function() {
-			setTimeout( function() {
-				this.classList.remove( 'pbs-inspector-hide' );
-			}.bind( this ), 100 );
-		};
-		group.delayedShow();
 
 		// Create the options.
 		if ( elemType === 'Shortcode' ) {
@@ -8585,15 +9793,40 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 		}
 	}
 
-	/*
-	// Scroll to the inspector area.
-	if ( document.querySelector('.pbs-inspector-group') ) {
-		var topPos = document.querySelector('.pbs-inspector-group').offsetTop;
-		setTimeout( function() {
-			jQuery( '.ct-toolbox' ).animate({ scrollTop: topPos }, 400);
-		}, 50 );
+
+
+
+	for ( i = 0; i < this._oldGroups.length; i++ ) {
+		var oldGroup = this._oldGroups[ i ];
+		if ( typeof oldGroup.view !== 'undefined' ) {
+			// oldGroup.view.remove();
+		}
+
+
+
+		oldGroup.style.height = window.getComputedStyle( oldGroup ).height;
+		oldGroup.style.webkitTransition = 'height .3s ease-in-out';
+		oldGroup.style.mozTransition = 'height .3s ease-in-out';
+		oldGroup.style.msTransition = 'height .3s ease-in-out';
+		oldGroup.style.transition = 'height .3s ease-in-out';
+		oldGroup.style.overflow = 'hidden';
+		oldGroup.offsetHeight; // force repaint
+		oldGroup.style.height = 0;
+		oldGroup.addEventListener('transitionend', function transitionEnd(event) {
+			if (event.propertyName === 'height') {
+				this.removeEventListener('transitionend', transitionEnd, false);
+				if ( typeof this.view !== 'undefined' ) {
+					this.view.remove();
+				}
+				this.parentNode.removeChild( this );
+			}
+		}.bind(oldGroup), false);
 	}
-	*/
+	this._oldGroups = [];
+	while ( this._newGroups.length ) {
+		this._oldGroups.push( this._newGroups.pop() );
+	}
+
 };
 
 ContentTools.ToolboxUI.prototype.clearSections = function() {
@@ -8611,6 +9844,112 @@ ContentTools.ToolboxUI.prototype.clearSections = function() {
 	}
 
 	this._previouslySelectedElement = null;
+};
+
+
+/**
+ * Places the section/group in the inspector.
+ * If a similar group already exists (same type), then replace it's contents & resize it
+ * If it's a new group, add it and animate it.
+ */
+ContentTools.ToolboxUI.prototype.placeGroup = function( group ) {
+	this._newGroups.push( group );
+
+	// Check the existing groups and replace if it already exists.
+	for ( var i = 0; i < this._oldGroups.length; i++ ) {
+		var oldGroup = this._oldGroups[ i ];
+		if ( oldGroup.groupType === group.groupType ) {
+			var startHeight = getComputedStyle( oldGroup ).height;
+			group.style.overflow = 'hidden';
+			group.style.height = startHeight;
+
+			if ( typeof oldGroup.view !== 'undefined' ) {
+				oldGroup.view.remove();
+			}
+			this._domElement.replaceChild( group, oldGroup );
+			this._currentGroupIndex = i + 1;
+			this._oldGroups.splice( i, 1 );
+
+			setTimeout( function() { // jshint ignore:line
+				this.style.height = 'auto';
+				var endHeight = getComputedStyle(this).height;
+				if ( this.classList.contains('pbs-collapse') ) {
+					endHeight = getComputedStyle( this.querySelector( '.pbs-group-title' ) ).height;
+				}
+				this.style.height = startHeight;
+				this.offsetHeight; // force repaint
+				this.style.webkitTransition = 'height .3s ease-in-out';
+				this.style.mozTransition = 'height .3s ease-in-out';
+				this.style.msTransition = 'height .3s ease-in-out';
+				this.style.transition = 'height .3s ease-in-out';
+				this.style.overflow = 'hidden';
+				this.style.height = endHeight;
+
+				var didTransition = false;
+				this.addEventListener('transitionend', function transitionEnd(event) {
+					if (event.propertyName === 'height') {
+						this.style.webkitTransition = '';
+						this.style.mozTransition = '';
+						this.style.msTransition = '';
+						this.style.transition = '';
+						if ( ! this.classList.contains('pbs-collapse') ) {
+							this.style.height = 'auto';
+							this.style.overflow = 'visible'; // Allow tooltips to overflow.
+						}
+						didTransition = true;
+						this.removeEventListener('transitionend', transitionEnd, false);
+					}
+				}, false);
+
+				// If another same element was previously selected, the transition above will not
+				// trigger. Make sure the container can overflow or else our colorpickers and
+				// tooltips will not display.
+				setTimeout( function() {
+					if ( ! didTransition && this ) {
+						this.style.overflow = 'visible';
+					}
+				}.bind( this ), 350 );
+
+			}.bind( group ), 1 );
+
+			return;
+		}
+	}
+
+	// Add the new group.
+	group.style.height = 0;
+	group.style.overflow = 'hidden';
+	this._domElement.insertBefore( group, this._domElement.querySelectorAll( '.ct-tool-group' )[ this._currentGroupIndex + 1 ] );
+	this._currentGroupIndex++;
+
+	setTimeout( function() {
+		this.style.height = 'auto';
+		var endHeight = getComputedStyle(this).height;
+		if ( this.classList.contains('pbs-collapse') ) {
+			endHeight = getComputedStyle( this.querySelector( '.pbs-group-title' ) ).height;
+		}
+		this.style.height = 0;
+		this.offsetHeight; // force repaint
+		this.style.webkitTransition = 'height .3s ease-in-out';
+		this.style.mozTransition = 'height .3s ease-in-out';
+		this.style.msTransition = 'height .3s ease-in-out';
+		this.style.transition = 'height .3s ease-in-out';
+		this.style.overflow = 'hidden';
+		this.style.height = endHeight;
+		this.addEventListener('transitionend', function transitionEnd(event) {
+			if (event.propertyName === 'height') {
+				this.style.webkitTransition = '';
+				this.style.mozTransition = '';
+				this.style.msTransition = '';
+				this.style.transition = '';
+				if ( ! this.classList.contains('pbs-collapse') ) {
+					this.style.height = 'auto';
+					this.style.overflow = 'visible'; // Allow tooltips to overflow.
+				}
+				this.removeEventListener('transitionend', transitionEnd, false);
+			}
+		}, false);
+	}.bind( group ), 1 );
 };
 
 
@@ -8685,6 +10024,15 @@ window.pbsCollapseSection = function( section ) {
 
 	// Do collapse animation.
 	if ( section.classList.contains( 'pbs-collapse' ) ) {
+
+		// If data-collapse-group is present, then this means that the collapsable area
+		// should act like an accordion.
+		if ( section.getAttribute( 'data-collapse-group' ) ) {
+			var openSections = document.querySelectorAll( '[data-collapse-group="' + section.getAttribute( 'data-collapse-group' ) + '"]:not(.pbs-collapse)' );
+			Array.prototype.forEach.call( openSections, function(el) {
+				window.pbsCollapseSection( el );
+			});
+		}
 
 		var prevHeight = section.style.height;
 		section.style.height = 'auto';
@@ -8798,14 +10146,14 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	// Handler for collapsing / uncollapsing.
 	document.addEventListener('click', function(ev) {
 		var section = ev.target;
-		if ( ! ev.target.classList.contains( 'pbs-group-title' ) ) {
+		if ( ! ev.target.classList.contains( 'pbs-collapsable-title' ) ) {
 			if ( ! ev.target.parentNode ) {
 				return;
 			}
 			if ( ! ev.target.parentNode.classList ) {
 				return;
 			}
-			if ( ! ev.target.parentNode.classList.contains( 'pbs-group-title' ) ) {
+			if ( ! ev.target.parentNode.classList.contains( 'pbs-collapsable-title' ) ) {
 				return;
 			}
 			section = ev.target.parentNode.parentNode;
@@ -9452,15 +10800,15 @@ PBSOption.Color = Backbone.View.extend({
 		if ( popup.style.display === 'block' ) {
 			popup.style.display = '';
 		} else {
+			// Let others know that we're going to open a popup.
+			wp.hooks.doAction( 'pbs.tool.popup.open' );
 			popup.style.display = 'block';
 		}
 
-		otherPopups = document.querySelectorAll( '.pbs-color-popup' );
-		Array.prototype.forEach.call( otherPopups, function( el ) {
-			if ( el !== popup ) {
-				el.style.display = '';
-			}
-		} );
+		// Close popup if other popups open.
+		wp.hooks.addAction( 'pbs.tool.popup.open', function() {
+			popup.style.display = '';
+		}.bind(this));
 	},
 
 	hidePicker: function() {
@@ -9748,7 +11096,7 @@ PBSOption.MarginsAndPaddings = Backbone.View.extend({
 			e.target.value = match[1] + match[2];
 
 			// Fire the change
-			e.target.dispatchEvent( new Event( 'change' ) );
+			e.target.dispatchEvent( new CustomEvent( 'change' ) );
 		}
 	},
 
@@ -10169,6 +11517,7 @@ window.pbsAddInspector('divider_arrow', {
 			'type': 'color',
 			'id': 'color',
 			'desc': 'The divider&apos;s color',
+			'group': 'Colors',
 			'default': ''
 		},
 		{
@@ -10176,6 +11525,7 @@ window.pbsAddInspector('divider_arrow', {
 			'type': 'color',
 			'id': 'bgcolor',
 			'desc': 'The divider&apos;s background color',
+			'group': 'Colors',
 			'default': ''
 		},
 		{
@@ -10183,6 +11533,7 @@ window.pbsAddInspector('divider_arrow', {
 			'type': 'text',
 			'id': 'widthleft',
 			'desc': 'in px',
+			'group': 'Arrow',
 			'default': ''
 		},
 		{
@@ -10190,6 +11541,7 @@ window.pbsAddInspector('divider_arrow', {
 			'type': 'text',
 			'id': 'widthright',
 			'desc': 'in px',
+			'group': 'Arrow',
 			'default': ''
 		},
 		{
@@ -10197,6 +11549,7 @@ window.pbsAddInspector('divider_arrow', {
 			'type': 'text',
 			'id': 'height',
 			'desc': 'in px',
+			'group': 'Arrow',
 			'default': '30'
 		},
 		{
@@ -10204,6 +11557,7 @@ window.pbsAddInspector('divider_arrow', {
 			'type': 'text',
 			'id': 'horizontal',
 			'desc': 'add units, e.g. px or %',
+			'group': 'Arrow',
 			'default': ''
 		},
 		{
@@ -10211,6 +11565,7 @@ window.pbsAddInspector('divider_arrow', {
 			'type': 'text',
 			'id': 'offset',
 			'desc': 'in px',
+			'group': 'Arrow',
 			'default': ''
 		},
 		{
@@ -10222,6 +11577,7 @@ window.pbsAddInspector('divider_arrow', {
 				'up': 'Up Arrow'
 			},
 			'desc': 'The direction of the arrow',
+			'group': 'Arrow',
 			'default': 'down'
 		},
 		{
@@ -10229,6 +11585,7 @@ window.pbsAddInspector('divider_arrow', {
 			'type': 'text',
 			'id': 'thickness',
 			'desc': 'in px',
+			'group': 'Line',
 			'default': ''
 		},
 		{
@@ -10236,13 +11593,21 @@ window.pbsAddInspector('divider_arrow', {
 			'type': 'color',
 			'id': 'linecolor',
 			'desc': '',
-			'default': ''
+			'group': 'Line',
+			'default': '',
+			'depends': [
+				{
+					'id': 'thickness',
+					'value': '__not_empty'
+				}
+			]
 		},
 		{
 			'name': 'Optional Class',
 			'type': 'text',
 			'id': 'class',
 			'desc': '',
+			'group': 'Advanced',
 			'default': ''
 		},
 		{
@@ -10262,6 +11627,7 @@ window.pbsAddInspector('divider_arrow', {
 				'-980': '980-all'
 			},
 			'desc': '',
+			'group': 'Advanced',
 			'default': 'all'
 		}
 	]
@@ -11540,6 +12906,8 @@ window.pbsAddInspector( 'DivCol', {
 
 	'options': [
 
+		/*
+
 		{
 
 			'name': pbsParams.labels.increase_column_width,
@@ -11647,6 +13015,8 @@ window.pbsAddInspector( 'DivCol', {
 			}
 
 		},
+
+		*/
 
 		// {
 
@@ -13704,7 +15074,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 			// Edit.
 			if ( ( ev.metaKey || ev.ctrlKey ) && ev.keyCode === 69 ) {
-				document.querySelector( '#wp-admin-bar-gambit_builder_edit' ).dispatchEvent( new Event( 'click' ) );
+				document.querySelector( '#wp-admin-bar-gambit_builder_edit' ).dispatchEvent( new CustomEvent( 'click' ) );
 				ev.preventDefault();
 			}
 
@@ -13720,11 +15090,11 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 				// Save.
 				if ( ev.keyCode === 83 ) {
-					document.querySelector( '#wp-admin-bar-gambit_builder_save' ).dispatchEvent( new Event( 'click' ) );
+					document.querySelector( '#wp-admin-bar-gambit_builder_save' ).dispatchEvent( new CustomEvent( 'click' ) );
 
 				// Cancel.
 				} else {
-					document.querySelector( '#wp-admin-bar-gambit_builder_cancel' ).dispatchEvent( new Event( 'click' ) );
+					document.querySelector( '#wp-admin-bar-gambit_builder_cancel' ).dispatchEvent( new CustomEvent( 'click' ) );
 				}
 
 			} else if ( ( ev.metaKey || ev.ctrlKey ) && ev.shiftKey && ev.keyCode === 82 ) {
@@ -14115,7 +15485,7 @@ PBS.Toolbar = (function() {
 		// adjacent element with a toolbar.
 		this._domElement.addEventListener('mouseout', function(e) {
 			if ( e.relatedTarget ) {
-				e.relatedTarget.dispatchEvent( new Event( 'mouseover' ) );
+				e.relatedTarget.dispatchEvent( new CustomEvent( 'mouseover' ) );
 			}
 		});
 
@@ -14140,8 +15510,10 @@ PBS.Toolbar = (function() {
 
 		// Don't do anything when hovering over the toolbar.
 		if ( e.relatedTarget ) {
-			if ( e.relatedTarget.classList.contains('pbs-toolbar') || e.relatedTarget.classList.contains('pbs-tool') ) {
-				return;
+			if ( e.relatedTarget.classList ) {
+				if ( e.relatedTarget.classList.contains('pbs-toolbar') || e.relatedTarget.classList.contains('pbs-tool') ) {
+					return;
+				}
 			}
 		}
 
@@ -14192,8 +15564,10 @@ PBS.Toolbar = (function() {
 
 	Toolbar.prototype._onMouseOut = function(e) {
 		if ( e.relatedTarget ) {
-			if ( e.relatedTarget.classList.contains('pbs-toolbar') || e.relatedTarget.classList.contains('pbs-tool') ) {
-				return;
+			if ( e.relatedTarget.classList ) {
+				if ( e.relatedTarget.classList.contains('pbs-toolbar') || e.relatedTarget.classList.contains('pbs-tool') ) {
+					return;
+				}
 			}
 		}
 		this.hide();
@@ -14795,6 +16169,11 @@ ContentTools.Tools.Color = (function(_super) {
 			_this.hidePicker();
 		});
 
+		// Close popup if other popups open.
+		wp.hooks.addAction( 'pbs.tool.popup.open', function() {
+			this.hidePicker();
+		}.bind(this));
+
 	};
 
 
@@ -14856,6 +16235,11 @@ ContentTools.ToolUI.prototype._addDOMEventListeners = function() {
 				// Set the color
 				_this._justShowedPicker = true; // Do not implement the selected color when just showing the picker
 				jQuery(_this._domElement.querySelector('input')).iris('color', _this._domElement.style.backgroundColor);
+
+				// Let others know that we're going to open a popup.
+				if ( _this._domElement.firstChild.style.display === '' ) {
+					wp.hooks.doAction( 'pbs.tool.popup.open' );
+				}
 
 				// Show the color picker
 				_this._domElement.firstChild.style.display = _this._domElement.firstChild.style.display ? '' : 'block';
@@ -16078,31 +17462,46 @@ ContentTools.Tools.Html = (function(_super) {
 
 
 
+
 /* globals ContentTools, ContentEdit, ContentSelect, __extends, pbsParams */
+
+
 
 
 
 // The Media Manager window needs to know our post ID so that Insert from URL will work.
 
+
 if ( wp.media.view.settings.post ) {
 
+
 	wp.media.view.settings.post.id = pbsParams.post_id;
+
 
 }
 
 
 
+
+
 ContentTools.Tools.pbsMedia = (function(_super) {
+
 
 	__extends(pbsMedia, _super);
 
 
 
+
+
 	function pbsMedia() {
+
 
 		return pbsMedia.__super__.constructor.apply(this, arguments);
 
+
 	}
+
+
 
 
 
@@ -16110,7 +17509,11 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
+
+
 	pbsMedia.label = pbsParams.labels.media;
+
+
 
 
 
@@ -16118,7 +17521,11 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
+
+
 	pbsMedia.shortcut = 'ctrl+m';
+
+
 
 
 
@@ -16126,71 +17533,107 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
+
+
     pbsMedia.canApply = function() {
 
+
 		return true;
+
 
     };
 
 
 
+
+
 	pbsMedia.apply = function(element, selection) {
+
 
 		if ( this._isOpen() ) {
 
+
 			return;
 
+
 		}
+
+
 
 
 
 		var root = ContentEdit.Root.get();
 
+
 		var elem = root.focused();
+
+
 
 
 
         ContentSelect.Range.query(elem._domElement);
 
+
         selection = ContentSelect.Range.query(elem._domElement);
+
 
 		window._tempSelection = selection;
 
 
 
+
+
 		// We override the insert function to make this insert in CT.
 
+
 		window._pbsAddMediaOrigInsert = wp.media.editor.insert;
+
 
 		wp.media.editor.insert = this.pbsAddMediaOverrideInsert;
 
 
 
+
+
 		wp.media.editor.open();
 
+
 	};
+
+
 
 
 
 	pbsMedia._isOpen = function() {
 
+
 		// The editor is not present at the start.
+
 
 		if ( ! wp.media.editor.get() ) {
 
+
 			return false;
+
 
 		}
 
 
 
+
+
 		// Check if the media manager window is visible.
+
 
 		var el = wp.media.editor.get().el;
 
+
 		return ! ( el.offsetWidth === 0 && el.offsetHeight === 0 );
 
+
 	};
+
+
 
 
 
@@ -16198,41 +17641,62 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
+
+
 	    var index, newElem, root = ContentEdit.Root.get();
+
+
 
 
 
 		// Blur the currently selected element.
 
+
 	    if ( root.focused() ) {
+
 
 			var elem = root.focused();
 
 
 
+
+
 			// If adding an image, add an Image Element.
+
 
 			var addedImage = false;
 
+
 			if ( ! html.match( /^\[/ ) ) {
+
 
 				var dummy = document.createElement('p');
 
+
 				dummy.innerHTML = html;
+
 
 				newElem = ContentEdit.Image.fromDOMElement( dummy.firstChild );
 
+
 				if ( newElem ) {
+
 
 					index = elem.parent().children.indexOf( elem );
 
+
 					elem.parent().attach( newElem, index + 1 );
+
 
 					addedImage = true;
 
+
 					newElem.focus();
 
+
 				}
+
+
 
 
 
@@ -16240,39 +17704,60 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
+
+
 				var base = html.match( /^\[(\w+)/ );
+
 
 				base = base[1];
 
+
 				var shortcode = wp.shortcode.next( base, html, 0 );
+
 
 				newElem = ContentEdit.Shortcode.createShortcode( shortcode );
 
+
 				index = elem.parent().children.indexOf( elem );
+
 
 				elem.parent().attach( newElem, index + 1 );
 
 
 
+
+
 				newElem.ajaxUpdate( true );
+
 
 				newElem.focus();
 
 
 
+
+
 			}
+
 
 	    }
 
 
 
+
+
 		// Revert to the original insert function.
+
 
 		wp.media.editor.insert = window._pbsAddMediaOrigInsert;
 
+
 		delete window._pbsAddMediaOrigInsert;
 
+
 	};
+
+
+
 
 
 
@@ -16282,7 +17767,12 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
+
+
 })(ContentTools.Tool);
+
+
+
 
 
 
@@ -16290,47 +17780,69 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 /**
 
+
  * Open the media tool when an image gets dragged into the screen.
+
 
  */
 
+
 (function() {
+
 
 	var dragEnterHandler = function() {
 
+
 		var root = ContentEdit.Root.get();
+
 
 		var elem = root.focused();
 
+
 		if ( elem ) {
+
 
 			window.PBSEditor.getToolUI( 'pbs-media' ).apply( elem, null );
 
+
 		}
+
 
 	};
 
 
 
+
+
 	window.addEventListener( 'DOMContentLoaded', function() {
+
 
 		var editor = ContentTools.EditorApp.get();
 
+
 		editor.bind('start', function() {
+
 
 			document.addEventListener('dragenter', dragEnterHandler);
 
+
 		});
+
 
 		editor.bind('stop', function() {
 
+
 			document.removeEventListener('dragenter', dragEnterHandler);
+
 
 		});
 
+
 	});
 
+
 })();
+
 
 
 ////= include _tool-toggle-advanced.js
@@ -16406,6 +17918,192 @@ ContentTools.Tools.Underline = (function(_super) {
   return Underline;
 
 })(ContentTools.Tool);
+
+/* globals ContentTools, ContentEdit, __extends, pbsParams */
+ContentTools.Tools.paragraphPicker = (function(_super) {
+	__extends(paragraphPicker, _super);
+
+	function paragraphPicker() {
+		return paragraphPicker.__super__.constructor.apply(this, arguments);
+	}
+
+	ContentTools.ToolShelf.stow(paragraphPicker, 'paragraphPicker');
+
+	paragraphPicker.label = pbsParams.labels.text_style;
+
+	paragraphPicker.icon = 'paragraph-picker';
+
+	paragraphPicker.tagName = 'p';
+
+	paragraphPicker.types = {
+		p: { className: 'Paragraph', label: pbsParams.labels.paragraph },
+		h1: { className: 'Heading1', label: pbsParams.labels.heading_1 },
+		h2: { className: 'Heading2', label: pbsParams.labels.heading_2 },
+		h3: { className: 'Heading3', label: pbsParams.labels.heading_3 },
+		h4: { className: 'Heading4', label: pbsParams.labels.heading_4 },
+		h5: { className: 'Heading5', label: pbsParams.labels.heading_5 },
+		h6: { className: 'Heading6', label: pbsParams.labels.heading_6 },
+		blockquote: { className: 'Blockquote', label: '"' + pbsParams.labels.blockquote + '"' },
+		pre: { className: 'Preformatted', label: pbsParams.labels.preformatted }
+	};
+
+	paragraphPicker.canApply = function(element) {
+		if ( this.types.hasOwnProperty( element.tagName() ) ) {
+			for ( var tag in this.types ) {
+				if ( ! this.types.hasOwnProperty( tag ) ) {
+					continue;
+				}
+				if ( element.tagName() === tag ) {
+					continue;
+				}
+				if ( this._ceElement._domElement.classList.contains( 'pbs-paragraph-picker-type-' + tag ) ) {
+					this._ceElement._domElement.classList.remove( 'pbs-paragraph-picker-type-' + tag );
+				}
+			}
+			if ( ! this._ceElement._domElement.classList.contains( 'pbs-paragraph-picker-type-' + element.tagName() ) ) {
+				this._ceElement._domElement.classList.add( 'pbs-paragraph-picker-type-' + element.tagName() );
+				this._ceElement._domElement.firstChild.textContent = this.types[ element.tagName() ].label;
+			}
+		}
+  		return element !== void 0;
+	};
+
+	paragraphPicker.isApplied = function() {
+		return ! this._ceElement._domElement.classList.contains( 'pbs-paragraph-picker-type-p' );
+	};
+
+	paragraphPicker.apply = function(element, selection, callback) {
+		var app, forceAdd, paragraph, region;
+		app = ContentTools.EditorApp.get();
+		forceAdd = app.ctrlDown();
+		if (ContentTools.Tools.Heading.canApply(element) && !forceAdd) {
+			return ContentTools.Tools[ this._selectedClass ].apply( element, selection, callback );
+		} else {
+		  if (element.parent().type() !== 'Region') {
+			element = element.closest(function(node) {
+			  return node.parent().type() === 'Region';
+			});
+		  }
+		  region = element.parent();
+		  paragraph = new ContentEdit.Text( this._selectedType );
+		  region.attach(paragraph, region.children.indexOf(element) + 1);
+		  paragraph.focus();
+		  return callback(true);
+		}
+	};
+
+
+	paragraphPicker._paragraphPickerMount = function() {
+		var _this = this;
+		var d = document.createElement('DIV');
+		for ( var tag in this.types ) {
+			if ( ! this.types.hasOwnProperty( tag ) ) {
+				continue;
+			}
+
+			var label = document.createElement( tag );
+			label.innerHTML = this.types[ tag ].label;
+			label.setAttribute( 'data-tag', tag );
+			label.setAttribute( 'data-class', this.types[ tag ].className );
+			d.appendChild( label );
+
+			label.addEventListener( 'mousedown', function(ev) {
+				ev.preventDefault();
+				this._selectedType = ev.target.getAttribute( 'data-tag' );
+				this._selectedClass = ev.target.getAttribute( 'data-class' );
+				this._ceElement._mouseDown = true;
+				this._ceElement._onMouseUp();
+			}.bind( this ) );
+
+		}
+
+		this._ceElement._domElement.innerHTML = pbsParams.labels.paragraph;
+		this._ceElement._domElement.appendChild(d);
+
+		// Hide the paragraphpicker when going out of the inspector
+		document.querySelector('.ct-toolbox').addEventListener('mouseleave', function() {
+			_this.hidePicker();
+		});
+
+		// Close popup if other popups open.
+		wp.hooks.addAction( 'pbs.tool.popup.open', function() {
+			this.hidePicker();
+		}.bind(this));
+	};
+
+
+	paragraphPicker.hidePicker = function() {
+		// Hide the paragraphpicker container.
+		this._ceElement._domElement.querySelector('div').style.display = '';
+
+		// Forget the previously selected text.
+		this.rememberedSelection = null;
+	};
+
+	return paragraphPicker;
+
+})(ContentTools.Tool);
+
+
+
+// If another element is selected, hide the paragraph picker
+ContentEdit.Root.get().bind('blur', function() {
+	var tool = ContentTools.EditorApp.get()._toolbox._toolUIs.paragraph;
+	if ( typeof tool !== 'undefined' ) {
+		tool.tool.hidePicker();
+	}
+});
+
+
+// Implement our own mount event handler.
+(function() {
+	var proxied = ContentTools.ToolUI.prototype.mount;
+	ContentTools.ToolUI.prototype.mount = function(domParent, before) {
+		var ret = proxied.call( this, domParent, before );
+		this.tool._ceElement = this;
+		if ( typeof this.tool._paragraphPickerMount !== 'undefined' ) {
+			this.tool._paragraphPickerMount();
+		}
+		return ret;
+	};
+})();
+
+
+// Remove the existing event handlers for the paragraph tool. We are going to use our own
+(function() {
+	var proxied = ContentTools.ToolUI.prototype._addDOMEventListeners;
+ 	ContentTools.ToolUI.prototype._addDOMEventListeners = function() {
+		if ( this.tool.name === 'paragraphPicker' ) {
+			var _this = this;
+
+			// Cancel the mouse down event to prevent focusing
+	        this._domElement.addEventListener('mousedown', function(e) {
+				if ( e.target.classList.contains('ct-tool') ) {
+					e.preventDefault();
+				}
+			});
+
+			// Show the paragraphpicker on click
+	        this._domElement.addEventListener('click', function(e) {
+				if ( e.target.classList.contains('ct-tool') ) {
+
+					// Let others know that we're going to open a popup.
+					if ( _this._domElement.querySelector('div').style.display === '' ) {
+						wp.hooks.doAction( 'pbs.tool.popup.open' );
+					}
+
+					// Show the paragraph picker
+					_this._domElement.querySelector('div').style.display = _this._domElement.querySelector('div').style.display ? '' : 'block';
+
+				}
+	        });
+
+		// Normal process
+		} else {
+			return proxied.call( this );
+		}
+	};
+})();
 
 /* globals ContentTools, __extends, pbsParams */
 
@@ -16739,6 +18437,9 @@ wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
 		return tools;
 	}
 	if ( ! target.classList.contains( 'alignleft' ) && ! target.classList.contains( 'alignright' ) && ! target.classList.contains( 'aligncenter' ) && ! target.classList.contains( 'alignnone' ) ) {
+		if ( ! target.getAttribute('class') ) {
+			return tools;
+		}
 		if ( target.getAttribute('class').indexOf('wp-image-') === -1 ) {
 			return tools;
 		}
@@ -20368,47 +22069,83 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	} );
 } );
 
+/**
+ * Fix for scenario:
+ * Some themes, such as "eighties" don't open the Media Manager (or any modal view),
+ * in the frontend. This can be tested by running the command: `wp.media.editor.open()`
+ * in the browser console.
+ *
+ * Cause:
+ * The cause of this is in the Modal open function in media-views.js. The line that
+ * checks for visibility: `if ( $el.is(':visible') )` returns TRUE, even though the element
+ * isn't visible yet - a false positive.
+ *
+ * Fix:
+ * An unobtrusive & least conflicting fix is to override jQuery's `is` method ONLY
+ * when checking the visibility of a Modal, and replace it with a working visibility check:
+ * http://stackoverflow.com/a/33456469/174172
+ *
+ * It seems that the modal is always `<div tabindex="0"></div>`.
+ */
+(function() {
+	var proxied = jQuery.fn.is;
+	jQuery.fn.is = function( selector ) {
+		var ret = proxied.call( this, selector );
+		if ( ret ) {
+			var elem = this[0];
+			if ( elem.outerHTML === '<div tabindex="0"></div>' ) {
+				return !!( elem.offsetWidth || elem.offsetHeight || elem.getClientRects().length );
+			}
+		}
+		return ret;
+	};
+})();
+
 
 /***************************************************************************
  * These are the tools in the inspector, overriding the defaults of CT.
  ***************************************************************************/
 ContentTools.DEFAULT_TOOLS = [
 	[
+		'paragraphPicker',
 		'color',
+		'clear-formatting',
+		'remove',
 		'bold',
 		'italic',
 		'underline',
-		'clear-formatting',
-		'remove',
 		'link',
 		'strikethrough',
+		// 'blockquote',
+		'hr',
 		'align-left',
 		'align-center',
 		'align-right',
 		'align-justify',
-		'hr',
+		'indent',
+		'unindent',
+		'unordered-list',
+		'ordered-list',
 
 
 
 		'code',
 		'undo', 'redo'				// These are automatically moved into the admin bar.
 	],
-	[
-		'paragraph',
-		'h1',
-		'h2',
-		'h3',
-		'h4',
-		'h5',
+	// [
+		// 'paragraph',
+		// 'h1',
+		// 'h2',
+		// 'h3',
+		// 'h4',
+		// 'h5',
 		// 'h6',
 		// 'video',
-		'blockquote',
-		'preformatted',
-		'unordered-list',
-		'ordered-list',
-		'indent',
-		'unindent'
-	],
+		// 'blockquote',
+		// 'preformatted',
+		// 'unordered-list',
+		// 'ordered-list',
+	// ],
 
 
 
@@ -20428,6 +22165,7 @@ ContentTools.DEFAULT_TOOLS = [
 		'shortcode',
 		'html',
 
+
 		'onecolumn',
 		'twocolumn',
 		'threecolumn'
@@ -20444,7 +22182,7 @@ ContentTools.DEFAULT_TOOLS = [
 
 window.PBSEditor.toolHeadings = [
 	{ 'label': pbsParams.labels.text_formatting, 'class': 'text-formatting' },
-	{ 'label': pbsParams.labels.change_type, 'class': 'change-type' },
+	// { 'label': pbsParams.labels.change_type, 'class': 'change-type' },
 	{ 'label': pbsParams.labels.insert_content, 'class': 'interactive-elements' }
 	// { 'label': pbsParams.labels.rows_and_columns, 'class': 'rows-columns' }
 ];

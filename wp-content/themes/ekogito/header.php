@@ -18,8 +18,8 @@
 
 <link rel="profile" href="http://gmpg.org/xfn/11">
 <link rel="pingback" href="<?php bloginfo( 'pingback_url' ); ?>">
-<link href='//fonts.googleapis.com/css?family=Open+Sans:400,400italic,300,300italic,600,600italic' rel='stylesheet' type='text/css'>
-
+<link href='https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,300,300italic,600,600italic' rel='stylesheet' type='text/css'>
+<link href='https://fonts.googleapis.com/css?family=Amatic+SC:400,700' rel='stylesheet' type='text/css'>	
 <script>
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
   (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),

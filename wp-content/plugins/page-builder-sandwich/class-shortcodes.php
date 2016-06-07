@@ -54,6 +54,11 @@ if ( ! class_exists( 'PBSShortcodes' ) ) {
 			$widget_slug = $atts['widget'];
 			unset( $atts['widget'] );
 
+			// Check if the widget exists. Widgets slugs are the class names in PHP.
+			if ( ! class_exists( $widget_slug ) ) {
+				return '';
+			}
+
 			ob_start();
 			the_widget( $widget_slug, $atts, array(
 				'widget_id' => 'pbs_widget_' . $this->widget_ids++,

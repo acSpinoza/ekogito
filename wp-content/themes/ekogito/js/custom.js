@@ -86,16 +86,45 @@ jQuery(window).bind("load", function($) {
 }(jQuery));
 
 jQuery(document).ready(function($) {
-    jQuery('.navigation.posts-navigation').removeClass('navigation posts-navigation').addClass('uk-flex uk-flex-middle uk-text-center uk-container-center');
-    jQuery('.uk-offcanvas-bar .menu-item-has-children a').first().append('  <i class="uk-icon-chevron-down"></i>');
-    jQuery('.sticky-navbar').removeClass('uk-animation-fade sticky-navbar').addClass('sticky-navbar uk-sticky-no-active uk-inactive-js');
+    $('.navigation.posts-navigation').removeClass('navigation posts-navigation').addClass('uk-flex uk-flex-middle uk-text-center uk-container-center');
+    $('.uk-offcanvas-bar .menu-item-has-children a').first().append('  <i class="uk-icon-chevron-down"></i>');
+    $('.sticky-navbar').removeClass('uk-animation-fade sticky-navbar').addClass('sticky-navbar uk-sticky-no-active uk-inactive-js');
   
-    jQuery('figure.uk-overlay.uk-overlay-hover p').css('margin', 0).css('height', 0);
-  
-/*$(document).ready(function() {
-    console.log('now');
-                $( ".articles-grid-" ).delay( 800 ).css('visibility','visible').hide().show('slow');
-            });*/
-  
+    $('figure.uk-overlay.uk-overlay-hover p').css('margin', 0);
+    
+    setTimeout(html_render, 1000);
   
 }(jQuery));
+
+
+function page_builder(){
+  jQuery('#wp-admin-bar-gambit_builder_edit a').on( "click", function() {
+    html_edit();
+  });
+
+  jQuery('#wp-admin-bar-gambit_builder_save a').on( "click", function() {
+    setTimeout(html_render, 1000);
+  });
+
+  jQuery('#wp-admin-bar-gambit_builder_cancel a').on( "click", function() {
+    setTimeout(html_render, 1000);
+  });
+}
+setTimeout(page_builder, 1000);
+
+  
+
+
+function html_edit(){
+  console.log('html edit');
+  jQuery('html div').find('[data-ce-tag="render_html"]').attr('data-ce-tag', 'html');  
+}
+
+function html_render(){
+  if(jQuery('html').hasClass('pbs-editing')){
+    html_edit();
+  } else {
+    jQuery('html div').find('[data-ce-tag="html"]').attr('data-ce-tag', 'render_html'); 
+    console.log('html render');
+  }    
+}

@@ -1,10 +1,10 @@
-=== Page Builder Sandwich ===
+=== Page Builder Sandwich - Front-End Drag and Drop Page Builder  ===
 Contributors: bfintal
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=D2MK28E7BDLHC
-Tags: builder, page builder, layout builder, page, landing page builder, visual, frontend, frontend builder, drag and drop, editor, column, columns, shortcode, layout, table, nested, composer, beaver builder, siteorigin
+Tags: page builder, page builder plugin, builder, layout builder, page, landing page builder, home page builder, landing page builder, page layout, drag and drop builder, frontend editor, visual, frontend builder, front-end builder, drag and drop, editor, column, columns, shortcode, layout, table, nested, composer, beaver builder, siteorigin, responsive, wysiwyg editor
 Requires at least: 4.2
-Tested up to: 4.5.1
-Stable tag: 2.14
+Tested up to: 4.5.2
+Stable tag: 2.15.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,6 +69,7 @@ Page Builder Sandwich integrates with how WordPress deals with content, so it sh
 
 * English
 * Hebrew (Israel he_IL) - Thanks to Guy Amiel
+* German (Germany de_DE) - Thanks to Sascha Theel
 * Spanish (Spain es_ES) - Thanks to Alex Lp
 
 > <strong>Help Translate Page Builder Sandwich Into Your Language</strong><br>
@@ -117,6 +118,52 @@ If you cannot see the "Edit with Page Builder Sandwich" button on your frontend,
 The new Page Builder Sandwich is completely different from the old one. We've ditched the old backend page builder for the more awesome frontend page building experience. If you're upgrading from version 1.x, a migration notice should appear on the top of your admin which should help you migrate your content into the new system.
 
 == Changelog ==
+
+= 2.15.2 =
+* Fixed: & signs inside script tags in an html element get escaped and prevent user inputted scripts from running properly.
+* Fixed: Toolbar threw errors in IE
+* Fixed: IE 10 & IE 11 bug constructor.name for overlays, added polyfil
+* Fixed: IE 10 & IE 11 bug for svg.innerHTML, added polyfill
+* Fixed: IE 10 & IE 11 bug for window.dispatch resize event, now uses a special command for these browsers
+* Fixed: Images without a class attribute can cause the toolbar to throw an error.
+* Fixed: Widget templates can load late and may cause errors when selecting a widget while the templates haven't loaded yet. Now also saves previously acquired templates for faster successive page loads.
+* Fixed: Currently used widgets based on plugins which have been de-activated no longer stall the widget properties section in the inspector. They will now just show up as regular shortcodes.
+* Fixed: Currently used widgets based on plugins which have been de-activated no longer display PHP warnings.
+* Fixed: IE11 Bug where some items in the inspector are center-aligned.
+* Fixed: IE10 & IE11 Added polyfill for CustomEvents
+* Fixed: IE10 & IE11 threw errors because of the Event constructor, now using CustomEvents.
+
+= 2.15.1 =
+* New: Total count of pre-designed sections are now 40! (premium)
+* Fixed: Some plugins with widgets that are a bit unique (e.g. type hinting constructors) will not cause errors anymore, but they won't show up in PBS. e.g. IMPress for IDX Broker
+* Fixed: Columns always added a unique class to itself.
+* Fixed: Selecting a similar element will incorrectly make its properties area in the inspector hidden overflow
+* Fixed: The undo, redo, save drop down, help and tips buttons are now hidden during saving.
+* Fixed: Rows inside carousels can now have their top & bottom margins adjusted. (Premium)
+* Fixed: The uneven row button for 1-3-1-3 spanning columns now produce the correct column widths.
+* Fixed: Last columns inside carousels had incorrect margin bottom. (Premium)
+
+= 2.15 =
+* New: Shortcode mapping system
+* New: Shortcode attribute grouping into an accordion
+* New: Shortcode attribute dependency
+* New: Now generates custom class for rows & columns.
+* New: Added sliding animation to inspector / properties sections
+* New: Added drop down beside the save button to allow saving and changing the post status to either published, draft or pending
+* New: Combined all text style buttons into a single drop down.
+* Enhancement: Moved the inspector / properties sections to the middle to make them more apparent
+* Enhancement: Better RTL handling for modal search areas
+* Enhancement: The drag grip on the top of the inspector is now hidden and will only show up if you hover over the top part of the inspector.
+* Enhancement: Better look for input fields
+* Enhancement: Opening colors (and other small popups) will now close other popups
+* Enhancement: Shorter list of inspector buttons
+* Change: Removed column-width button in the inspector since column widths can now be changed by dragging column sides
+* Fixed: Shortcode names won't cover the collapse arrow in the inspector anymore.
+* Fixed: Some themes that force html tag to have 100% width prevent the content from adjusting to a responsive width when editing.
+* Fixed: Errors sometimes occur when dragging rows that was caused by the column width overlay
+* Fixed: The inspector blinks when selecting elements
+* Fixed: Pasting multiple lines of text inside a row now properly places them inside the row.
+* Fixed: In some rare cases, a theme (e.g. Eighties) would prevent a Modal View from opening because it false positively detects that it's already open.
 
 = 2.14 =
 * New: Column widths can now be adjusted with drag handles

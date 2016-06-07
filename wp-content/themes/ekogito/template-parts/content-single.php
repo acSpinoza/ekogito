@@ -20,7 +20,7 @@ if(has_post_thumbnail()){
 
 <div class="uk-container uk-container-center">		
 <article id="post-<?php the_ID(); ?>" <?php post_class(); ?> class="uk-article uk-panel uk-text-center">
-	<header class="entry-header uk-animation-slide-bottom">
+	<header class="entry-header uk-animation-fade">
 	    <div class="uk-grid uk-flex-middle" data-uk-grid-margin="" data-uk-grid-match>
             <div class="uk-width-medium-8-10 uk-row-first">
                 <div class="sharedaddy sd-sharing-enabled">

@@ -212,11 +212,45 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			if ( ! PBS_IS_LITE ) {
 				include 'page_builder_sandwich/templates/design-element-page-headings.php';
+				include 'page_builder_sandwich/templates/design-element-page-headings-2.php';
+				include 'page_builder_sandwich/templates/design-element-page-headings-3.php';
+				include 'page_builder_sandwich/templates/design-element-page-headings-4.php';
+				include 'page_builder_sandwich/templates/design-element-page-headings-5.php';
 				include 'page_builder_sandwich/templates/design-element-call-to-actions.php';
+				include 'page_builder_sandwich/templates/design-element-call-to-actions-2.php';
+				include 'page_builder_sandwich/templates/design-element-call-to-actions-3.php';
+				include 'page_builder_sandwich/templates/design-element-call-to-actions-4.php';
+				include 'page_builder_sandwich/templates/design-element-call-to-actions-5.php';
+				include 'page_builder_sandwich/templates/design-element-call-to-actions-6.php';
 				include 'page_builder_sandwich/templates/design-element-testimonials.php';
+				include 'page_builder_sandwich/templates/design-element-testimonials-2.php';
+				include 'page_builder_sandwich/templates/design-element-testimonials-3.php';
+				include 'page_builder_sandwich/templates/design-element-testimonials-4.php';
+				include 'page_builder_sandwich/templates/design-element-testimonials-5.php';
+				include 'page_builder_sandwich/templates/design-element-testimonials-6.php';
 				include 'page_builder_sandwich/templates/design-element-pricing-tables.php';
 				include 'page_builder_sandwich/templates/design-element-large-features.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-2.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-3.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-4.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-5.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-6.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-7.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-8.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-9.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-10.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-11.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-12.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-13.php';
+				include 'page_builder_sandwich/templates/design-element-large-features-14.php';
 				include 'page_builder_sandwich/templates/design-element-team-members.php';
+				include 'page_builder_sandwich/templates/design-element-team-members-2.php';
+				include 'page_builder_sandwich/templates/design-element-team-members-3.php';
+				include 'page_builder_sandwich/templates/design-element-gallery-1.php';
+				include 'page_builder_sandwich/templates/design-element-gallery-2.php';
+				include 'page_builder_sandwich/templates/design-element-gallery-3.php';
+				include 'page_builder_sandwich/templates/design-element-gallery-4.php';
+				include 'page_builder_sandwich/templates/design-element-gallery-5.php';
 
 			} else {
 				include 'page_builder_sandwich/templates/preview-premium-element.php';
@@ -267,9 +301,33 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
 			);
 			$wp_admin_bar->add_node( $args );
+
+			// Make the label for the save button.
+			$save_label = __( 'Save and Update', PAGE_BUILDER_SANDWICH );
+			$post_status = 'publish';
+			if ( ! empty( $GLOBALS['post']->ID ) ) {
+				$post_status = get_post_status( $GLOBALS['post']->ID );
+				if ( 'draft' === $post_status || 'auto-draft' === $post_status ) {
+					$save_label = __( 'Save as Draft', PAGE_BUILDER_SANDWICH );
+				} else if ( 'pending' === $post_status ) {
+					$save_label = __( 'Save as Pending Review', PAGE_BUILDER_SANDWICH );
+				}
+			}
+			$args = array(
+				'id'    => 'gambit_builder_save_options',
+				'title' => '<span class="ab-icon"></span>
+							<span id="pbs-save-button" data-current-post-type="' . esc_attr( $post_status ) . '">
+								<span id="pbs-save-publish">' . esc_html__( 'Save and Publish', PAGE_BUILDER_SANDWICH ) . '</span>
+								<span id="pbs-save-pending">' . esc_html__( 'Save as Pending Review', PAGE_BUILDER_SANDWICH ) . '</span>
+								<span id="pbs-save-draft">' . esc_html__( 'Save as Draft', PAGE_BUILDER_SANDWICH ) . '</span>
+							</span>',
+				'href'  => '#',
+				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
+			);
+			$wp_admin_bar->add_node( $args );
 			$args = array(
 				'id'    => 'gambit_builder_save',
-				'title' => '<span class="ab-icon"></span>' . __( 'Save Changes', PAGE_BUILDER_SANDWICH ),
+				'title' => '<span class="ab-icon"></span>' . $save_label . '</span>',
 				'href'  => '#',
 				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
 			);
@@ -690,7 +748,9 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 		 */
 		public function save_content() {
 			// Check if we have the necessary fields.
-			if ( empty( $_POST['post_id'] ) || ! isset( $_POST['main-content'] ) || empty( $_POST['save_nonce'] ) ) {
+			if ( empty( $_POST['post_id'] ) ||
+				 ( empty( $_POST['post_status'] ) && ! isset( $_POST['main-content'] ) ) ||
+				 empty( $_POST['save_nonce'] ) ) {
 				die();
 			}
 
@@ -701,16 +761,38 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			// Sanitize data.
 			$post_id = intval( $_POST['post_id'] );
-			$content = sanitize_post_field( 'post_content', $_POST['main-content'], $post_id, 'db' );
 
+			// Check if we just need to update the status.
+			$post_status = '';
+			if ( ! empty( $_POST['post_status'] ) && ! isset( $_POST['main-content'] ) ) {
+
+				$post_status = sanitize_text_field( $_POST['post_status'] );
+
+				// Update the post status.
+				wp_update_post( array( 'ID' => $post_id, 'post_status' => $post_status ) );
+				die( get_permalink( $post_id ) );
+
+			} else if ( ! empty( $_POST['post_status'] ) ) {
+				$post_status = sanitize_text_field( $_POST['post_status'] );
+			}
+
+			$content = sanitize_post_field( 'post_content', $_POST['main-content'], $post_id, 'db' );
 			$content = apply_filters( 'pbs_save_content', $content, $post_id );
 
 			// Save the post.
-			$post_id = wp_update_post( array(
+			$post_data = array(
 				'ID' => $post_id,
 				'post_content' => $content,
 				'post_content_filtered' => '', // Blank this field to clear cached copies of the content. This is to also support Jetpack's Markdown module.
-			) );
+			);
+
+			// Also change the post status if needed.
+			if ( ! empty( $post_status ) ) {
+				$post_data['post_status'] = $post_status;
+			}
+
+			// Update the post.
+			$post_id = wp_update_post( $post_data );
 
 			if ( ! empty( $_POST['style'] ) ) {
 				$style = sanitize_post_field( 'post_content', $_POST['style'], $post_id, 'db' );
@@ -864,6 +946,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				'additional_shortcodes' => apply_filters( 'pbs_shortcodes', array() ),
 				'is_admin_bar_showing' => is_admin_bar_showing(),
 				'plugin_url' => trailingslashit( plugins_url( '/', __FILE__ ) ),
+				'post_status' => ! empty( $GLOBALS['post']->ID ) ? get_post_status( $GLOBALS['post']->ID ) : '',
 			);
 			$localize_params = apply_filters( 'pbs_localize_scripts', $localize_params );
 

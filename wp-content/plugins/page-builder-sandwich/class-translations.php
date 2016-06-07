@@ -273,6 +273,7 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'reset_font_size' => sprintf( __( 'Reset %s', PAGE_BUILDER_SANDWICH ), __( 'Font Size', PAGE_BUILDER_SANDWICH ) ),
 				'heading_label' => __( 'Heading %d', PAGE_BUILDER_SANDWICH ),
 				'horizontal_rule' => __( 'Horizontal Rule', PAGE_BUILDER_SANDWICH ),
+				'map' => __( 'Map', PAGE_BUILDER_SANDWICH ),
 				'insert_icon' => sprintf( __( 'Insert %s', PAGE_BUILDER_SANDWICH ), __( 'Icon', PAGE_BUILDER_SANDWICH ) ),
 				'increase_line_height' => sprintf( __( 'Insert %s', PAGE_BUILDER_SANDWICH ), __( 'Line Height', PAGE_BUILDER_SANDWICH ) ),
 				'decrease_line_height' => sprintf( __( 'Decrease %s', PAGE_BUILDER_SANDWICH ), __( 'Line Height', PAGE_BUILDER_SANDWICH ) ),
@@ -284,7 +285,16 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'pre_designed_sections' => __( 'Pre-Designed Sections', PAGE_BUILDER_SANDWICH ),
 
 				// Tools.
+				'text_style' => __( 'Text Style', PAGE_BUILDER_SANDWICH ),
+				'heading_1' => sprintf( __( 'Heading %d', PAGE_BUILDER_SANDWICH ), 1 ),
+				'heading_2' => sprintf( __( 'Heading %d', PAGE_BUILDER_SANDWICH ), 2 ),
+				'heading_3' => sprintf( __( 'Heading %d', PAGE_BUILDER_SANDWICH ), 3 ),
+				'heading_4' => sprintf( __( 'Heading %d', PAGE_BUILDER_SANDWICH ), 4 ),
+				'heading_5' => sprintf( __( 'Heading %d', PAGE_BUILDER_SANDWICH ), 5 ),
+				'heading_6' => sprintf( __( 'Heading %d', PAGE_BUILDER_SANDWICH ), 6 ),
 				'blockquote' => __( 'Blockquote', PAGE_BUILDER_SANDWICH ),
+				'preformatted' => __( 'Preformatted', PAGE_BUILDER_SANDWICH ),
+				'paragraph' => __( 'Paragraph', PAGE_BUILDER_SANDWICH ),
 				'button' => __( 'Button', PAGE_BUILDER_SANDWICH ),
 				'carousel' => __( 'Carousel', PAGE_BUILDER_SANDWICH ),
 				'clear_formatting' => __( 'Clear Formatting', PAGE_BUILDER_SANDWICH ),
@@ -348,6 +358,11 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'select_image' => __( 'Select Image', PAGE_BUILDER_SANDWICH ),
 				'use_selected_image' => __( 'Use Selected Image', PAGE_BUILDER_SANDWICH ),
 				'your_email_address' => esc_attr( __( 'Your email address', PAGE_BUILDER_SANDWICH ) ),
+
+				// Admin bar.
+				'save_and_update' => __( 'Save and Update', PAGE_BUILDER_SANDWICH ),
+				'save_as_draft' => __( 'Save as Draft', PAGE_BUILDER_SANDWICH ),
+				'save_as_pending' => __( 'Save as Pending Review', PAGE_BUILDER_SANDWICH ),
 			);
 			return $args;
 		}

@@ -45,8 +45,16 @@ if ( ! class_exists( 'PBSElementWidget' ) ) {
 				global $wp_widget_factory;
 				foreach ( $wp_widget_factory->widgets as $widget_slug => $widget_data ) {
 
-					$widget_class = get_class( $widget_data );
-					$widget_instance = new $widget_class( $widget_data->id_base, $widget_data->name, $widget_data->widget_options );
+					try {
+						$widget_class = get_class( $widget_data );
+						$widget_instance = new $widget_class( $widget_data->id_base, $widget_data->name, $widget_data->widget_options );
+					} catch ( Exception $e ) { // PHP < 7 Error handling.
+						// Do nothing.
+						continue;
+					} catch ( Error $e ) { // PHP 7 Error handling.
+						// Do nothing.
+						continue;
+					}
 
 					// Sometimes descriptions do not work.
 					$description = '';
@@ -77,6 +85,7 @@ if ( ! class_exists( 'PBSElementWidget' ) ) {
 		 */
 		public function add_widget_list( $params ) {
 			$params['widget_list'] = self::gather_all_widgets();
+			$params['widget_list_hash'] = md5( serialize( self::gather_all_widgets() ) );
 			$params['widget_nonce'] = wp_create_nonce( 'pbs_widget_templates' );
 			return $params;
 		}
@@ -93,7 +102,11 @@ if ( ! class_exists( 'PBSElementWidget' ) ) {
 		 * @see _pbs-widget-templates.js
 		 */
 		public function get_widget_templates() {
-			$nonce = sanitize_text_field( trim( $_POST['nonce'] ) );
+			if ( empty( $_POST['nonce'] ) ) { // Input var okay.
+				die();
+			}
+
+			$nonce = sanitize_key( $_POST['nonce'] ); // Input var okay.
 			if ( ! wp_verify_nonce( $nonce, 'pbs_widget_templates' ) ) {
 				die();
 			}
@@ -141,3 +154,31 @@ if ( ! class_exists( 'PBSElementWidget' ) ) {
 }
 
 new PBSElementWidget();
+
+
+/**
+ * Some plugins may declare widget classes with unique class structures (some with
+ * type hinting also), these may produce unwanted errors and may just cause the
+ * frontend to error out and stop working.
+ *
+ * This function handles those specific errors and prevents the error from
+ * stalling the page.
+ *
+ * @since 2.16
+ *
+ * @param int    $errno The error number thrown.
+ * @param string $errstr The error message.
+ * @param string $errfile The file that generated the error.
+ * @param int    $errline The line in $errfile that threw the error.
+ *
+ * @throws ErrorException If the exception is specific to this script.
+ *
+ * @return boolean True whether we handled the error ourselves, false otherwise.
+ */
+function pbs_widget_catchable_error_handler( $errno, $errstr, $errfile, $errline ) {
+	if ( E_RECOVERABLE_ERROR === $errno && stripos( $errstr, 'class-element-widget.php' ) ) {
+		throw new ErrorException( $errstr, $errno, 0, $errfile, $errline );
+	}
+	return false;
+}
+set_error_handler( 'pbs_widget_catchable_error_handler' );

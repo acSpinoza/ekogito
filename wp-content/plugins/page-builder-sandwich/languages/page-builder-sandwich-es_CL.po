@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Page Builder Sandwich\n"
-"PO-Revision-Date: 2016-03-20 15:41+0000\n"
+"PO-Revision-Date: 2016-05-08 11:13+0000\n"
 "Last-Translator: Gambit Technologies <info@gambit.ph>\n"
 "Language-Team: Spanish (Chile) (http://www.transifex.com/gambit-technologies-inc/page-builder-sandwich/language/es_CL/)\n"
 "MIME-Version: 1.0\n"
@@ -98,19 +98,19 @@ msgstr ""
 msgid "Icons by %sTaras Shypka%s"
 msgstr ""
 
-#: class-licensing.php46, class-page-builder-sandwich.php:748
+#: class-licensing.php46, class-page-builder-sandwich.php:817
 msgid "Enter License Key to Receive Updates"
 msgstr ""
 
-#: class-licensing.php47, class-page-builder-sandwich.php:749
+#: class-licensing.php47, class-page-builder-sandwich.php:818
 msgid "Verify License"
 msgstr ""
 
-#: class-licensing.php51, class-page-builder-sandwich.php:750
+#: class-licensing.php51, class-page-builder-sandwich.php:819
 msgid "You will be notified of plugin updates. Your License key is"
 msgstr ""
 
-#: class-licensing.php52, class-page-builder-sandwich.php:751
+#: class-licensing.php52, class-page-builder-sandwich.php:820
 msgid "Deactivate License"
 msgstr ""
 
@@ -172,7 +172,7 @@ msgstr ""
 msgid "Visit this %s in your front-end to begin editing."
 msgstr ""
 
-#: class-meta-box.php116, class-page-builder-sandwich.php:265
+#: class-meta-box.php116, class-page-builder-sandwich.php:286
 msgid "Edit with Page Builder Sandwich"
 msgstr ""
 
@@ -198,185 +198,199 @@ msgstr ""
 msgid "Start the migration process"
 msgstr ""
 
-#: class-page-builder-sandwich.php:272
-msgid "Save Changes"
+#: class-page-builder-sandwich.php293, class-translations.php:362
+msgid "Save and Update"
 msgstr ""
 
-#: class-page-builder-sandwich.php:279
+#: class-page-builder-sandwich.php298, class-page-builder-sandwich.php309,
+#: class-translations.php:363
+msgid "Save as Draft"
+msgstr ""
+
+#: class-page-builder-sandwich.php300, class-page-builder-sandwich.php308,
+#: class-translations.php:364
+msgid "Save as Pending Review"
+msgstr ""
+
+#: class-page-builder-sandwich.php:307
+msgid "Save and Publish"
+msgstr ""
+
+#: class-page-builder-sandwich.php:324
 msgid "Cancel"
 msgstr ""
 
-#: class-page-builder-sandwich.php:286
+#: class-page-builder-sandwich.php:331
 msgid "Please wait..."
 msgstr ""
 
-#: class-page-builder-sandwich.php:299
+#: class-page-builder-sandwich.php:344
 msgid "Learn More About Premium"
 msgstr ""
 
-#: class-page-builder-sandwich.php:301
+#: class-page-builder-sandwich.php:346
 msgid ""
 "Get more tools and features by upgrading to the Premium Plugin. Here're some"
 " of the stuff you'll get:"
 msgstr ""
 
-#: class-page-builder-sandwich.php:302
+#: class-page-builder-sandwich.php:347
 msgid "Premium elements"
 msgstr ""
 
-#: class-page-builder-sandwich.php:303
+#: class-page-builder-sandwich.php:348
 msgid "Live editable Carousels"
 msgstr ""
 
-#: class-page-builder-sandwich.php:304
+#: class-page-builder-sandwich.php:349
 msgid "Full-width rows"
 msgstr ""
 
-#: class-page-builder-sandwich.php:305
+#: class-page-builder-sandwich.php:350
 msgid "Background tinted images"
 msgstr ""
 
-#: class-page-builder-sandwich.php:306
+#: class-page-builder-sandwich.php:351
 msgid "More icons, Bullet icons, upload your own icons"
 msgstr ""
 
-#: class-page-builder-sandwich.php:307
+#: class-page-builder-sandwich.php:352
 msgid "Stylable buttons"
 msgstr ""
 
-#: class-page-builder-sandwich.php:308
+#: class-page-builder-sandwich.php:353
 msgid "More easy to use styling tools"
 msgstr ""
 
-#: class-page-builder-sandwich.php:309
+#: class-page-builder-sandwich.php:354
 msgid "Pre-designed Templates"
 msgstr ""
 
-#: class-page-builder-sandwich.php:310
+#: class-page-builder-sandwich.php:355
 msgid "...and plenty more!"
 msgstr ""
 
-#: class-page-builder-sandwich.php:311
+#: class-page-builder-sandwich.php:356
 msgid "Learn more"
 msgstr ""
 
-#: class-page-builder-sandwich.php:320
+#: class-page-builder-sandwich.php:365
 msgid "Tips"
 msgstr ""
 
-#: class-page-builder-sandwich.php:321
+#: class-page-builder-sandwich.php:366
 msgid "Some Tips"
 msgstr ""
 
-#: class-page-builder-sandwich.php:322
+#: class-page-builder-sandwich.php:367
 msgid "<em>Click</em> on your site content area and start typing"
 msgstr ""
 
-#: class-page-builder-sandwich.php:323
+#: class-page-builder-sandwich.php:368
 msgid "<em>Click</em> a button on the inspector to apply styling"
 msgstr ""
 
-#: class-page-builder-sandwich.php:324
+#: class-page-builder-sandwich.php:369
 msgid "<em>Click & hold</em> to apply styles rapildy"
 msgstr ""
 
-#: class-page-builder-sandwich.php:325
+#: class-page-builder-sandwich.php:370
 msgid "<em>Ctrl+Click</em> to reverse the styling"
 msgstr ""
 
-#: class-page-builder-sandwich.php:326
+#: class-page-builder-sandwich.php:371
 msgid "<em>Shift+Ctrl+Click</em> to reset the style"
 msgstr ""
 
-#: class-page-builder-sandwich.php:327
+#: class-page-builder-sandwich.php:372
 msgid "<em>Click & hold</em> on content to drag them"
 msgstr ""
 
-#: class-page-builder-sandwich.php:328
+#: class-page-builder-sandwich.php:373
 msgid "<em>Use arrows keys</em> to move between rows"
 msgstr ""
 
-#: class-page-builder-sandwich.php:329
+#: class-page-builder-sandwich.php:374
 msgid "<em>Drag edges</em> of images & icons to resize them"
 msgstr ""
 
-#: class-page-builder-sandwich.php:330
+#: class-page-builder-sandwich.php:375
 msgid "<em>Hold shift</em> to see row outlines"
 msgstr ""
 
-#: class-page-builder-sandwich.php:331
+#: class-page-builder-sandwich.php:376
 msgid "<em>More settings</em> show up for some elements"
 msgstr ""
 
-#: class-page-builder-sandwich.php:332
+#: class-page-builder-sandwich.php:377
 msgid "<em>Quick toolbars</em> show up for some elements"
 msgstr ""
 
-#: class-page-builder-sandwich.php:333
+#: class-page-builder-sandwich.php:378
 msgid "<em>Ctrl+S</em> to save"
 msgstr ""
 
-#: class-page-builder-sandwich.php:334
+#: class-page-builder-sandwich.php:379
 msgid "<em>Ctrl+E</em> start Page Builder Sandwich"
 msgstr ""
 
-#: class-page-builder-sandwich.php:335
+#: class-page-builder-sandwich.php:380
 msgid "Replay Tour"
 msgstr ""
 
-#: class-page-builder-sandwich.php:344
+#: class-page-builder-sandwich.php:389
 msgid "Help"
 msgstr ""
 
-#: class-page-builder-sandwich.php352, class-translations.php:313
+#: class-page-builder-sandwich.php397, class-translations.php:322
 msgid "Undo"
 msgstr ""
 
-#: class-page-builder-sandwich.php360, class-translations.php:314
+#: class-page-builder-sandwich.php405, class-translations.php:323
 msgid "Redo"
 msgstr ""
 
-#: class-page-builder-sandwich.php:369
+#: class-page-builder-sandwich.php:414
 msgid "CSS"
 msgstr ""
 
-#: class-page-builder-sandwich.php:376
+#: class-page-builder-sandwich.php:421
 msgid "Javascript"
 msgstr ""
 
-#: class-page-builder-sandwich.php:383
+#: class-page-builder-sandwich.php:428
 msgid "Source"
 msgstr ""
 
-#: class-page-builder-sandwich.php:747
+#: class-page-builder-sandwich.php:816
 msgid "Frontend"
 msgstr ""
 
-#: class-page-builder-sandwich.php:752
+#: class-page-builder-sandwich.php:821
 msgid ""
 "License key activated, you will now receive plugin updates from your admin."
 msgstr ""
 
-#: class-page-builder-sandwich.php:753
+#: class-page-builder-sandwich.php:822
 msgid "License key deactivated, you will no longer receive plugin updates."
 msgstr ""
 
-#: class-plugin.php:140
+#: class-plugin.php:143
 msgid "Go Premium"
 msgstr ""
 
-#: class-plugin.php:145
+#: class-plugin.php:148
 msgid "Get Customer Support"
 msgstr ""
 
-#: class-plugin.php:218
+#: class-plugin.php:242
 msgid ""
 "Thanks for activating Page Builder Sandwich! To get started, visit any page "
 "or post in your site. %sOr let's create a new %s right now and I'll tour you"
 " on how to use PB Sandwich.%s (This will create a new draft %s)"
 msgstr ""
 
-#: class-plugin.php:235
+#: class-plugin.php:259
 msgid ""
 "Thanks for activating Page Builder Sandwich! To get started, visit any page "
 "or post in your site to begin using Page Builder Sandwich. You will need to "
@@ -626,13 +640,13 @@ msgstr ""
 msgid "Communication error, please refresh the page and try again"
 msgstr ""
 
-#: class-translations.php103, class-translations.php324,
-#: class-translations.php330, class-translations.php336,
-#: class-translations.php:340
+#: class-translations.php103, class-translations.php333,
+#: class-translations.php339, class-translations.php345,
+#: class-translations.php:349
 msgid "Edit %s"
 msgstr ""
 
-#: class-translations.php103, class-translations.php:336
+#: class-translations.php103, class-translations.php:345
 msgid "Link"
 msgstr ""
 
@@ -717,12 +731,12 @@ msgstr ""
 
 #: class-translations.php119, class-translations.php137,
 #: class-translations.php157, class-translations.php173,
-#: class-translations.php180, class-translations.php:339
+#: class-translations.php180, class-translations.php:348
 msgid "Remove %s"
 msgstr ""
 
 #: class-translations.php119, class-translations.php234,
-#: class-translations.php276, class-translations.php306,
+#: class-translations.php276, class-translations.php315,
 #: page_builder_sandwich/templates/frame-icon-picker.php:13
 msgid "Icon"
 msgstr ""
@@ -788,7 +802,7 @@ msgid "Slide"
 msgstr ""
 
 #: class-translations.php138, class-translations.php162,
-#: class-translations.php:293
+#: class-translations.php:302
 msgid "Add %s"
 msgstr ""
 
@@ -824,7 +838,7 @@ msgstr ""
 msgid "Delete %s"
 msgstr ""
 
-#: class-translations.php148, class-translations.php:289
+#: class-translations.php148, class-translations.php:298
 msgid "Carousel"
 msgstr ""
 
@@ -870,7 +884,7 @@ msgstr ""
 
 #: class-translations.php162, class-translations.php168,
 #: class-translations.php169, class-translations.php170,
-#: class-translations.php:339
+#: class-translations.php:348
 msgid "Column"
 msgstr ""
 
@@ -879,7 +893,7 @@ msgid "Clear All Row Styles"
 msgstr ""
 
 #: class-translations.php164, class-translations.php165,
-#: class-translations.php167, class-translations.php:293
+#: class-translations.php167, class-translations.php:302
 msgid "Row"
 msgstr ""
 
@@ -1147,7 +1161,10 @@ msgstr ""
 msgid "Font Size"
 msgstr ""
 
-#: class-translations.php:274
+#: class-translations.php274, class-translations.php288,
+#: class-translations.php289, class-translations.php290,
+#: class-translations.php291, class-translations.php292,
+#: class-translations.php:293
 msgid "Heading %d"
 msgstr ""
 
@@ -1156,7 +1173,7 @@ msgid "Horizontal Rule"
 msgstr ""
 
 #: class-translations.php276, class-translations.php277,
-#: class-translations.php:323
+#: class-translations.php:332
 msgid "Insert %s"
 msgstr ""
 
@@ -1187,186 +1204,198 @@ msgid "Pre-Designed Sections"
 msgstr ""
 
 #: class-translations.php:287
-msgid "Blockquote"
-msgstr ""
-
-#: class-translations.php:288
-msgid "Button"
-msgstr ""
-
-#: class-translations.php:290
-msgid "Clear Formatting"
-msgstr ""
-
-#: class-translations.php:291
-msgid "Code"
-msgstr ""
-
-#: class-translations.php:292
-msgid "Color"
+msgid "Text Style"
 msgstr ""
 
 #: class-translations.php:294
+msgid "Blockquote"
+msgstr ""
+
+#: class-translations.php:295
+msgid "Preformatted"
+msgstr ""
+
+#: class-translations.php:296
+msgid "Paragraph"
+msgstr ""
+
+#: class-translations.php:297
+msgid "Button"
+msgstr ""
+
+#: class-translations.php:299
+msgid "Clear Formatting"
+msgstr ""
+
+#: class-translations.php:300
+msgid "Code"
+msgstr ""
+
+#: class-translations.php:301
+msgid "Color"
+msgstr ""
+
+#: class-translations.php:303
 msgid "%s Column"
 msgstr ""
 
-#: class-translations.php295, class-translations.php296,
-#: class-translations.php:297
+#: class-translations.php304, class-translations.php305,
+#: class-translations.php:306
 msgid "%s Columns"
 msgstr ""
 
-#: class-translations.php298, class-translations.php299,
-#: class-translations.php300, class-translations.php301,
-#: class-translations.php302, class-translations.php:303
+#: class-translations.php307, class-translations.php308,
+#: class-translations.php309, class-translations.php310,
+#: class-translations.php311, class-translations.php:312
 msgid "Add a %s-Column Row"
 msgstr ""
 
-#: class-translations.php:304
+#: class-translations.php:313
 msgid "Add an N-Column Row"
 msgstr ""
 
-#: class-translations.php305, class-translations.php:324
+#: class-translations.php314, class-translations.php:333
 msgid "HTML"
 msgstr ""
 
-#: class-translations.php:307
+#: class-translations.php:316
 msgid "Justify"
 msgstr ""
 
-#: class-translations.php:308
+#: class-translations.php:317
 msgid "Media"
 msgstr ""
 
-#: class-translations.php:309
+#: class-translations.php:318
 msgid "Newsletter Signup Form"
 msgstr ""
 
-#: class-translations.php:310
+#: class-translations.php:319
 msgid "Table"
 msgstr ""
 
-#: class-translations.php311, class-translations.php330,
+#: class-translations.php320, class-translations.php339,
 #: page_builder_sandwich/templates/frame-shortcode-picker.php:13
 msgid "Shortcode"
 msgstr ""
 
-#: class-translations.php:312
+#: class-translations.php:321
 msgid "Insert Shortcode"
 msgstr ""
 
-#: class-translations.php:315
+#: class-translations.php:324
 msgid "Sidebar or Widget Area"
 msgstr ""
 
-#: class-translations.php316, class-translations.php:344
+#: class-translations.php325, class-translations.php:353
 msgid "Sidebar"
 msgstr ""
 
-#: class-translations.php:317
+#: class-translations.php:326
 msgid "Strikethrough"
 msgstr ""
 
-#: class-translations.php:318
+#: class-translations.php:327
 msgid "More Tools"
 msgstr ""
 
-#: class-translations.php:319
+#: class-translations.php:328
 msgid "Less Tools"
 msgstr ""
 
-#: class-translations.php:320
+#: class-translations.php:329
 msgid "Underline"
 msgstr ""
 
-#: class-translations.php:321
+#: class-translations.php:330
 msgid "Uppercase"
 msgstr ""
 
-#: class-translations.php:322
+#: class-translations.php:331
 msgid "Reset Case"
 msgstr ""
 
-#: class-translations.php323, class-translations.php345,
+#: class-translations.php332, class-translations.php354,
 #: page_builder_sandwich/templates/frame-widget-picker.php:13
 msgid "Widget"
 msgstr ""
 
-#: class-translations.php:325
+#: class-translations.php:334
 msgid "Align left"
 msgstr ""
 
-#: class-translations.php:326
+#: class-translations.php:335
 msgid "Align center"
 msgstr ""
 
-#: class-translations.php:327
+#: class-translations.php:336
 msgid "Align right"
 msgstr ""
 
-#: class-translations.php:328
+#: class-translations.php:337
 msgid "Edit"
 msgstr ""
 
-#: class-translations.php:329
+#: class-translations.php:338
 msgid "Align None"
 msgstr ""
 
-#: class-translations.php331,
+#: class-translations.php340,
 #: page_builder_sandwich/templates/frame-predesigned-picker.php:28
 msgid "Insert Design"
 msgstr ""
 
-#: class-translations.php:332
+#: class-translations.php:341
 msgid "Insert Content"
 msgstr ""
 
-#: class-translations.php:335
+#: class-translations.php:344
 msgid "Visit Link"
 msgstr ""
 
-#: class-translations.php:337
+#: class-translations.php:346
 msgid "Unlink"
 msgstr ""
 
-#: class-translations.php:338
+#: class-translations.php:347
 msgid "Clone"
 msgstr ""
 
-#: class-translations.php:340
+#: class-translations.php:349
 msgid "Embed"
 msgstr ""
 
-#: class-translations.php:341
+#: class-translations.php:350
 msgid "Remove"
 msgstr ""
 
-#: class-translations.php:346
+#: class-translations.php:355
 msgid "Next"
 msgstr ""
 
-#: class-translations.php:347
+#: class-translations.php:356
 msgid "Close"
 msgstr ""
 
-#: class-translations.php:348
+#: class-translations.php:357
 msgid "Select Image"
 msgstr ""
 
-#: class-translations.php:349
+#: class-translations.php:358
 msgid "Use Selected Image"
 msgstr ""
 
-#: class-translations.php:350
+#: class-translations.php:359
 msgid "Your email address"
 msgstr ""
 
-#: class-translations.php:367
+#: class-translations.php:381
 msgid ""
 "Please turn on your admin toolbar from your user profile in order for Page "
 "Builder Sandwich to work correctly."
 msgstr ""
 
-#: class-translations.php:368
+#: class-translations.php:382
 msgid ""
 "There are errors on this page that may affect Page Builder Sandwich from "
 "working correctly. Please check the browser's console for the errors. These "

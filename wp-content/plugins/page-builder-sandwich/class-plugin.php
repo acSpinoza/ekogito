@@ -9,7 +9,7 @@
 Plugin Name: Page Builder Sandwich Lite
 Description: The easiest way to build your website without any code. A true drag & drop page builder for WordPress.
 Author: Gambit Technologies
-Version: 2.14
+Version: 2.15.2
 Author URI: http://gambit.ph
 Plugin URI: http://pagebuildersandwich.com
 Text Domain: page-builder-sandwich
@@ -31,7 +31,7 @@ if ( defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) ) {
 }
 
 // Identifies the current plugin version.
-defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '2.14' );
+defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '2.15.2' );
 
 // The slug used for translations & other identifiers.
 defined( 'PAGE_BUILDER_SANDWICH' ) or define( 'PAGE_BUILDER_SANDWICH', 'page-builder-sandwich' );
@@ -71,6 +71,7 @@ if ( ! PBS_IS_LITE ) {
 	require_once( 'class-licensing.php' );
 	require_once( 'class-icons-uploader.php' );
 	require_once( 'class-element-newsletter.php' );
+	require_once( 'class-element-map.php' );
 } else {
 	require_once( 'class-lite-tracking.php' );
 }
@@ -99,6 +100,9 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 
 			// Gambit links.
 			add_filter( 'plugin_row_meta', array( $this, 'plugin_links' ), 10, 2 );
+
+			// Plugin links for internal developer tools.
+			add_filter( 'plugin_row_meta', array( $this, 'dev_tool_links' ), 10, 2 );
 
 			// Put a notice on how to edit using PBS.
 			add_action( 'admin_notices', array( $this, 'plugin_activation_notice' ) );
@@ -149,6 +153,27 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 			return $plugin_meta;
 		}
 
+		/**
+		 * Adds plugin links for different developer tools (for internal use only, these won't show up in user's sites).
+		 *
+		 * @access	public
+		 * @param	array  $plugin_meta The current array of links.
+		 * @param	string $plugin_file The plugin file.
+		 * @return	array The current array of links together with our additions.
+		 * @since	2.16
+		 **/
+		public function dev_tool_links( $plugin_meta, $plugin_file ) {
+			if ( plugin_basename( __FILE__ ) === $plugin_file ) {
+
+				if ( file_exists( trailingslashit( plugin_dir_path( __FILE__ ) ) . 'design-element-cleanup.php' ) ) {
+					$plugin_meta[] = sprintf( "<br><a href='%s' target='_blank'>%s</a>",
+						plugins_url( 'design-element-cleanup.php', __FILE__ ),
+						'[DEV TOOL] Pre-Designed Element HTML Cleaner'
+					);
+				}
+			}
+			return $plugin_meta;
+		}
 
 		/**
 		 * Checks for plugin updates.

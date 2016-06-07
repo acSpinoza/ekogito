@@ -10,7 +10,7 @@ $wp_cache_preload_taxonomies = 1; //Added by WP-Cache Manager
 $wp_cache_preload_email_volume = 'medium'; //Added by WP-Cache Manager
 $wp_cache_preload_email_me = 0; //Added by WP-Cache Manager
 $wp_cache_preload_interval = 720; //Added by WP-Cache Manager
-$wp_cache_preload_posts = '23'; //Added by WP-Cache Manager
+$wp_cache_preload_posts = '24'; //Added by WP-Cache Manager
 $cache_schedule_interval = 'weekly'; //Added by WP-Cache Manager
 $cache_gc_email_me = 0; //Added by WP-Cache Manager
 $cache_scheduled_time = '24:00'; //Added by WP-Cache Manager
@@ -32,7 +32,7 @@ if ( ! defined('WPCACHEHOME') )
 	define( 'WPCACHEHOME', WP_CONTENT_DIR . "/plugins/wp-super-cache/" ); //Added by WP-Cache Manager
 
 $cache_compression = 1; //Added by WP-Cache Manager
-$cache_enabled = false; //Added by WP-Cache Manager
+$cache_enabled = true; //Added by WP-Cache Manager
 $super_cache_enabled = true; //Added by WP-Cache Manager
 $cache_max_time = 172800; //Added by WP-Cache Manager
 //$use_flock = true; // Set it true or false if you know what to use
@@ -46,12 +46,12 @@ $cache_acceptable_files = array( 'wp-comments-popup.php', 'wp-links-opml.php', '
 $cache_rejected_uri = array('wp-.*\\.php', 'index\\.php');
 $cache_rejected_user_agent = array ( 0 => 'bot', 1 => 'ia_archive', 2 => 'slurp', 3 => 'crawl', 4 => 'spider', 5 => 'Yandex' );
 
-$cache_rebuild_files = 0; //Added by WP-Cache Manager
+$cache_rebuild_files = 1; //Added by WP-Cache Manager
 
 // Disable the file locking system.
 // If you are experiencing problems with clearing or creating cache files
 // uncommenting this may help.
-$wp_cache_mutex_disabled = 1; //Added by WP-Cache Manager
+$wp_cache_mutex_disabled = 0; //Added by WP-Cache Manager
 
 // Just modify it if you have conflicts with semaphores
 $sem_id = 782164782; //Added by WP-Cache Manager
