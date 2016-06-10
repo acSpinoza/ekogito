@@ -3,7 +3,7 @@
  * Plugin Name: ShortPixel Image Optimizer
  * Plugin URI: https://shortpixel.com/
  * Description: ShortPixel optimizes images automatically, while guarding the quality of your images. Check your <a href="options-general.php?page=wp-shortpixel" target="_blank">Settings &gt; ShortPixel</a> page on how to start optimizing your image library and make your website load faster. 
- * Version: 3.3.3
+ * Version: 3.3.4
  * Author: ShortPixel
  * Author URI: https://shortpixel.com
  */
@@ -22,7 +22,7 @@ define('SP_RESET_ON_ACTIVATE', false); //if true TODO set false
 
 define('SP_AFFILIATE_CODE', '');
 
-define('PLUGIN_VERSION', "3.3.3");
+define('PLUGIN_VERSION', "3.3.4");
 define('SP_MAX_TIMEOUT', 10);
 define('SP_VALIDATE_MAX_TIMEOUT', 15);
 define('SP_BACKUP', 'ShortpixelBackups');
@@ -658,7 +658,7 @@ class WPShortPixel {
         // - collect the thumbs paths in the process
         if(! $this->setFilePerms($bkFile) ) return false;
         $thumbsPaths = array();
-        if( !empty($meta['file']) ) {
+        if( !empty($meta['file']) && is_array($meta["sizes"]) ) {
             foreach($meta["sizes"] as $size => $imageData) {
                 $source = $bkFolder . $imageData['file'];
                 $thumbsPaths[$source] = $pathInfo['dirname'] . DIRECTORY_SEPARATOR . $imageData['file'];
@@ -1016,9 +1016,11 @@ class WPShortPixel {
                 if(isset($_POST['cmyk2rgb'])) { $this->_settings->CMYKtoRGBconversion = 1; } else { $this->_settings->CMYKtoRGBconversion = 0; }
                 $this->_settings->keepExif = isset($_POST['removeExif']) ? 0 : 1;
                 //delete_option('wp-short-pixel-keep-exif');
-				$this->_settings->resizeImages = (isset($_POST['resize']) ? 1: 0);
+                $this->_settings->resizeImages = (isset($_POST['resize']) ? 1: 0);
                 $this->_settings->resizeWidth = (isset($_POST['width']) ? $_POST['width']: $this->_settings->resizeWidth);
                 $this->_settings->resizeHeight = (isset($_POST['height']) ? $_POST['height']: $this->_settings->resizeHeight);
+                $this->_settings->siteAuthUser = (isset($_POST['siteAuthUser']) ? $_POST['siteAuthUser']: $this->_settings->siteAuthUser);
+                $this->_settings->siteAuthPass = (isset($_POST['siteAuthPass']) ? $_POST['siteAuthPass']: $this->_settings->siteAuthPass);
                 
                 if($_POST['save'] == "Save and Go to Bulk Process") {
                     wp_redirect("upload.php?page=wp-short-pixel-bulk");
@@ -1103,6 +1105,12 @@ class WPShortPixel {
             $args['body']['ImagesCount'] = $imageCount['mainFiles'];
             $args['body']['ThumbsCount'] = $imageCount['totalFiles'] - $imageCount['mainFiles'];
             $argsStr .= "&DomainCheck={$args['body']['DomainCheck']}&ImagesCount={$imageCount['mainFiles']}&ThumbsCount={$args['body']['ThumbsCount']}";
+        }
+        if(strlen($this->_settings->siteAuthUser)) { 
+            $args['body']['url'] = parse_url(get_site_url(),PHP_URL_HOST);
+            $args['body']['user'] = $this->_settings->siteAuthUser; 
+            $args['body']['pass'] = urlencode($this->_settings->siteAuthPass);
+            $argsStr .= "&url={$args['body']['url']}&user={$args['body']['user']}&pass={$args['body']['pass']}";
         }
 
         $comm = array();
@@ -1645,7 +1653,7 @@ class WPShortPixel {
      */
     public static function encrypt($pure_string, $encryption_key)
     {
-        if(!function_exists("mcrypt_get_iv_size")) {
+        if(!function_exists("mcrypt_get_iv_size")  || !function_exists('utf8_encode')) {
             return "";
         }
         $iv_size = \mcrypt_get_iv_size(MCRYPT_BLOWFISH, MCRYPT_MODE_ECB);

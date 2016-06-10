@@ -360,7 +360,7 @@ class ShortPixelView {
         </div>
         <?php } ?>
 
-        <article class="tabs">
+        <article id="shortpixel-settings-tabs" class="tabs">
             <section class='sel-tab' id="tab-settings">
 		        <h2><a class='tab-link' href='javascript:void(0);' data-id="tab-settings">Settings</a></h2>
                 <?php $this->displaySettingsForm($showApiKey, $quotaData);?>
@@ -382,6 +382,8 @@ class ShortPixelView {
         </article>
         <script>
             jQuery(document).ready(function () {
+                ShortPixel.adjustSettingsTabs();
+                    
                 if(window.location.hash) {
                     var target = 'tab-' + window.location.hash.substring(window.location.hash.indexOf("#")+1)
                     ShortPixel.switchSettingsTab(target);
@@ -493,6 +495,14 @@ class ShortPixelView {
                             <p class="settings-info"> Recommended for large photos, like the ones taken with your phone. Saved space can go up to 80% or more after resizing.<br/>
                                 The new resolution should not be less than your largest thumbnail size, which is <?php echo($minSizes['width']);?> &times; <?php echo($minSizes['height']);?> pixels, 
                                 or, if you have a Retina images plugin, <?php echo(2 * $minSizes['width']);?> &times; <?php echo(2 * $minSizes['height']);?> pixels.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="authentication">Site authentication credentials</label></th>
+                        <td>
+                            <input name="siteAuthUser" type="text" id="siteAuthUser" value="<?php echo( $settings->siteAuthUser );?>" class="regular-text" placeholder="User"><br>
+                            <input name="siteAuthPass" type="text" id="siteAuthPass" value="<?php echo( $settings->siteAuthPass );?>" class="regular-text" placeholder="Password">
+                            <p class="settings-info"> If your site needs credentials to connect to, please enter them here for our servers to be able to download the images that need to be optimized.</p></br>
                         </td>
                     </tr>
                 </tbody>

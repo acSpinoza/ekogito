@@ -46,6 +46,13 @@ var ShortPixel = function() {
         }
     }
 
+    function adjustSettingsTabsHeight(){
+        var sectionHeight = jQuery('#wp_shortpixel_options').height() + 60;
+        sectionHeight = Math.max(sectionHeight, jQuery('section#tab-resources .area1').height() + 20);
+        jQuery('#shortpixel-settings-tabs').css('height', sectionHeight);
+        jQuery('#shortpixel-settings-tabs section').css('height', sectionHeight);
+    }
+
     function dismissMediaAlert() {
         var data = { action  : 'shortpixel_dismiss_media_alert'};
         jQuery.get(ajaxurl, data, function(response) {
@@ -67,12 +74,25 @@ var ShortPixel = function() {
         }
     }
     
+    function retry(msg) {
+        ShortPixel.retries++;
+        if(isNaN(ShortPixel.retries)) ShortPixel.retries = 1;
+        if(ShortPixel.retries < 6) {
+            console.log("Invalid response from server (Error: " + msg + "). Retrying pass " + (ShortPixel.retries + 1) +  "...");
+            setTimeout(checkBulkProgress, 5000);
+        } else {
+            console.log("Invalid response from server 6 times. Giving up.");                    
+        }
+    }
+    
     return {
         setOptions          : setOptions,
         checkThumbsUpdTotal : checkThumbsUpdTotal,
         switchSettingsTab   : switchSettingsTab,
+        adjustSettingsTabs  : adjustSettingsTabsHeight,
         onBulkThumbsCheck   : onBulkThumbsCheck,
-        dismissMediaAlert   : dismissMediaAlert
+        dismissMediaAlert   : dismissMediaAlert,
+        retry               : retry
     }
 }();
 
@@ -175,114 +195,115 @@ function checkBulkProgress() {
 function checkBulkProcessingCallApi(){
     var data = { 'action': 'shortpixel_image_processing' };
     // since WP 2.8 ajaxurl is always defined in the admin header and points to admin-ajax.php
-    jQuery.post(ajaxurl, data, function(response) 
-    {
-        if(response.length > 0) {
-            var data = null;
-            try {
-                var data = JSON.parse(response);
-            } catch (e) {
-                ShortPixel.retries++;
-                if(isNaN(ShortPixel.retries)) ShortPixel.retries = 1;
-                if(ShortPixel.retries < 6) {
-                    console.log("Invalid response from server. Retrying pass " + (ShortPixel.retries + 1) +  "...");
-                    setTimeout(checkBulkProgress, 5000);
-                } else {
-                    console.log("Invalid response from server 6 times. Giving up.");                    
+    jQuery.ajax({
+        type: "POST",
+        url: ajaxurl, 
+        data: data, 
+        success: function(response) 
+        {
+            if(response.length > 0) {
+                var data = null;
+                try {
+                    var data = JSON.parse(response);
+                } catch (e) {
+                    ShortPixel.retry(e.message);
+                    return;
                 }
-                return;
-            }
-            var id = data["ImageID"];
-            
-            var isBulkPage = (jQuery("div.short-pixel-bulk-page").length > 0);
+                var id = data["ImageID"];
+                
+                var isBulkPage = (jQuery("div.short-pixel-bulk-page").length > 0);
 
-            switch (data["Status"]) {
-                case ShortPixel.STATUS_NO_KEY:
-                    setCellMessage(id, data["Message"] + " | <a href=\"https://shortpixel.com/wp-apikey\" target=\"_blank\">Get API Key</a>");
-                    showToolBarAlert(ShortPixel.STATUS_NO_KEY);
-                    break;
-                case ShortPixel.STATUS_QUOTA_EXCEEDED:
-                    setCellMessage(id, "<div class='sp-column-actions' style='width:110px;'><a class='button button-smaller button-primary' href=\"https://shortpixel.com/login/" 
-                                   + ShortPixel.API_KEY + "\" target=\"_blank\">Extend Quota</a>"
-                                   + "<a class='button button-smaller' href='admin.php?action=shortpixel_check_quota'>Check&nbsp;&nbsp;Quota</a></div>" 
-                                   + "<div class='sp-column-info'>" + data["Message"] + "</div>" );
-                    showToolBarAlert(ShortPixel.STATUS_QUOTA_EXCEEDED);
-                    break;
-                case ShortPixel.STATUS_FAIL:
-                    setCellMessage(id, data["Message"]);
-                    if(isBulkPage) {
-                        showToolBarAlert(ShortPixel.STATUS_FAIL, data["Message"]);
-                        progressUpdate(data["BulkPercent"], data["BulkMsg"]);
-                    }
-                    console.log(data["Message"]);
-                    setTimeout(checkBulkProgress, 5000);
-                    break;
-                case ShortPixel.STATUS_EMPTY_QUEUE:
-                    console.log(data["Message"]);
-                    clearBulkProcessor(); //nothing to process, leave the role. Next page load will check again
-                    hideToolBarAlert();
-                    var progress = jQuery("#bulk-progress");
-                    if(isBulkPage && progress.length && data["BulkStatus"] != '2') {
-                        progressUpdate(100, "Bulk finished!");
-                        jQuery("a.bulk-cancel").attr("disabled", "disabled");
-                        hideSlider();
-                        //showStats();
-                        setTimeout(function(){
-                            window.location.reload();
-                        }, 3000);
-                    }
-                    break;
-                case ShortPixel.STATUS_SUCCESS:
-                    var percent = data["PercentImprovement"];
-                    var otherType = data["Type"].length > 0 ? (data["Type"] == "lossy" ? "lossless" : "lossy") : "";
-                    
-                    var cellMsg = (percent > 0 ? "<div class='sp-column-info'>Reduced by <span class='percent'>" + percent + "%</span> " : "")
-                          + (percent > 0 && percent < 5 ? "<br>" : '')
-                          + (percent < 5 ? "Bonus processing" : '')
-                          + (data["Type"].length > 0 ? " ("+data["Type"]+")" : "")
-                          + (0 + data['ThumbsCount'] > 0 ? "<br>+" + data['ThumbsCount'] + " thumbnails optimized" :"")
-                          + "</div>";
-                    
-                    if(data["BackupEnabled"] == 1) {
-                        cellMsg = '<div class="sp-column-actions">' 
-                          + (data["ThumbsTotal"] > data["ThumbsCount"] ? "<a class='button button-smaller button-primary' href=\"javascript:optimizeThumbs(" + id + ");\">Optimize " + (data["ThumbsTotal"] - data["ThumbsCount"]) + " thumbnails</a>" : "")
-                          + (otherType.length ? "<a class='button button-smaller' href=\"javascript:reoptimize(" + id + ", '" + otherType + "');\">Re-optimize " + otherType + "</a>" : "")
-                          + "<a class='button button-smaller' href=\"admin.php?action=shortpixel_restore_backup&attachment_ID=" + id + ")\">Restore backup</a>"
-                          + "</div>" + cellMsg;
-                    }                          
-                    
-                    showToolBarAlert(ShortPixel.STATUS_SUCCESS, "");
-                    setCellMessage(id, cellMsg);
-                    var animator = new PercentageAnimator("#sp-msg-" + id + " span.percent", percent);
-                    animator.animate(percent);
-                    if(isBulkPage && typeof data["Thumb"] !== 'undefined') { // && data["PercentImprovement"] > 0) {
-                        progressUpdate(data["BulkPercent"], data["BulkMsg"]);
-                        if(data["Thumb"].length > 0){
-                            sliderUpdate(id, data["Thumb"], data["BkThumb"], data["PercentImprovement"]);
-                        }
-                    }                    
-                    console.log('Server response: ' + response);
-                    if(isBulkPage && typeof data["BulkPercent"] !== 'undefined') {
-                        progressUpdate(data["BulkPercent"], data["BulkMsg"]);
-                    }
-                    setTimeout(checkBulkProgress, 5000);
-                    break;
-                    
-                case ShortPixel.STATUS_ERROR: //for error and skip also we retry
-                case ShortPixel.STATUS_SKIP:
-                    if(typeof data["Message"] !== 'undefined') {
-                        showToolBarAlert(ShortPixel.STATUS_SKIP, data["Message"] + ' Image ID: ' + id);
+                switch (data["Status"]) {
+                    case ShortPixel.STATUS_NO_KEY:
+                        setCellMessage(id, data["Message"] + " | <a href=\"https://shortpixel.com/wp-apikey\" target=\"_blank\">Get API Key</a>");
+                        showToolBarAlert(ShortPixel.STATUS_NO_KEY);
+                        break;
+                    case ShortPixel.STATUS_QUOTA_EXCEEDED:
+                        setCellMessage(id, "<div class='sp-column-actions' style='width:110px;'><a class='button button-smaller button-primary' href=\"https://shortpixel.com/login/" 
+                                       + ShortPixel.API_KEY + "\" target=\"_blank\">Extend Quota</a>"
+                                       + "<a class='button button-smaller' href='admin.php?action=shortpixel_check_quota'>Check&nbsp;&nbsp;Quota</a></div>" 
+                                       + "<div class='sp-column-info'>" + data["Message"] + "</div>" );
+                        showToolBarAlert(ShortPixel.STATUS_QUOTA_EXCEEDED);
+                        break;
+                    case ShortPixel.STATUS_FAIL:
                         setCellMessage(id, data["Message"]);
-                    }
-                case ShortPixel.STATUS_RETRY:
-                    console.log('Server response: ' + response);
-                    showToolBarAlert(ShortPixel.STATUS_RETRY, "");
-                    if(isBulkPage && typeof data["BulkPercent"] !== 'undefined') {
-                        progressUpdate(data["BulkPercent"], data["BulkMsg"]);
-                    }
-                    setTimeout(checkBulkProgress, 5000);
-                    break;
+                        if(isBulkPage) {
+                            showToolBarAlert(ShortPixel.STATUS_FAIL, data["Message"]);
+                            progressUpdate(data["BulkPercent"], data["BulkMsg"]);
+                        }
+                        console.log(data["Message"]);
+                        setTimeout(checkBulkProgress, 5000);
+                        break;
+                    case ShortPixel.STATUS_EMPTY_QUEUE:
+                        console.log(data["Message"]);
+                        clearBulkProcessor(); //nothing to process, leave the role. Next page load will check again
+                        hideToolBarAlert();
+                        var progress = jQuery("#bulk-progress");
+                        if(isBulkPage && progress.length && data["BulkStatus"] != '2') {
+                            progressUpdate(100, "Bulk finished!");
+                            jQuery("a.bulk-cancel").attr("disabled", "disabled");
+                            hideSlider();
+                            //showStats();
+                            setTimeout(function(){
+                                window.location.reload();
+                            }, 3000);
+                        }
+                        break;
+                    case ShortPixel.STATUS_SUCCESS:
+                        var percent = data["PercentImprovement"];
+                        var otherType = data["Type"].length > 0 ? (data["Type"] == "lossy" ? "lossless" : "lossy") : "";
+                        
+                        var cellMsg = (percent > 0 ? "<div class='sp-column-info'>Reduced by <span class='percent'>" + percent + "%</span> " : "")
+                              + (percent > 0 && percent < 5 ? "<br>" : '')
+                              + (percent < 5 ? "Bonus processing" : '')
+                              + (data["Type"].length > 0 ? " ("+data["Type"]+")" : "")
+                              + (0 + data['ThumbsCount'] > 0 ? "<br>+" + data['ThumbsCount'] + " thumbnails optimized" :"")
+                              + "</div>";
+                        
+                        if(data["BackupEnabled"] == 1) {
+                            cellMsg = '<div class="sp-column-actions">' 
+                              + (data["ThumbsTotal"] > data["ThumbsCount"] ? "<a class='button button-smaller button-primary' href=\"javascript:optimizeThumbs(" + id + ");\">Optimize " + (data["ThumbsTotal"] - data["ThumbsCount"]) + " thumbnails</a>" : "")
+                              + (otherType.length ? "<a class='button button-smaller' href=\"javascript:reoptimize(" + id + ", '" + otherType + "');\">Re-optimize " + otherType + "</a>" : "")
+                              + "<a class='button button-smaller' href=\"admin.php?action=shortpixel_restore_backup&attachment_ID=" + id + ")\">Restore backup</a>"
+                              + "</div>" + cellMsg;
+                        }                          
+                        
+                        showToolBarAlert(ShortPixel.STATUS_SUCCESS, "");
+                        setCellMessage(id, cellMsg);
+                        var animator = new PercentageAnimator("#sp-msg-" + id + " span.percent", percent);
+                        animator.animate(percent);
+                        if(isBulkPage && typeof data["Thumb"] !== 'undefined') { // && data["PercentImprovement"] > 0) {
+                            progressUpdate(data["BulkPercent"], data["BulkMsg"]);
+                            if(data["Thumb"].length > 0){
+                                sliderUpdate(id, data["Thumb"], data["BkThumb"], data["PercentImprovement"]);
+                            }
+                        }                    
+                        console.log('Server response: ' + response);
+                        if(isBulkPage && typeof data["BulkPercent"] !== 'undefined') {
+                            progressUpdate(data["BulkPercent"], data["BulkMsg"]);
+                        }
+                        setTimeout(checkBulkProgress, 5000);
+                        break;
+                        
+                    case ShortPixel.STATUS_ERROR: //for error and skip also we retry
+                    case ShortPixel.STATUS_SKIP:
+                        if(typeof data["Message"] !== 'undefined') {
+                            showToolBarAlert(ShortPixel.STATUS_SKIP, data["Message"] + ' Image ID: ' + id);
+                            setCellMessage(id, data["Message"]);
+                        }
+                    case ShortPixel.STATUS_RETRY:
+                        console.log('Server response: ' + response);
+                        showToolBarAlert(ShortPixel.STATUS_RETRY, "");
+                        if(isBulkPage && typeof data["BulkPercent"] !== 'undefined') {
+                            progressUpdate(data["BulkPercent"], data["BulkMsg"]);
+                        }
+                        setTimeout(checkBulkProgress, 5000);
+                        break;
+                }
             }
+        },
+        error: function(response){
+            ShortPixel.retry(response.statusText);
         }
     });
 }

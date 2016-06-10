@@ -36,6 +36,8 @@ class WPShortPixelSettings {
         'httpProto' => 'wp-short-pixel-protocol',
         'downloadProto' => 'wp-short-pixel-download-protocol',
         'mediaAlert' => 'wp-short-pixel-media-alert',
+        'siteAuthUser' => 'wp-short-pixel-site-auth-user',
+        'siteAuthPass' => 'wp-short-pixel-site-auth-pass',
         '' => '',
     );
     
