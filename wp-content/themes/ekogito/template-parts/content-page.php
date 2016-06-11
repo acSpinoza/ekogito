@@ -30,7 +30,7 @@ if(has_post_thumbnail()){
                                 <li>
                                     <h1><?php echo get_the_title(); ?></h1>
                                 </li>
-                                </br class="uk-visible-medium">
+                              
                                 <li class="share-facebook uk-hidden-small"><a rel="nofollow" data-shared="" class="share-facebook sd-button share-icon no-text" href="http://ekogito.co" target="_blank" title="Click to share on Facebook"><span></span><span class="sharing-screen-reader-text">Click to share on Facebook (Opens in new window)<span class="share-count-dest share-count"></span></span></a>
                                 </li>
                                 <li class="share-twitter uk-hidden-small"><a rel="nofollow" data-shared="" class="share-twitter sd-button share-icon no-text" href="http://ekogito.co" target="_blank" title="Click to share on Twitter"><span></span><span class="sharing-screen-reader-text">Click to share on Twitter (Opens in new window)<span class="share-count-dest share-count"></span</span></a>

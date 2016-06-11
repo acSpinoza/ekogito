@@ -22,6 +22,13 @@
     //border-radius: 0 0 4px 4px;
     //box-shadow: 0px 0px 3px rgba(0,0,0,0.1);
     box-shadow: 0 1px 4px rgba(0,0,0,0.09);
+  background: #fdfdfd;
+  figure {
+    max-height: 260px;
+    p  {
+      display: none;
+    } 
+  }
 }
 
 .hentry {

@@ -128,3 +128,27 @@ function html_render(){
     console.log('html render');
   }    
 }
+
+jQuery(document).ready(function($) {
+   $(function() {
+  var masonryInit = true;	// set Masonry init flag
+  $.fn.almComplete = function(alm){ // Ajax Load More callback function
+    if($('#masonry-grid').length){
+      var $container = $('#masonry-grid ul'); // our container
+      if(masonryInit){
+        // initialize Masonry only once
+        masonryInit = false;
+        $container.masonry({
+          itemSelector: '.full-image'
+        });		      
+      }else{
+          $container.masonry('reloadItems'); // Reload masonry items oafter callback
+      }
+      $container.imagesLoaded( function() { // When images are loaded, fire masonry again.
+        $container.masonry();
+      });
+    }
+  };
+})(jQuery);
+  
+}(jQuery));
