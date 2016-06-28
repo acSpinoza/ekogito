@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the Network Admin package.
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2016-06-01 09:16:29+0000\n"
+"PO-Revision-Date: 2016-06-13 23:44:02+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -79,7 +79,7 @@ msgstr "Si %1$s est désactivé, demandez à votre administrateur d&rsquo;active
 
 #: wp-admin/includes/network.php:192
 msgid "Please choose whether you would like sites in your WordPress network to use sub-domains or sub-directories."
-msgstr "Veuillez indiquer si vous souhaitez que les sites de votre réseau WordPress passent pas des sous-domaines ou des sous-répertoires."
+msgstr "Veuillez indiquer si vous souhaitez que les sites de votre réseau WordPress utilisent des sous-domaines ou des sous-répertoires."
 
 #: wp-admin/includes/network.php:193
 msgid "You cannot change this later."

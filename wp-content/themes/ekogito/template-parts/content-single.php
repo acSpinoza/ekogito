@@ -31,9 +31,9 @@ if(has_post_thumbnail()){
                                     <h1><?php echo get_the_title(); ?></h1>
                                 </li>
                           
-                                <li class="share-facebook uk-hidden-small uk-animation-fade uk-animation-3"><a rel="nofollow" data-shared="" class="share-facebook sd-button share-icon no-text" href="http://ekogito.co" target="_blank" title="Click to share on Facebook"><span></span><span class="sharing-screen-reader-text">Click to share on Facebook (Opens in new window)<span class="share-count-dest share-count"></span></span></a>
+                                <li class="share-facebook uk-animation-fade uk-animation-3"><a rel="nofollow" data-shared="" class="share-facebook sd-button share-icon no-text" href="http://ekogito.co" target="_blank" title="Click to share on Facebook"><span></span><span class="sharing-screen-reader-text">Click to share on Facebook (Opens in new window)<span class="share-count-dest share-count"></span></span></a>
                                 </li>
-                                <li class="share-twitter uk-hidden-small uk-animation-fade uk-animation-3"><a rel="nofollow" data-shared="" class="share-twitter sd-button share-icon no-text" href="http://ekogito.co" target="_blank" title="Click to share on Twitter"><span></span><span class="sharing-screen-reader-text">Click to share on Twitter (Opens in new window)<span class="share-count-dest share-count"></span</span></a>
+                                <li class="share-twitter uk-animation-fade uk-animation-3"><a rel="nofollow" data-shared="" class="share-twitter sd-button share-icon no-text" href="http://ekogito.co" target="_blank" title="Click to share on Twitter"><span></span><span class="sharing-screen-reader-text">Click to share on Twitter (Opens in new window)<span class="share-count-dest share-count"></span</span></a>
                                 </li>
                                 <li class="share-end"></li>
                             </ul>
@@ -44,8 +44,8 @@ if(has_post_thumbnail()){
         		    ekogito_entry_footer();
                 ?>
             </div>
-            <div class="uk-width-medium-2-10 uk-flex-middle">
-                <div class="uk-cover-background uk-hidden-small" style="max-height:150px;background-image: url(<?php echo $thumb_url; ?>);">
+            <div class=" uk-width-medium-2-10 uk-flex-middle">
+                <div class="uk-cover-background " style="max-height:150px;background-image: url(<?php echo $thumb_url; ?>);">
                     <img class="uk-invisible" src="<?php echo $thumb_url; ?>" width="600" height="460" alt="">
                 </div>
             </div>

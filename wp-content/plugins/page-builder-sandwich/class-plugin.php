@@ -9,7 +9,7 @@
 Plugin Name: Page Builder Sandwich Lite
 Description: The easiest way to build your website without any code. A true drag & drop page builder for WordPress.
 Author: Gambit Technologies
-Version: 2.15.2
+Version: 2.16.1
 Author URI: http://gambit.ph
 Plugin URI: http://pagebuildersandwich.com
 Text Domain: page-builder-sandwich
@@ -31,7 +31,7 @@ if ( defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) ) {
 }
 
 // Identifies the current plugin version.
-defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '2.15.2' );
+defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '2.16.1' );
 
 // The slug used for translations & other identifiers.
 defined( 'PAGE_BUILDER_SANDWICH' ) or define( 'PAGE_BUILDER_SANDWICH', 'page-builder-sandwich' );
@@ -63,6 +63,7 @@ require_once( 'class-shortcodes.php' );
 require_once( 'class-element-widget.php' );
 require_once( 'class-element-sidebar.php' );
 require_once( 'class-element-html.php' );
+require_once( 'class-element-map.php' );
 require_once( 'class-translations.php' );
 if ( ! PBS_IS_LITE && ! class_exists( 'EDD_SL_Plugin_Updater' ) ) {
 	include( 'page_builder_sandwich/inc/EDD_SL_Plugin_Updater.php' );
@@ -71,7 +72,7 @@ if ( ! PBS_IS_LITE ) {
 	require_once( 'class-licensing.php' );
 	require_once( 'class-icons-uploader.php' );
 	require_once( 'class-element-newsletter.php' );
-	require_once( 'class-element-map.php' );
+	require_once( 'class-element-carousel.php' );
 } else {
 	require_once( 'class-lite-tracking.php' );
 }

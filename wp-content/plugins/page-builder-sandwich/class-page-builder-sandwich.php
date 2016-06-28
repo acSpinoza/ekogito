@@ -33,11 +33,6 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			// These are the scripts which is needed by non-editors.
 			add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend' ) );
 
-			// Load the different scripts needed for interactive elements to work for non-editors.
-			if ( ! PBS_IS_LITE ) {
-				add_action( 'pbs_enqueue_element_scripts_carousel', array( $this, 'add_carousel_script' ) );
-			}
-
 			// Gathers all the ce-tags so we can include the different scripts needed (see previous line).
 			add_filter( 'the_content', array( $this, 'gather_ce_tags' ), 0 );
 			add_filter( 'the_content', array( $this, 'add_spec_style_tag' ), 9999999 );
@@ -202,6 +197,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			include 'page_builder_sandwich/templates/option-border.php';
 			include 'page_builder_sandwich/templates/option-text.php';
+			include 'page_builder_sandwich/templates/option-textarea.php';
 			include 'page_builder_sandwich/templates/option-color.php';
 			include 'page_builder_sandwich/templates/option-margins-and-paddings.php';
 			include 'page_builder_sandwich/templates/option-select.php';
@@ -952,9 +948,6 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			wp_localize_script( __CLASS__ . '-builder', 'pbsParams', $localize_params );
 
-			if ( ! PBS_IS_LITE ) {
-				$this->add_carousel_script();
-			}
 		}
 
 
@@ -1025,25 +1018,6 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			}
 
 			return apply_filters( 'pbs_get_all_shortcodes', $shortcodes );
-		}
-
-
-		/**
-		 * Add the scripts needed by the carousel element.
-		 *
-		 * @since 2.8
-		 *
-		 * @return void
-		 */
-		public function add_carousel_script() {
-			$js_dir = defined( 'WP_DEBUG' ) && WP_DEBUG ? 'dev' : 'min';
-			$js_suffix = defined( 'WP_DEBUG' ) && WP_DEBUG ? '' : '-min';
-
-			// Admin javascript.
-			wp_enqueue_script( 'pbs-element-glide', plugins_url( 'page_builder_sandwich/js/' . $js_dir . '/inc/glide/glide' . $js_suffix . '.js', __FILE__ ), array(), VERSION_PAGE_BUILDER_SANDWICH );
-			wp_enqueue_style( 'pbs-element-glide', plugins_url( 'page_builder_sandwich/css/inc/glide/glide.core.css', __FILE__ ), array(), VERSION_PAGE_BUILDER_SANDWICH );
-			wp_enqueue_style( 'pbs-element-glide-theme', plugins_url( 'page_builder_sandwich/css/inc/glide/glide.theme.css', __FILE__ ), array(), VERSION_PAGE_BUILDER_SANDWICH );
-			wp_enqueue_script( 'pbs-element-carousel', plugins_url( 'page_builder_sandwich/js/' . $js_dir . '/frontend-carousel' . $js_suffix . '.js', __FILE__ ), array(), VERSION_PAGE_BUILDER_SANDWICH );
 		}
 	}
 

@@ -125,6 +125,9 @@ function ekogito_footer_scripts() {
  wp_enqueue_script( 'uikit-script-sticky', get_template_directory_uri() . '/vendor/uikit/js/components/sticky.min.js#asyncload' );
  wp_enqueue_script( 'uikit-script-parallax', get_template_directory_uri() . '/vendor/uikit/js/components/parallax.min.js#asyncload' );
  wp_enqueue_script( 'uikit-script-lightbox', get_template_directory_uri() . '/vendor/uikit/js/components/lightbox.min.js#asyncload' );
+	
+	wp_enqueue_script( 'isotope-script', '//npmcdn.com/isotope-layout@3.0/dist/isotope.pkgd.min.js' );
+	
 
  wp_enqueue_script( 'ekogito-script', get_template_directory_uri() . '/dist/script.min.js#asyncload');
 
@@ -138,6 +141,8 @@ function ekogito_scripts() {
  wp_enqueue_style( 'uikit-style-slideshow', get_template_directory_uri() . '/vendor/uikit/css/components/slideshow.css#asyncload' );
  wp_enqueue_style( 'uikit-style-slidenav', get_template_directory_uri() . '/vendor/uikit/css/components/slidenav.css#asyncload' );
  wp_enqueue_style( 'uikit-style-sticky', get_template_directory_uri() . '/vendor/uikit/css/components/sticky.min.css#asyncload' );
+	
+	//wp_enqueue_style( 'isotope-style', get_template_directory_uri() . '/vendor/uikit/css/components/sticky.min.css#asyncload' );
 
  wp_enqueue_style( 'ekogito-style', get_template_directory_uri() . '/dist/style.min.css#asyncload' ); 
 }
@@ -212,18 +217,6 @@ function special_nav_class ($classes, $item) {
     return $classes;
 }
 
-/**
- * Filter the except length to 20 characters.
- *
- * @param int $length Excerpt length.
- * @return int (Maybe) modified excerpt length.
- */
-function wpdocs_custom_excerpt_length( $length ) {
-    return 20;
-}
-add_filter( 'excerpt_length', 'wpdocs_custom_excerpt_length', 999 );
-
-
 
 add_filter( 'get_the_archive_title', function ($title) {
 
@@ -277,4 +270,167 @@ function ikreativ_async_scripts($url)
 	return str_replace( '#asyncload', '', $url )."' async='async"; 
     }
 add_filter( 'clean_url', 'ikreativ_async_scripts', 11, 1 );
+
+
+function recent_content(){
+
+
+		$my_query = new WP_Query('showposts=6');
+
+
+if ( $my_query->have_posts() ) :
+	
+		ob_start();
+			/* Start the Loop */
+			echo '<div class="grid-frontpage uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-medium-1-3" data-uk-grid="{gutter: 20}">';
+		while ($my_query->have_posts()) : $my_query->the_post();
+
+				/*
+				 * Include the Post-Format-specific template for the content.
+				 * If you want to override this in a child theme, then include a file
+				 * called content-___.php (where ___ is the Post Format name) and that will be used instead.
+				 */
+				get_template_part( 'template-parts/content', get_post_format() );
+
+			endwhile;
+            echo '</div>';
+            echo '<div class="uk-flex uk-flex-middle uk-text-center uk-container-center">';
+			the_posts_navigation();
+			echo '</div>';
+
+		else :
+
+			get_template_part( 'template-parts/content', 'none' );
+
+		endif; 
+	
+	return ob_get_clean();
+	
+}
+
+add_shortcode('recent_content', 'recent_content');
+
+function projects_list(){
+
+
+// WP_Query arguments
+$args = array(
+    'post_type'      => 'page',
+    'posts_per_page' => -1,
+    'post_parent'    => 9, //get_the_ID(),
+    'order'          => 'ASC',
+    'orderby'        => 'menu_order',
+		'post_status' 	 => array( 'publish' ),
+ );
+
+// The Query
+$projects_posts = new WP_Query( $args );
+
+
+if ( $projects_posts->have_posts() ) :
+	
+		ob_start();
+			/* Start the Loop */
+			echo '<div class="grid-frontpage uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-medium-1-2" data-uk-grid="{gutter: 20}">';
+		while ($projects_posts->have_posts()) : $projects_posts->the_post();
+
+				/*
+				 * Include the Post-Format-specific template for the content.
+				 * If you want to override this in a child theme, then include a file
+				 * called content-___.php (where ___ is the Post Format name) and that will be used instead.
+				 */
+				get_template_part( 'template-parts/content', get_post_format() );
+
+			endwhile;
+            echo '</div>';
+            echo '<div class="uk-flex uk-flex-middle uk-text-center uk-container-center">';
+			the_posts_navigation();
+			echo '</div>';
+
+		else :
+
+			get_template_part( 'template-parts/content', 'none' );
+
+		endif; 
+	
+	return ob_get_clean();
+	
+}
+
+add_shortcode('projects_list', 'projects_list');
+
+
+function get_post_id($atts, $content = null ){
+	
+	
+	$a = shortcode_atts( array(
+        'id' => ''
+    ), $atts );
+	
+		$args = array(
+'p' => $a['id'], // id of a page, post, or custom type
+'post_type' => 'any');
+$my_posts = new WP_Query($args);
+
+
+if ( $my_posts->have_posts() ) :
+	
+		ob_start();
+			/* Start the Loop */
+			echo '<div class="grid-frontpage uk-grid-width-small-1-1 uk-grid-width-medium-1-1 uk-grid-width-medium-1-1" data-uk-grid>';
+		while ($my_posts->have_posts()) : $my_posts->the_post();
+
+				/*
+				 * Include the Post-Format-specific template for the content.
+				 * If you want to override this in a child theme, then include a file
+				 * called content-___.php (where ___ is the Post Format name) and that will be used instead.
+				 */
+				get_template_part( 'template-parts/content', get_post_format() );
+
+			endwhile;
+            echo '</div>';
+            echo '<div class="uk-flex uk-flex-middle uk-text-center uk-container-center">';
+			the_posts_navigation();
+			echo '</div>';
+
+		else :
+
+			get_template_part( 'template-parts/content', 'none' );
+
+		endif; 
+	
+	return ob_get_clean();
+	
+}
+
+add_shortcode('get_post_id', 'get_post_id');
+
+
+/**
+ * Filter the except length to 20 characters.
+ *
+ * @param int $length Excerpt length.
+ * @return int (Maybe) modified excerpt length.
+ */
+function wpdocs_custom_excerpt_length( $length ) {
+    return 20;
+}
+add_filter( 'excerpt_length', 'wpdocs_custom_excerpt_length', 999 );
+
+/**
+ * Filter the excerpt "read more" string.
+ *
+ * @param string $more "Read more" excerpt string.
+ * @return string (Maybe) modified "read more" excerpt string.
+ */
+function wpdocs_excerpt_more( $more ) {
+    return ' ... ';
+}
+add_filter( 'excerpt_more', 'wpdocs_excerpt_more' );
+
+
+add_action( 'init', 'my_add_excerpts_to_pages' );
+function my_add_excerpts_to_pages() {
+     add_post_type_support( 'page', 'excerpt' );
+}
 

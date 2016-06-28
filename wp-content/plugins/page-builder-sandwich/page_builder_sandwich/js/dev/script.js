@@ -9,100 +9,103 @@
 /* jshint ignore:start */
 (function (view) {
 
-var
-    constructors    = ['SVGSVGElement', 'SVGGElement']
-    , dummy         = document.createElement('dummy');
+if ( ( !! window.MSInputMethodContext && !! document.documentMode ) ||
+	 ( navigator.appVersion.indexOf( 'MSIE 10' ) !== -1 ) ) {
+	var
+	    constructors    = ['SVGSVGElement', 'SVGGElement']
+	    , dummy         = document.createElement('dummy');
 
-if (!constructors[0] in view) {
-    return false;
-}
+	if (!constructors[0] in view) {
+	    return false;
+	}
 
-if (Object.defineProperty) {
+	if (Object.defineProperty) {
 
-    var innerHTMLPropDesc = {
+	    var innerHTMLPropDesc = {
 
-        get : function () {
+	        get : function () {
 
-            dummy.innerHTML = '';
+	            dummy.innerHTML = '';
 
-            Array.prototype.slice.call(this.childNodes)
-            .forEach(function (node, index) {
-                dummy.appendChild(node.cloneNode(true));
-            });
+	            Array.prototype.slice.call(this.childNodes)
+	            .forEach(function (node, index) {
+	                dummy.appendChild(node.cloneNode(true));
+	            });
 
-            return dummy.innerHTML;
-        },
+	            return dummy.innerHTML;
+	        },
 
-        set : function (content) {
-            var
-                self        = this
-                , parent    = this
-                , allNodes  = Array.prototype.slice.call(self.childNodes)
+	        set : function (content) {
+	            var
+	                self        = this
+	                , parent    = this
+	                , allNodes  = Array.prototype.slice.call(self.childNodes)
 
-                , fn        = function (to, node) {
-                    if (node.nodeType !== 1) {
-                        return false;
-                    }
+	                , fn        = function (to, node) {
+	                    if (node.nodeType !== 1) {
+	                        return false;
+	                    }
 
-                    var newNode = document.createElementNS('http://www.w3.org/2000/svg', node.nodeName);
+	                    var newNode = document.createElementNS('http://www.w3.org/2000/svg', node.nodeName);
 
-                    Array.prototype.slice.call(node.attributes)
-                    .forEach(function (attribute) {
-                        newNode.setAttribute(attribute.name, attribute.value);
-                    });
+	                    Array.prototype.slice.call(node.attributes)
+	                    .forEach(function (attribute) {
+	                        newNode.setAttribute(attribute.name, attribute.value);
+	                    });
 
-                    if (node.nodeName === 'TEXT') {
-                        newNode.textContent = node.innerHTML;
-                    }
+	                    if (node.nodeName === 'TEXT') {
+	                        newNode.textContent = node.innerHTML;
+	                    }
 
-                    to.appendChild(newNode);
+	                    to.appendChild(newNode);
 
-                    if (node.childNodes.length) {
+	                    if (node.childNodes.length) {
 
-                        Array.prototype.slice.call(node.childNodes)
-                        .forEach(function (node, index) {
-                            fn(newNode, node);
-                        });
+	                        Array.prototype.slice.call(node.childNodes)
+	                        .forEach(function (node, index) {
+	                            fn(newNode, node);
+	                        });
 
-                    }
-                };
+	                    }
+	                };
 
-            // /> to </tag>
-            content = content.replace(/<(\w+)([^<]+?)\/>/, '<$1$2></$1>');
+	            // /> to </tag>
+	            content = content.replace(/<(\w+)([^<]+?)\/>/, '<$1$2></$1>');
 
-            // Remove existing nodes
-            allNodes.forEach(function (node, index) {
-                node.parentNode.removeChild(node);
-            });
+	            // Remove existing nodes
+	            allNodes.forEach(function (node, index) {
+	                node.parentNode.removeChild(node);
+	            });
 
 
-            dummy.innerHTML = content;
+	            dummy.innerHTML = content;
 
-            Array.prototype.slice.call(dummy.childNodes)
-            .forEach(function (node) {
-                fn(self, node);
-            });
+	            Array.prototype.slice.call(dummy.childNodes)
+	            .forEach(function (node) {
+	                fn(self, node);
+	            });
 
-        }
-        , enumerable        : true
-        , configurable      : true
-    };
+	        }
+	        , enumerable        : true
+	        , configurable      : true
+	    };
 
-    try {
-        constructors.forEach(function (constructor, index) {
-            Object.defineProperty(window[constructor].prototype, 'innerHTML', innerHTMLPropDesc);
-        });
-    } catch (ex) {
-        // TODO: Do something meaningful here
-    }
+	    try {
+	        constructors.forEach(function (constructor, index) {
+	            Object.defineProperty(window[constructor].prototype, 'innerHTML', innerHTMLPropDesc);
+	        });
+	    } catch (ex) {
+	        // TODO: Do something meaningful here
+	    }
 
-} else if (Object['prototype'].__defineGetter__) {
+	} else if (Object['prototype'].__defineGetter__) {
 
-    constructors.forEach(function (constructor, index) {
-        window[constructor].prototype.__defineSetter__('innerHTML', innerHTMLPropDesc.set);
-        window[constructor].prototype.__defineGetter__('innerHTML', innerHTMLPropDesc.get);
-    });
+	    constructors.forEach(function (constructor, index) {
+	        window[constructor].prototype.__defineSetter__('innerHTML', innerHTMLPropDesc.set);
+	        window[constructor].prototype.__defineGetter__('innerHTML', innerHTMLPropDesc.get);
+	    });
 
+	}
 }
 
 } (window));
@@ -1013,7 +1016,12 @@ ContentEdit.Element.prototype.defaultStyle = function(name) {
 
 	// Get the style value.
 	var defaultStyle = window.getComputedStyle( this._domElement );
-	defaultStyle = defaultStyle[ name ];
+
+	if ( typeof defaultStyle[ name ] !== 'undefined' ) {
+		defaultStyle = defaultStyle[ name ];
+	} else {
+		defaultStyle = 0;
+	}
 
 	// Bring back the default style attribute.
 	if ( origStyleAttribute ) {
@@ -2005,7 +2013,7 @@ PBSEditor.Overlay = (function() {
 	Overlay.prevOverElement = null;
 
 	Overlay.prototype.canApply = function( element ) {
-		return true;
+		return ! Overlay.active;
 	};
 
 	// Override these.
@@ -2077,6 +2085,8 @@ PBSEditor.MarginBottom = (function(_super) {
 
 	function MarginBottom() {
 		MarginBottom.__super__.constructor.call(this);
+
+		this.supportedElements = [ 'Text', 'PreText', 'Image', 'Html', 'Icon', 'Map' ];
 	}
 
 	MarginBottom.prototype.createElement = function() {
@@ -2093,10 +2103,10 @@ PBSEditor.MarginBottom = (function(_super) {
 		if ( ! element ) {
 			element = this.element;
 		}
-		if ( element.constructor.name === 'Text' || element.constructor.name === 'PreText' || element.constructor.name === 'Image' || element.constructor.name === 'Html' || element.constructor.name === 'Icon' ) {
-			return true;
+		if ( ! wp.hooks.applyFilters( 'pbs.overlay.margin_bottom.can_apply', true, element ) ) {
+			return false;
 		}
-		return false;
+		return this.supportedElements.indexOf( element.constructor.name ) !== -1;
 	};
 
 	MarginBottom.prototype.show = function( element ) {
@@ -2105,7 +2115,7 @@ PBSEditor.MarginBottom = (function(_super) {
 
 		this._domElement.style.top = ( rect.bottom + window.scrollY ) + 'px';
 		this._domElement.style.height = styles.marginBottom;
-		this._domElement.style.left = rect.left + 'px';
+		this._domElement.style.left = ( rect.left + 30 ) + 'px';
 		this._domElement.style.width = ( rect.right - rect.left ) + 'px';
 
 		this._domElement.firstChild.innerHTML = styles.marginBottom;
@@ -2152,6 +2162,8 @@ PBSEditor.MarginTop = (function(_super) {
 
 	function MarginTop() {
 		MarginTop.__super__.constructor.call(this);
+
+		this.supportedElements = [ 'Text', 'PreText', 'Image', 'Html', 'Icon', 'Map' ];
 	}
 
 	MarginTop.prototype.createElement = function() {
@@ -2168,10 +2180,10 @@ PBSEditor.MarginTop = (function(_super) {
 		if ( ! element ) {
 			element = this.element;
 		}
-		if ( element.constructor.name === 'Text' || element.constructor.name === 'PreText' || element.constructor.name === 'Image' || element.constructor.name === 'Html' || element.constructor.name === 'Icon' ) {
-			return true;
+		if ( ! wp.hooks.applyFilters( 'pbs.overlay.margin_top.can_apply', true, element ) ) {
+			return false;
 		}
-		return false;
+		return this.supportedElements.indexOf( element.constructor.name ) !== -1;
 	};
 
 	MarginTop.prototype.show = function( element ) {
@@ -2180,7 +2192,7 @@ PBSEditor.MarginTop = (function(_super) {
 
 		this._domElement.style.top = ( rect.top + window.scrollY - parseInt( styles.marginTop, 10 ) ) + 'px';
 		this._domElement.style.height = styles.marginTop;
-		this._domElement.style.left = rect.left + 'px';
+		this._domElement.style.left = ( rect.left + 30 ) + 'px';
 		this._domElement.style.width = ( rect.right - rect.left ) + 'px';
 
 		this._domElement.firstChild.innerHTML = styles.marginTop;
@@ -2511,6 +2523,91 @@ PBSEditor.OverlayColumnWidthLabels = (function(_super) {
    return OverlayColumnWidthLabels;
 
 })(PBSEditor.Overlay);
+
+/* globals PBSEditor, __extends, pbsParams */
+
+PBSEditor.OverlayMapHeight = (function(_super) {
+	__extends(OverlayMapHeight, _super);
+
+	function OverlayMapHeight() {
+		OverlayMapHeight.__super__.constructor.call(this);
+	}
+
+	OverlayMapHeight.prototype.createElement = function() {
+		var element = document.createElement( 'DIV' );
+		var label = document.createElement( 'DIV' );
+		element.appendChild( label );
+		return element;
+	};
+
+	OverlayMapHeight.prototype.canApply = function( element ) {
+		if ( ! OverlayMapHeight.__super__.canApply.call(this, element) ) {
+			return false;
+		}
+		if ( ! element ) {
+			element = this.element;
+		}
+		return element.constructor.name === 'Map';
+	};
+
+	OverlayMapHeight.prototype.show = function( element ) {
+		var styles = getComputedStyle( element._domElement );
+		var rect = element._domElement.getBoundingClientRect();
+
+		this._domElement.style.top = ( rect.bottom + window.scrollY - 7.5 ) + 'px';
+		this._domElement.style.left = ( rect.left + rect.width / 2 - 7.5 - 30 ) + 'px';
+
+		var label = styles.height;
+		if ( styles.height === '250px' ) {
+			label = 'Auto';
+		}
+		this._domElement.firstChild.innerHTML = label;
+	};
+
+	OverlayMapHeight.prototype.onMoveStart = function() {
+		var styles = getComputedStyle( this.element._domElement );
+		this.initialValue = parseInt( styles.height, 10 );
+	};
+
+	OverlayMapHeight.prototype.onMove = function() {
+		var height = this.deltaY + this.initialValue;
+		if ( height < 0 ) {
+			height = 0;
+		}
+		if ( window.PBSEditor.isShiftDown ) {
+			var remainder = height % 10;
+			height -= remainder;
+		}
+		this.element.style( 'height', height + 'px' );
+		this.element.style( 'max-height', height + 'px' );
+		var styles = getComputedStyle( this.element._domElement );
+
+		var label = styles.height;
+		if ( styles.height === '250px' ) {
+			label = pbsParams.labels.auto;
+			this.element.style( 'max-height', '' );
+		}
+		this._domElement.firstChild.innerHTML = label;
+	};
+
+	OverlayMapHeight.prototype.onClick = function() {
+		if ( window.PBSEditor.isShiftDown && window.PBSEditor.isCtrlDown ) {
+			this.element.style( 'height', '' );
+			this.element.style( 'max-height', '' );
+			this.onMoveStart();
+			this._domElement.style.height = this.initialValue;
+			this._domElement.firstChild.innerHTML = pbsParams.labels.auto;
+			return;
+		}
+	};
+
+	return OverlayMapHeight;
+
+})(PBSEditor.Overlay);
+
+window.addEventListener( 'DOMContentLoaded', function() {
+	new PBSEditor.OverlayMapHeight();
+});
 
 /* globals ContentEdit, ContentSelect, PBSEditor */
 
@@ -6453,6 +6550,192 @@ wp.hooks.addFilter( 'pbs.toolbar.shortcode.label', function( scBase ) {
 	return scBase;
 } );
 
+/* globals ContentEdit, __extends, PBSEditor, ContentTools, google */
+
+ContentEdit.Map = (function(_super) {
+	__extends(Map, _super);
+
+	function Map( tagName, attributes ) {
+		if ( ! attributes['data-ce-tag'] ) {
+			attributes['data-ce-tag'] = 'map';
+		}
+
+		this.model = new Backbone.Model({});
+
+		Map.__super__.constructor.call(this, tagName, attributes);
+
+		this._content = '';
+	}
+
+
+    Map.prototype.blur = function() {
+      var root = ContentEdit.Root.get();
+      if (this.isFocused()) {
+		  this._removeCSSClass( 'ce-element--over' );
+        this._removeCSSClass('ce-element--focused');
+        root._focused = null;
+        return root.trigger('blur', this);
+      }
+    };
+
+	Map.prototype._onMouseOver = function(ev) {
+		Map.__super__._onMouseOver.call(this, ev);
+		return this._addCSSClass('ce-element--over');
+	};
+
+    Map.prototype._onMouseUp = function( ev ) {
+		Map.__super__._onMouseUp.call( this, ev );
+
+		this.updateMapData();
+
+		this._removeCSSClass( 'pbs-map-editing' );
+		this._dragging = false;
+		this._clicked = false;
+		clearInterval( this._forceCentered );
+    };
+
+	Map.prototype.updateMapData = function() {
+
+		if ( ! this._dragging ) {
+			var latlng = this._domElement.map.getCenter();
+			var center = latlng.lat().toFixed( 6 ) + ', ' + latlng.lng().toFixed( 6 );
+
+			if ( this.attr( 'data-center' ) !== center ) {
+				this.attr( 'data-center', center );
+				this.attr( 'data-lat', latlng.lat().toFixed( 6 ) );
+				this.attr( 'data-lng', latlng.lng().toFixed( 6 ) );
+				this.model.set( 'data-center', center );
+
+				// Move existing markers.
+				if ( this._domElement.map.marker ) {
+					this._domElement.map.marker.setPosition( this._domElement.map.getCenter() );
+				}
+			}
+		}
+
+		var zoom = this._domElement.map.getZoom();
+		if ( parseInt( this.attr( 'data-zoom' ), 10 ) !== zoom ) {
+			this.attr( 'data-zoom', zoom );
+			this.model.trigger( 'change', this.model );
+		}
+
+	};
+
+    Map.prototype._onMouseDown = function( ev ) {
+		this._clicked = true;
+		this.focus();
+		clearTimeout( this._dragTimeout );
+			return this._dragTimeout = setTimeout( ( function( _this ) {
+				return function() {
+					_this._dragging = true;
+				return _this.drag( ev.pageX, ev.pageY );
+			};
+		} )( this ), ContentEdit.DRAG_HOLD_DURATION * 2 );
+    };
+
+    Map.prototype._onMouseMove = function( ev ) {
+		if ( ! this._dragging ) {
+			clearTimeout( this._dragTimeout );
+		}
+		if ( ! this._dragging && this._clicked ) {
+			this._addCSSClass( 'pbs-map-editing' );
+		}
+		Map.__super__._onMouseMove.call(this, ev );
+
+    };
+
+
+    Map.droppers = PBSEditor.allDroppers;
+
+    Map.prototype.focus = function(supressDOMFocus) {
+		var root;
+		root = ContentEdit.Root.get();
+		if (this.isFocused()) {
+			return;
+		}
+		if (root.focused()) {
+			root.focused().blur();
+		}
+		this._addCSSClass('ce-element--focused');
+		root._focused = this;
+		if (this.isMounted() && !supressDOMFocus) {
+			this.domElement().focus();
+		}
+		return root.trigger('focus', this);
+    };
+
+	Map.prototype.cssTypeName = function() {
+		return 'map';
+	};
+
+	Map.prototype.typeName = function() {
+		return 'Map';
+	};
+
+	Map.prototype.mount = function() {
+		var ret = Map.__super__.mount.call( this );
+
+		window.initPBSMaps( this._domElement, function() {
+			google.maps.event.addListener( this._domElement.map, 'zoom_changed', _.throttle( function() {
+				this.updateMapData();
+			}.bind( this ), 2 ) );
+			google.maps.event.addListener( this._domElement.map, 'drag', _.throttle( function() {
+				this.updateMapData();
+			}.bind( this ), 2 ) );
+		}.bind( this ) );
+
+		return ret;
+	};
+
+	Map.prototype.unmount = function() {
+		google.maps.event.clearInstanceListeners( this._domElement.map );
+		return Map.__super__.unmount.call( this );
+	};
+
+
+	// Creates the base element of the shortcode div.
+	// Does not have any contents, need to run `ajaxUpdate` after attaching to update.
+	Map.create = function() {
+
+		var o = document.createElement('DIV');
+		o.setAttribute( 'data-ce-tag', 'map' );
+		o.setAttribute( 'data-ce-moveable', '' );
+		// o.setAttribute( 'data-url', url );
+
+		return ContentEdit.Map.fromDOMElement( o );
+	};
+
+	return Map;
+
+})(ContentEdit.Static);
+
+ContentEdit.TagNames.get().register(ContentEdit.Map, 'map');
+
+
+window.addEventListener( 'DOMContentLoaded', function() {
+	var editor = ContentTools.EditorApp.get();
+	if ( window.initPBSMaps ) {
+
+		// When we end editing, the DOM gets rebuilt, we need to re-init the maps.
+		editor.bind( 'stop', window.initPBSMaps );
+	}
+
+	var mapRefreshInterval;
+	if ( window.pbsMapsReCenter ) {
+		editor.bind( 'start', function() {
+			mapRefreshInterval = setInterval( function() {
+				if ( document.querySelector( '.ce-element--dragging' ) || document.querySelector( '.pbs-map-editing' ) ) {
+					return;
+				}
+				window.pbsMapsReCenter();
+			}, 1000 );
+		} );
+		editor.bind( 'stop', function() {
+			clearInterval( mapRefreshInterval );
+		} );
+	}
+} );
+
 
 
 
@@ -9578,6 +9861,12 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 	this._currentGroupIndex = 0;
 	if ( typeof this._oldGroups === 'undefined' ) {
 		this._oldGroups = [];
+
+		// Make sure the oldGroups don't carry over to the next editing session.
+		var editor = ContentTools.EditorApp.get();
+		editor.bind( 'start', function() {
+			this._oldGroups = [];
+		}.bind( this ) );
 	}
 
 	// this.clearSections();
@@ -9778,9 +10067,17 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 
 		} else if ( typeof PBSShortcodes[ elemType ] !== 'undefined' && doneTypes.indexOf( elemType ) === -1 ) {
 
-			currElemModel = new Backbone.Model({
-				element: currElem
-			});
+			// currElemModel = new Backbone.Model({
+			// 	element: currElem
+			// });
+			if ( ! currElem.model ) {
+				currElemModel = new Backbone.Model({
+					element: currElem
+				});
+			} else {
+				currElemModel = currElem.model;
+				currElemModel.set( 'element', currElem );
+			}
 
 			for ( k = 0; k < PBSShortcodes[ elemType ].options.length; k++ ) {
 				this.addSectionOptions( group, PBSShortcodes[ elemType ].options[ k ], currElem, currElemModel );
@@ -10343,7 +10640,7 @@ PBSOption.Button = Backbone.View.extend({
 	},
 
 	_tooltipUpdater: function() {
-		if ( this.optionSettings.tooltipValue && this.model.get('element') && this.model.get('element')._domElement ) {
+		if ( this.optionSettings.tooltipValue && this.model.get('element') ) {
 			this.updateTooltip( this.optionSettings.tooltipValue( this.model.get('element'), this ) );
 		} else {
 			this.updateTooltip();
@@ -10360,7 +10657,7 @@ PBSOption.Button = Backbone.View.extend({
 
 	_canApplyUpdater: function() {
 		this.el.classList.remove( 'ct-tool--disabled' );
-		if ( this.optionSettings.canApply && this.model.get('element') && this.model.get('element')._domElement ) {
+		if ( this.optionSettings.canApply && this.model.get('element') ) {
 			if ( ! this.optionSettings.canApply( this.model.get('element'), this ) ) {
 				this.el.classList.add( 'ct-tool--disabled' );
 			}
@@ -10368,7 +10665,7 @@ PBSOption.Button = Backbone.View.extend({
 	},
 
 	_isAppliedUpdater: function() {
-		if ( this.optionSettings.isApplied && this.model.get('element') && this.model.get('element')._domElement ) {
+		if ( this.optionSettings.isApplied && this.model.get('element') ) {
 			this.updateIsApplied( this.optionSettings.isApplied( this.model.get('element'), this ) );
 		}
 	},
@@ -10990,7 +11287,7 @@ PBSOption.Text = Backbone.View.extend({
 
 	selectChanged: function(e) {
 		if ( this.optionSettings.change ) {
-			this.optionSettings.change( this.model.get('element'), e.target.value );
+			this.optionSettings.change( this.model.get('element'), e.target.value, this );
 		}
 		this.model.set( this.optionSettings.id, e.target.value );
 	},
@@ -11001,6 +11298,18 @@ PBSOption.Text = Backbone.View.extend({
 		}
 	}
 });
+
+
+
+PBSOption.Textarea = PBSOption.Text.extend({
+	template: wp.template( 'pbs-option-textarea' ),
+
+	events: {
+		'change textarea' : 'selectChanged',
+		'keyup textarea' : 'selectChanged',
+		'click textarea' : 'click'
+	}
+} );
 
 PBSOption.Number = PBSOption.Text.extend({});
 
@@ -14196,6 +14505,113 @@ window.addEventListener( 'DOMContentLoaded', function() {
 } );
 
 
+/* globals google, pbsParams, PBSEditor */
+
+ window.pbsAddInspector( 'Map', {
+ 	'label': pbsParams.labels.map,
+ 	'options': [
+		{
+			'name': pbsParams.labels.hide_map_controls,
+			'tooltip': pbsParams.labels.hide_map_controls,
+			'tooltip-reset': pbsParams.labels.reset_map_controls,
+			'type': 'button',
+			'class': 'pbs-button-map-ui',
+			'isApplied': function ( element ) {
+				return element._domElement.getAttribute( 'data-disable-ui' );
+			},
+			'click': function( element ) {
+				var value = element._domElement.getAttribute( 'data-disable-ui' ) || false;
+
+				var enableControls = value || ( window.PBSEditor.isShiftDown && window.PBSEditor.isCtrlDown );
+				if ( enableControls ) {
+					element.attr( 'data-disable-ui', '' );
+				} else {
+					element.attr( 'data-disable-ui', '1' );
+				}
+
+				element._domElement.map.setOptions( { disableDefaultUI: ! enableControls } );
+			}
+		},
+		{
+			'name': pbsParams.labels.latitude_longitude_and_address,
+			'type': 'text',
+			'desc': pbsParams.labels.latitude_longitude_desc,
+			'initialize': function( element, view ) {
+				view.listenTo( view.model, 'change:data-center', view.render );
+			},
+			'value': function( element ) {
+				return element.attr( 'data-center' );
+			},
+			'change': _.debounce( function( element, value, view ) {
+				if ( element.attr( 'data-center' ) === value ) {
+					return;
+				}
+				element.attr( 'data-center', value );
+
+				view.$el.find( 'input' ).removeClass( 'pbs-option-error' );
+
+				var center = value.trim() || '37.09024, -95.712891';
+
+				// Remove all existing markers.
+				if ( element._domElement.map.marker ) {
+					element._domElement.map.marker.setMap( null );
+					delete( element._domElement.map.marker );
+				}
+
+				var latLonMatch = center.match( /^([-+]?\d{1,2}([.]\d+)?)\s*,?\s*([-+]?\d{1,3}([.]\d+)?)$/ );
+				if ( latLonMatch ) {
+					element.attr( 'data-lat', latLonMatch[1] );
+					element.attr( 'data-lng', latLonMatch[3] );
+					center = { lat: parseFloat( latLonMatch[1] ), lng: parseFloat( latLonMatch[3] ) };
+					element._domElement.map.setCenter( center );
+
+					// Put back the map marker.
+					if ( element.attr( 'data-marker-image' ) ) {
+						element._domElement.map.marker = new google.maps.Marker({
+							position: element._domElement.map.getCenter(),
+							map: element._domElement.map,
+							icon: element.attr( 'data-marker-image' )
+						});
+					} else if ( element.attr( 'data-marker' ) ) {
+						element._domElement.map.marker = new google.maps.Marker({
+						    position: element._domElement.map.getCenter(),
+						    map: element._domElement.map
+						});
+					}
+
+				} else {
+					var geocoder = new google.maps.Geocoder();
+					geocoder.geocode( { 'address': center }, function( results, status ) {
+					    if ( status === google.maps.GeocoderStatus.OK ) {
+							element.attr( 'data-lat', results[0].geometry.location.lat() );
+							element.attr( 'data-lng', results[0].geometry.location.lng() );
+							center = { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() };
+							element._domElement.map.setCenter( center );
+
+							// Put back the map marker.
+							if ( element.attr( 'data-marker-image' ) ) {
+								element._domElement.map.marker = new google.maps.Marker({
+									position: element._domElement.map.getCenter(),
+									map: element._domElement.map,
+									icon: element.attr( 'data-marker-image' )
+								});
+							} else if ( element.attr( 'data-marker' ) ) {
+								element._domElement.map.marker = new google.maps.Marker({
+								    position: element._domElement.map.getCenter(),
+								    map: element._domElement.map
+								});
+							}
+						} else {
+							view.$el.find( 'input' ).addClass( 'pbs-option-error' );
+					    }
+					});
+				}
+
+			}, 300 )
+		}
+	]
+} );
+
 /* globals ContentTools, ContentEdit, HTMLString, pbsParams */
 
 /***************************************************************************
@@ -14347,7 +14763,15 @@ ContentTools.Tools.OrderedList.isApplied = ContentTools.Tools.UnorderedList.isAp
 			return callback(true);
 
 		} else {
-			return proxied.call( this, element, selection, callback );
+			var ret = proxied.call( this, element, selection, callback );
+
+			// Switching between numbered & bullet list does not refresh the inspector.
+			// Trigger a focus on the element to refresh it.
+			if ( element.parent() && element.parent().type() === 'ListItem' ) {
+				ContentEdit.Root.get().trigger( 'focus', element );
+			}
+
+			return ret;
 		}
 	};
 })();
@@ -14370,7 +14794,15 @@ ContentTools.Tools.OrderedList.isApplied = ContentTools.Tools.UnorderedList.isAp
 			return callback(true);
 
 		} else {
-			return proxied.call( this, element, selection, callback );
+			var ret = proxied.call( this, element, selection, callback );
+
+			// Switching between numbered & bullet list does not refresh the inspector.
+			// Trigger a focus on the element to refresh it.
+			if ( element.parent() && element.parent().type() === 'ListItem' ) {
+				ContentEdit.Root.get().trigger( 'focus', element );
+			}
+
+			return ret;
 		}
 	};
 })();
@@ -14445,6 +14877,12 @@ ContentTools.Tools.Bold.isApplied = function(element, selection) {
 		return true;
 	}
 
+	// Support numbered font-weights.
+	var fontWeightNum = parseInt( fontWeight, 10 );
+	if ( ! isNaN( fontWeightNum ) ) {
+		return fontWeightNum > 400;
+	}
+
  	return fontWeight === 'bold';
 };
 
@@ -14479,12 +14917,26 @@ ContentTools.Tools.Bold.apply = function(element, selection, callback) {
 	 	if ( ! fontWeight || fontWeight === 'normal' ) {
 	 		fontWeight = 'bold';
 		// If the font-weight is a number.
-		} else if ( ! isNaN( parseInt( fontWeight, 10 ) ) || parseInt( fontWeight, 10 ) <= 400 ) {
-			fontWeight = 'bold';
+		} else if ( ! isNaN( parseInt( fontWeight, 10 ) ) ) {
+			if ( parseInt( fontWeight, 10 ) <= 400 ) {
+				fontWeight = 'bold';
+			} else {
+				fontWeight = 'normal';
+			}
 	 	} else {
 	 		fontWeight = 'normal';
 	 	}
-	 	// var newStyle = [];
+
+		// For normal weights, use the original weight value if it's below 0-300.
+		if ( fontWeight === 'normal' ) {
+			var defaultFontWeight = element.defaultStyle( 'font-weight' );
+			if ( ! isNaN( parseInt( defaultFontWeight, 10 ) ) ) {
+				if ( parseInt( defaultFontWeight, 10 ) < 400 ) {
+					fontWeight = defaultFontWeight;
+				}
+			}
+		}
+
 	 	var newStyle = { 'font-weight': fontWeight };
 
 	 	element.content = element.content.style( from, to, element._tagName, newStyle );
@@ -15537,18 +15989,38 @@ PBS.Toolbar = (function() {
 		// Go through each selector and check if we are over a selector (or it's children), then display the toolbar.
 		for ( var i = 0; i < selectors.length; i++ ) {
 
-			// Convert the selector to also include their children.
-			var selector = selectors[ i ].split(',').join(' *,').concat(' *,' + selectors[ i ]);
-
-			if ( pbsSelectorMatches( e.target, selector ) ) {
+			// Check if the target matches an exact selector.
+			if ( pbsSelectorMatches( e.target, selectors[ i ] ) ) {
 				this._parent = e.target;
 				if ( this._addTools( e.target ) ) {
 					this._domElement.classList.add('pbs-show');
 					this._domElement.style.opacity = 1;
 					this._updatePosition();
 				}
-
 				return;
+			}
+
+			// Check whether the element matches a child of the selector.
+			var childSelector = selectors[ i ].split(',').join(' *,').concat(' *');
+
+			// If a child matches, find the parent that matches the original selector.
+			if ( pbsSelectorMatches( e.target, childSelector ) ) {
+
+				// If it matches a child, we need to find the originating parent selector,
+				// so we can make the toolbar appear on the top-center of the parent.
+				var parentElement = e.target.parentNode;
+				while ( parentElement && parentElement.tagName !== 'BODY' ) {
+					if ( pbsSelectorMatches( parentElement, selectors[ i ] ) ) {
+						this._parent = parentElement;
+						if ( this._addTools( parentElement ) ) {
+							this._domElement.classList.add('pbs-show');
+							this._domElement.style.opacity = 1;
+							this._updatePosition();
+						}
+						return;
+					}
+					parentElement = parentElement.parentNode;
+				}
 			}
 		}
 	};
@@ -15990,6 +16462,24 @@ ContentTools.Tools.Code = (function(_super) {
 		element.taint();
 		element.restoreState();
 		return callback(true);
+	};
+
+	Code.isApplied = function( element, selection ) {
+	 	if ( selection ) {
+
+	 		// From the original Bold.isApplied
+	 		var from, to, _ref;
+	 		if (element.content === void 0 || !element.content.length()) {
+	 			return false;
+	 		}
+	 		_ref = selection.get(), from = _ref[0], to = _ref[1];
+	 		if (from === to) {
+	 			to += 1;
+	 		}
+	 		return element.content.slice(from, to).hasTags(this.tagName, true);
+	 	}
+
+		return false;
 	};
 
   return Code;
@@ -17460,6 +17950,50 @@ ContentTools.Tools.Html = (function(_super) {
 
 })(ContentTools.Tool);
 
+/* globals ContentEdit, ContentTools, __extends, pbsParams */
+
+ContentTools.Tools.Map = ( function( _super ) {
+	__extends( Map, _super );
+
+	function Map() {
+		return Map.__super__.constructor.apply( this, arguments );
+	}
+
+	ContentTools.ToolShelf.stow( Map, 'map' );
+
+	Map.label = pbsParams.labels.map;
+
+	Map.icon = 'map';
+
+	Map.tagName = 'div';
+
+	Map.shortcut = '';
+
+	Map.buttonName = pbsParams.labels.map;
+
+	// Map.premium = true;
+
+	Map.canApply = function() {
+		return true;
+	};
+
+	Map.apply = function( element, selection, callback ) {
+
+		var newElem = ContentEdit.Map.create();
+
+		var index = element.parent().children.indexOf( element );
+
+		element.parent().attach( newElem, index + 1 );
+
+		newElem.focus();
+
+		return callback( true );
+	};
+
+	return Map;
+
+})( ContentTools.Tool );
+
 
 
 
@@ -18873,6 +19407,31 @@ wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
 			target.parentNode.removeChild( target );
 		}
 	});
+	tools.push( o );
+
+	return tools;
+} );
+
+/* globals pbsParams */
+
+wp.hooks.addFilter( 'pbs.has_toolbar_selectors', function( selector ) {
+	selector.push( '[data-ce-tag="map"]' );
+	return selector;
+} );
+
+wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
+
+	if ( target.getAttribute( 'data-ce-tag' ) !== 'map' ) {
+		return tools;
+	}
+	
+	var o = document.createElement('DIV');
+	o.classList.add( 'pbs-tool' );
+	o.classList.add( 'pbs-image-remove' );
+	o.setAttribute( 'data-tooltip', pbsParams.labels.remove );
+	o.addEventListener( 'click', function() {
+		target._ceElement.parent().detach( target._ceElement );
+	} );
 	tools.push( o );
 
 	return tools;
@@ -22101,6 +22660,58 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	};
 })();
 
+if ( ! window.PBSEditor ) {
+	window.PBSEditor = {};
+}
+
+
+/**
+ * Converts a hex color to its RGB components.
+ *
+ * @see http://stackoverflow.com/questions/5623838/rgb-to-hex-and-hex-to-rgb
+ */
+window.PBSEditor.hexToRgb = function( hex ) {
+    // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
+    var shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+    hex = hex.replace(shorthandRegex, function(m, r, g, b) {
+        return r + r + g + g + b + b;
+    });
+
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
+};
+
+
+/**
+ * Converts an RGB color to HSL.
+ *
+ * @see http://axonflux.com/handy-rgb-to-hsl-and-rgb-to-hsv-color-model-c
+ */
+window.PBSEditor.rgbToHsl = function( r, g, b ) {
+    r /= 255, g /= 255, b /= 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h, s, l = (max + min) / 2;
+
+    if ( max === min ) {
+        h = s = 0; // achromatic
+    } else {
+        var d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch(max){
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+
+    return { h: h, s: s, l: l };
+};
+
 
 /***************************************************************************
  * These are the tools in the inspector, overriding the defaults of CT.
@@ -22165,12 +22776,12 @@ ContentTools.DEFAULT_TOOLS = [
 		'shortcode',
 		'html',
 
+		'map',
 
 		'onecolumn',
 		'twocolumn',
-		'threecolumn'
-
-
+		'threecolumn',
+		'fourcolumn'
 	// [
 	// 	'row', 'column2', 'column3', 'column4', 'column233', 'column424'
 	// ],
@@ -22201,3 +22812,16 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	new PBSEditor.OverlayColumnWidthRight();
 	new PBSEditor.OverlayColumnWidthLabels();
 });
+
+
+// ContentEdit.TagNames.get().register( ContentEdit.Text, 'label' );
+//
+// (function() {
+// 	var proxied = ContentEdit.Text.prototype.drop;
+// 	ContentEdit.Text.prototype.drop = function( element, placement ) {
+// 		console.log('drop', element, placement);
+// 		return proxied.call( this, element, placement );
+// 	//   Text.__super__.drop.call(this, element, placement);
+// 	//   return this.restoreState();
+// 	};
+// })();

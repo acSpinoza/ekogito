@@ -1,10 +1,10 @@
 === Page Builder Sandwich - Front-End Drag and Drop Page Builder  ===
-Contributors: bfintal
+Contributors: bfintal, gambitph
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=D2MK28E7BDLHC
 Tags: page builder, page builder plugin, builder, layout builder, page, landing page builder, home page builder, landing page builder, page layout, drag and drop builder, frontend editor, visual, frontend builder, front-end builder, drag and drop, editor, column, columns, shortcode, layout, table, nested, composer, beaver builder, siteorigin, responsive, wysiwyg editor
 Requires at least: 4.2
 Tested up to: 4.5.2
-Stable tag: 2.15.2
+Stable tag: 2.16.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -40,7 +40,7 @@ Using Page Builder Sandwich is unbelievably easy, fast and unlike anything you'v
 * Drag content to move it to another location
 * Drag images in your browser from your Windows Explorer / Finder to add them
 * Pick styles from our inspector to design your page
-* Add raw HTML, widgets, sidebars, shortcodes, vector icons, and plenty more
+* Add raw HTML, widgets, sidebars, shortcodes, Google Maps, vector icons, and plenty more
 
 = Stress-Free and Fluid Experience =
 
@@ -79,7 +79,8 @@ Page Builder Sandwich integrates with how WordPress deals with content, so it sh
 
 The premium version gives you some awesome [features](https://pagebuildersandwich.com/features/):
 
-* Button Element
+* Map Element with advanced styling options
+* Button Element with advanced styling options
 * Carousel Element
 * Newsletter Element (MailChimp, Aweber & MailPoet)
 * More Vector/SVG icons
@@ -118,6 +119,28 @@ If you cannot see the "Edit with Page Builder Sandwich" button on your frontend,
 The new Page Builder Sandwich is completely different from the old one. We've ditched the old backend page builder for the more awesome frontend page building experience. If you're upgrading from version 1.x, a migration notice should appear on the top of your admin which should help you migrate your content into the new system.
 
 == Changelog ==
+
+= 2.16.1 =
+* Fixed: Our bad! Words broke into individual letters when wrapping inside columns, our intention was to fix word wrapping instead of word breaking.
+* Fixed: Enqueued Google Maps API script errors out with some plugins that add defer attributes.
+* Fixed: Carousel elements sometimes errors out during initialization.
+
+= 2.16 =
+* New: Map element (simple version for lite)
+* New: Map element (advanced colorization settings for premium)
+* Fixed: Cancelling while an element is selected then editing again sometimes can cause the inspector to prevent the immediately selected element's properties to appear.
+* Fixed: IE10 & IE11 bug: Column flex items set to align-items:center overflow their container @see https://github.com/philipwalton/flexbugs#2-column-flex-items-set-to-align-itemscenter-overflow-their-container
+* Fixed: Now prevents unbreaking string of characters to go past columns.
+* Fixed: Switching between numbered & bullet list does not refresh the inspector, and doesn't enable/disable buttons.
+* Fixed: Adding border-radius to an image in Firefox sometimes do not get applied.
+* Fixed: Bold button doesn't change into a depressed state in Firefox
+* Fixed: Bold button doesn't "unbold" the text in Firefox
+* Fixed: Bold button can now handle lighter default font-weights.
+* Fixed: Inspector buttons for the button element were not displaying their depressed states.
+* Fixed: The code button shows as depressed when the cursor is on a bold text.
+* Fixed: When dragging overlay controls, other overlaid controls can sometimes trigger.
+* Fixed: Prevent occasional JS errors from the carousel.
+* Fixed: Icons go blank during editing. This was because of a new polyfill introduced in 2.15.2 for IE10 & IE11 that was affecting other browsers.
 
 = 2.15.2 =
 * Fixed: & signs inside script tags in an html element get escaped and prevent user inputted scripts from running properly.

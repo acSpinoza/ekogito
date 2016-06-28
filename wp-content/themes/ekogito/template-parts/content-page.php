@@ -23,7 +23,7 @@ if(has_post_thumbnail()){
 	<header class="entry-header uk-animation-fade">
 	    <div class="uk-grid uk-flex-middle" data-uk-grid-margin="" data-uk-grid-match>
             <div class="uk-width-medium-8-10 uk-row-first">
-                <div class="sharedaddy sd-sharing-enabled">
+                <div class="header-single sharedaddy sd-sharing-enabled">
                     <div class="robots-nocontent sd-block sd-social sd-social-icon sd-sharing">
                         <div class="sd-content">
                             <ul>
@@ -31,9 +31,9 @@ if(has_post_thumbnail()){
                                     <h1><?php echo get_the_title(); ?></h1>
                                 </li>
                               
-                                <li class="share-facebook uk-hidden-small"><a rel="nofollow" data-shared="" class="share-facebook sd-button share-icon no-text" href="http://ekogito.co" target="_blank" title="Click to share on Facebook"><span></span><span class="sharing-screen-reader-text">Click to share on Facebook (Opens in new window)<span class="share-count-dest share-count"></span></span></a>
+                                <li class="share-facebook"><a rel="nofollow" data-shared="" class="share-facebook sd-button share-icon no-text" href="http://ekogito.co" target="_blank" title="Click to share on Facebook"><span></span><span class="sharing-screen-reader-text">Click to share on Facebook (Opens in new window)<span class="share-count-dest share-count"></span></span></a>
                                 </li>
-                                <li class="share-twitter uk-hidden-small"><a rel="nofollow" data-shared="" class="share-twitter sd-button share-icon no-text" href="http://ekogito.co" target="_blank" title="Click to share on Twitter"><span></span><span class="sharing-screen-reader-text">Click to share on Twitter (Opens in new window)<span class="share-count-dest share-count"></span</span></a>
+                                <li class="share-twitter"><a rel="nofollow" data-shared="" class="share-twitter sd-button share-icon no-text" href="http://ekogito.co" target="_blank" title="Click to share on Twitter"><span></span><span class="sharing-screen-reader-text">Click to share on Twitter (Opens in new window)<span class="share-count-dest share-count"></span</span></a>
                                 </li>
                                 <li class="share-end"></li>
                             </ul>
@@ -44,14 +44,14 @@ if(has_post_thumbnail()){
         		    ekogito_entry_footer();
                 ?>
             </div>
-            <div class="uk-width-medium-2-10 uk-flex-middle">
+            <div class="uk-hidden-small uk-width-medium-2-10 uk-flex-middle">
                 <div class="uk-cover-background uk-hidden-small" style="max-height:150px;background-image: url(<?php echo $thumb_url; ?>);">
                     <img class="uk-invisible" src="<?php echo $thumb_url; ?>" width="600" height="460" alt="">
                 </div>
             </div>
         </div>
 	</header><!-- .entry-header -->
-    <hr>
+    
 	<div class="entry-content uk-animation-slide-bottom">
 		<?php
 			the_content( sprintf(
@@ -63,6 +63,7 @@ if(has_post_thumbnail()){
 				'before' => '<div class="page-links">' . esc_html__( 'Pages:', '_s' ),
 				'after'  => '</div>',
 			) );
+		
 		?>
 	</div><!-- .entry-content -->
 

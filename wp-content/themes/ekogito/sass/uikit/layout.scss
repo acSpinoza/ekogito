@@ -1,5 +1,5 @@
 .uk-panel-box-white {
-    background: rgba(255,255,255,0.85);
+    background: #ffffff;
     //margin: 10px 0px 0px 10px;
 }
 
@@ -22,7 +22,7 @@
     //border-radius: 0 0 4px 4px;
     //box-shadow: 0px 0px 3px rgba(0,0,0,0.1);
     box-shadow: 0 1px 4px rgba(0,0,0,0.09);
-  background: #fdfdfd;
+  background: #ffffff;
   figure {
     max-height: 260px;
     p  {
@@ -187,6 +187,7 @@ header .sd-content {
 
 header .sd-content ul li{
     padding: 5px 0 !important;
+    margin-bottom: 10px !important;
 }
 
 #primary{
@@ -223,3 +224,61 @@ html {
     height: 0 !important;
     margin: 0 !important;
 }
+
+.grid-frontpage {
+  figure{
+        height: 140px;
+  }
+  .uk-panel{
+        //height: 80px;
+  }
+}
+
+.uk-panel-box {
+      word-break: break-word;
+}
+
+.pbs-col {
+  img {
+    height: 140px;
+  }
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+}
+
+p {
+      word-break: break-word;
+}
+
+.frontpage-grid,
+.grid-frontpage {
+  .entry-header {
+    margin-top: 10px;
+    .category-links a {
+      font-weight: 200;
+    }
+  }
+  .excerpt p {
+    font-size: 14px;
+    margin-bottom: 1em;
+    padding: 0 1.5em 0 1.5em;
+    //text-align: justify;
+  }
+  *+h3{
+    margin-top: 15px;
+  }
+}
+
+a:hover {
+    text-decoration: none !important;
+    //color: #000 !important;
+}
+
+.page .header-single{
+  border-bottom: 1px solid #ccc;
+}
+
+.pbs-main-wrapper{
+  margin-bottom: 20px;
+}
+    
