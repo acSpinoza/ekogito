@@ -5,7 +5,7 @@ Tags: image optimizer, image optimization, compress pdf, compress jpeg, compress
 
 Requires at least: 3.2.0
 Tested up to: 4.5
-Stable tag: 3.3.4
+Stable tag: 3.3.6
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -192,6 +192,14 @@ The ShortPixel team is here to help. <a href="https://shortpixel.com/contact">Co
 4. Restore to original image. (Media>Library)
 
 == Changelog ==
+
+= 3.3.6 =
+
+* When quota exceeded, download the images that are already processed on the server
+
+= 3.3.5 =
+
+* fix the size problem of the settings tabs when not yet activated
 
 = 3.3.4 =
 

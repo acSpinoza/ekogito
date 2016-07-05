@@ -38,6 +38,7 @@ class WPShortPixelSettings {
         'mediaAlert' => 'wp-short-pixel-media-alert',
         'siteAuthUser' => 'wp-short-pixel-site-auth-user',
         'siteAuthPass' => 'wp-short-pixel-site-auth-pass',
+        'prioritySkip' => 'wp-short-pixel-prioritySkip',
         '' => '',
     );
     

@@ -59,7 +59,41 @@ class ShortPixelQueue {
         return $_SESSION["wp-short-pixel-priorityQueue"];//get_option("wp-short-pixel-priorityQueue");
     }
     
-    public function push($ID)//add an ID to priority queue
+    public function skip($id) {
+        if(is_array($this->settings->prioritySkip)) {
+            $this->settings->prioritySkip = array_merge($this->settings->prioritySkip, array($id));
+        } else { 
+            $this->settings->prioritySkip = array($id);
+        }            
+     }
+ 
+     public function allSkipped() {
+         if( !is_array($this->settings->prioritySkip) ) return false;
+         count(array_diff($_SESSION["wp-short-pixel-priorityQueue"], $this->settings->prioritySkip));
+     }
+ 
+     public function skippedCount() {
+         return is_array($this->settings->prioritySkip) ? count($this->settings->prioritySkip) : 0;
+     }
+ 
+     public function isSkipped($id) {
+         return is_array($this->settings->prioritySkip) && in_array($id, $this->settings->prioritySkip);
+     }
+ 
+     public function isPrio($id) {
+         return is_array($_SESSION["wp-short-pixel-priorityQueue"]) && in_array($id, $_SESSION["wp-short-pixel-priorityQueue"]);
+     }
+ 
+     public function getSkipped() {
+         return $this->settings->prioritySkip;
+     }
+ 
+     public function reverse() {
+         $this->settings->priorityQueue = $_SESSION["wp-short-pixel-priorityQueue"] = array_reverse($_SESSION["wp-short-pixel-priorityQueue"]);
+ 
+     }
+  
+     public function push($ID)//add an ID to priority queue
     {
         $priorityQueue = $_SESSION["wp-short-pixel-priorityQueue"]; //get_option("wp-short-pixel-priorityQueue");
         WPShortPixel::log("PUSH: Push ID $ID into queue ".json_encode($priorityQueue));

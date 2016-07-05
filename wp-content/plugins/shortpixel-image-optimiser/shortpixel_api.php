@@ -159,7 +159,9 @@ class ShortPixelAPI {
             {
             case 2:
                 //handle image has been processed
-                update_option( 'wp-short-pixel-quota-exceeded', 0);//reset the quota exceeded flag
+                if(!isset($firstImage->Status->quotaExceeded)) {
+                    $this->_settings->quotaExceeded = 0;//reset the quota exceeded flag
+                }
                 return $this->handleSuccess($APIresponse, $URLs, $PATHs, $ID, $compressionType);
                 break;
             default:
@@ -338,7 +340,22 @@ class ShortPixelAPI {
             foreach ( $tempFiles as $tempFileID => $tempFilePATH )
             { 
                 if ( file_exists($tempFilePATH) && file_exists($PATHs[$tempFileID]) && is_writable($PATHs[$tempFileID]) ) {
+                    /*
+                    echo("COPY FROM " . $tempFilePATH . " TO " . $PATHs[$tempFileID] . " TIME " . date("Y-m-d H:i:s"));
+                    if(file_exists($PATHs[$tempFileID])) {
+                        echo " TARGET IS THERE, SIZE " . filesize($PATHs[$tempFileID]) . ", FILEMTIME: " . date("Y-m-d H:i:s", filemtime($PATHs[$tempFileID])) . ", UNLINKING ... "
+                    }
+                    unlink($PATHs[$tempFileID]);
+                    if(file_exists($PATHs[$tempFileID])) {
+                        echo " NOT UNLINKED ";
+                    }
+                    */
                     copy($tempFilePATH, $PATHs[$tempFileID]);
+                    /*
+                    if(file_exists($PATHs[$tempFileID])) {
+                        echo " FILE COPIED, SIZE " . filesize($PATHs[$tempFileID]) . ", FILEMTIME: " . date("Y-m-d H:i:s", filemtime($PATHs[$tempFileID])) . " ";
+                    }
+                    */
                 } else {
                     $writeFailed++;
                 }

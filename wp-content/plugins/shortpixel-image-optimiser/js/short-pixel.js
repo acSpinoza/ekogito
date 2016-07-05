@@ -47,7 +47,7 @@ var ShortPixel = function() {
     }
 
     function adjustSettingsTabsHeight(){
-        var sectionHeight = jQuery('#wp_shortpixel_options').height() + 60;
+        var sectionHeight = jQuery('.wp-shortpixel-options').height() + 60;
         sectionHeight = Math.max(sectionHeight, jQuery('section#tab-resources .area1').height() + 20);
         jQuery('#shortpixel-settings-tabs').css('height', sectionHeight);
         jQuery('#shortpixel-settings-tabs section').css('height', sectionHeight);
@@ -224,6 +224,9 @@ function checkBulkProcessingCallApi(){
                                        + "<a class='button button-smaller' href='admin.php?action=shortpixel_check_quota'>Check&nbsp;&nbsp;Quota</a></div>" 
                                        + "<div class='sp-column-info'>" + data["Message"] + "</div>" );
                         showToolBarAlert(ShortPixel.STATUS_QUOTA_EXCEEDED);
+                        if(data['Stop'] == false) { //there are other items in queue maybe already optimized
+                            setTimeout(checkBulkProgress, 5000);             
+                        }                                                    
                         break;
                     case ShortPixel.STATUS_FAIL:
                         setCellMessage(id, data["Message"]);

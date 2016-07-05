@@ -405,6 +405,7 @@ class ShortPixelView {
         $minSizes = $this->ctrl->getMaxIntermediateImageSize();
         $thumbnailsToProcess = isset($quotaData['totalFiles']) ? ($quotaData['totalFiles'] - $quotaData['mainFiles']) - ($quotaData['totalProcessedFiles'] - $quotaData['mainProcessedFiles']) : 0;
         ?>
+        <div class="wp-shortpixel-options">
         <?php if($this->ctrl->getVerifiedKey()) { ?>
             <p>New images uploaded to the Media Library will be optimized automatically.<br/>If you have existing images you would like to optimize, you can use the <a href="<?php echo(get_admin_url());?>upload.php?page=wp-short-pixel-bulk">Bulk Optimization Tool</a>.</p>
         <?php } else { 
@@ -512,6 +513,7 @@ class ShortPixelView {
                 <input type="submit" name="save" id="bulk" class="button button-primary" title="Save and go to the Bulk Processing page" value="Save and Go to Bulk Process"> &nbsp;
             </p>
         </form>
+        </div>
         <script>
             var rad = document.wp_shortpixel_options.compressionType;
             var prev = null;

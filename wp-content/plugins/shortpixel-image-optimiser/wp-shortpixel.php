@@ -3,7 +3,7 @@
  * Plugin Name: ShortPixel Image Optimizer
  * Plugin URI: https://shortpixel.com/
  * Description: ShortPixel optimizes images automatically, while guarding the quality of your images. Check your <a href="options-general.php?page=wp-shortpixel" target="_blank">Settings &gt; ShortPixel</a> page on how to start optimizing your image library and make your website load faster. 
- * Version: 3.3.4
+ * Version: 3.3.6
  * Author: ShortPixel
  * Author URI: https://shortpixel.com
  */
@@ -22,7 +22,7 @@ define('SP_RESET_ON_ACTIVATE', false); //if true TODO set false
 
 define('SP_AFFILIATE_CODE', '');
 
-define('PLUGIN_VERSION', "3.3.4");
+define('PLUGIN_VERSION', "3.3.6");
 define('SP_MAX_TIMEOUT', 10);
 define('SP_VALIDATE_MAX_TIMEOUT', 15);
 define('SP_BACKUP', 'ShortpixelBackups');
@@ -78,6 +78,8 @@ class WPShortPixel {
         //Media custom column
         add_filter( 'manage_media_columns', array( &$this, 'columns' ) );//add media library column header
         add_action( 'manage_media_custom_column', array( &$this, 'generateCustomColumn' ), 10, 2 );//generate the media library column
+        //custom hook
+        add_action( 'shortpixel-optimize-now', array( &$this, 'optimizeNowHook' ), 10, 1);
 
         if($isAdminUser) {
             //add settings page
@@ -417,10 +419,10 @@ class WPShortPixel {
         $idsPrio = $this->prioQ->get();
         for($i = count($idsPrio) - 1, $cnt = 0; $i>=0 && $cnt < 3; $i--) {
             $id = $idsPrio[$i];
-            if(wp_get_attachment_url($id)) {
+            if(!$this->prioQ->isSkipped($id) && wp_get_attachment_url($id)) {
                 $ids[] = $id; //valid ID
-            } else {
-                $removeIds[] = $id;//absent, to remove
+            } elseif(!$this->prioQ->isSkipped($id)) {
+                $removeIds[] = $id;//not skipped, url not found, means it's absent, to remove
             }
         }
         foreach($removeIds as $rId){
@@ -571,7 +573,19 @@ class WPShortPixel {
             }
             $this->advanceBulk($ID, $result);
         }
-        if($result["Status"] !== ShortPixelAPI::STATUS_RETRY) {
+        elseif ($this->prioQ->isPrio($ID) && $result["Status"] == ShortPixelAPI::STATUS_QUOTA_EXCEEDED) {
+              if(!$this->prioQ->skippedCount()) {
+                  $this->prioQ->reverse(); //for the first prio item with quota exceeded, revert the prio queue as probably the bottom ones were processed
+              }
+              if($this->prioQ->allSkipped()) {
+                  $result["Stop"] = true;
+              } else {
+                  $result["Stop"] = false;
+                  $this->prioQ->skip($ID);
+              }
+              self::log("HIP: 5 Prio Skipped: ".json_encode($this->prioQ->getSkipped()));
+         }
+         if($result["Status"] !== ShortPixelAPI::STATUS_RETRY) {
             update_option( 'wp-short-pixel-bulk-last-status', $result);
         }
         die(json_encode($result));
@@ -598,9 +612,14 @@ class WPShortPixel {
     }
 
     public function handleManualOptimization() {
-        
         $imageId = intval($_GET['image_id']);
+        $this->optimizeNowHook($imageId);
+        //do_action('shortpixel-optimize-now', $imageId);
         
+    }
+    
+    //custom hook
+    public function optimizeNowHook($imageId) {
         if(self::isProcessable($imageId)) {
             $this->prioQ->push($imageId);
             $this->sendToProcessing($imageId);
@@ -807,7 +826,8 @@ class WPShortPixel {
         //$quotaData['mainProcessedFiles'] = $imageCount['mainProcessedFiles'];
 
         if($quotaData['APICallsQuotaNumeric'] + $quotaData['APICallsQuotaOneTimeNumeric'] > $quotaData['APICallsMadeNumeric'] + $quotaData['APICallsMadeOneTimeNumeric']) {
-            update_option('wp-short-pixel-quota-exceeded','0');
+            $this->_settings->quotaExceeded = '0';
+            $this->_settings->prioritySkip = NULL;
             ?><script>var shortPixelQuotaExceeded = 0;</script><?php
         }
         else {    

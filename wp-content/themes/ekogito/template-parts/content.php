@@ -38,7 +38,7 @@ if(has_post_thumbnail()){
             <?php
           echo "<div class='uk-hidden-small entry-header'>";
 		/* translators: used between list items, there is a space after the comma */
-		$categories_list = get_the_category_list( esc_html__( ', ', 'ekogito' ) );
+		$categories_list = get_the_category_list( esc_html__( ' ', 'ekogito' ) );
 		if ( $categories_list && ekogito_categorized_blog()) {
 			printf( '<span class="uk-text-muted uk-h6 category-links">' . esc_html__( ' %1$s ', 'ekogito' ) . '</span>', $categories_list ); // WPCS: XSS OK.
 		}	

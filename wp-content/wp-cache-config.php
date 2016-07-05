@@ -10,7 +10,7 @@ $wp_cache_preload_taxonomies = 1; //Added by WP-Cache Manager
 $wp_cache_preload_email_volume = 'medium'; //Added by WP-Cache Manager
 $wp_cache_preload_email_me = 0; //Added by WP-Cache Manager
 $wp_cache_preload_interval = 720; //Added by WP-Cache Manager
-$wp_cache_preload_posts = '24'; //Added by WP-Cache Manager
+$wp_cache_preload_posts = '27'; //Added by WP-Cache Manager
 $cache_schedule_interval = 'weekly'; //Added by WP-Cache Manager
 $cache_gc_email_me = 0; //Added by WP-Cache Manager
 $cache_scheduled_time = '24:00'; //Added by WP-Cache Manager
@@ -38,7 +38,7 @@ $cache_max_time = 172800; //Added by WP-Cache Manager
 //$use_flock = true; // Set it true or false if you know what to use
 $cache_path = '/var/www/vhosts/ekogito/wp-content/cache'; //Added by WP-Cache Manager
 $file_prefix = 'wp-cache-';
-$ossdlcdn = 0;
+$ossdlcdn = 1; //Added by WP-Cache Manager
 
 // Array of files that have 'wp-' but should still be cached
 $cache_acceptable_files = array( 'wp-comments-popup.php', 'wp-links-opml.php', 'wp-locations.php' );
