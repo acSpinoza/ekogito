@@ -275,14 +275,25 @@ add_filter( 'clean_url', 'ikreativ_async_scripts', 11, 1 );
 function recent_content(){
 
 
-		$my_query = new WP_Query('showposts=6');
+		$my_query = new WP_Query(array( 'posts_per_page' => 6 ) );
 
 
 if ( $my_query->have_posts() ) :
 	
 		ob_start();
 			/* Start the Loop */
-			echo '<div class="grid-frontpage uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-medium-1-3" data-uk-grid="{gutter: 20}">';
+		echo '<ul class="recent_posts_categories uk-visible-large" >';
+		wp_list_categories(array(
+        'orderby'    => 'name',
+        'show_count' => false,
+      	'title_li' 	 => '',
+				'depth'      => 1,
+				'hide_empty' => true,
+				'exclude'		 => array( 79, 92, 97 ),
+			
+    ) );
+		echo '</ul>';
+			echo '<div class="grid-frontpage uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-medium-1-3 uk-grid-match" data-uk-grid="{gutter: 20}">';
 		while ($my_query->have_posts()) : $my_query->the_post();
 
 				/*
@@ -434,3 +445,9 @@ function my_add_excerpts_to_pages() {
      add_post_type_support( 'page', 'excerpt' );
 }
 
+
+function jetpackme_more_related_posts( $options ) {
+    $options['size'] = 3;
+    return $options;
+}
+add_filter( 'jetpack_relatedposts_filter_options', 'jetpackme_more_related_posts' );

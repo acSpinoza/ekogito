@@ -20,7 +20,15 @@ if(has_post_thumbnail()){
             the_post_thumbnail();
             ?>            <figcaption class="uk-overlay-panel uk-overlay-background uk-flex uk-flex-center uk-flex-middle uk-text-center">
                 <div>
-                <a href="<?php echo esc_url( get_permalink()); ?>"><i class="uk-icon-plus uk-icon-large"></i></a>
+                <a href="<?php echo esc_url( get_permalink()); ?>">
+									<?php
+									if(has_post_format('link')){
+										echo '<i class="uk-icon-link uk-icon-large"></i>';
+									}else{
+										echo '<i class="uk-icon-plus uk-icon-large"></i>';
+									}
+									?>
+									</a>
                 <br>
                 <br>
                 <?php

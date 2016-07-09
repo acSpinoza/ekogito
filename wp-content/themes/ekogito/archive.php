@@ -13,7 +13,7 @@ get_header(); ?>
 		<main id="main" class="site-main" role="main">
 		<header class="entry-header uk-animation-fade">
 	    <div class="uk-grid uk-flex-middle" data-uk-grid-margin="" data-uk-grid-match>
-            <div class="uk-width-medium-10-10 uk-row-first">
+            <div class="uk-width-medium-5-10 uk-row-first">
                 <div class="sharedaddy sd-sharing-enabled">
                     <div class="robots-nocontent sd-block sd-social sd-social-icon sd-sharing">
                         <div class="sd-content">
@@ -21,6 +21,16 @@ get_header(); ?>
                                 <li>
                                     <h1><?php echo get_the_archive_title(); ?></h1>
                                 </li>
+																<?php 
+															if ( function_exists( 'sharing_display' ) ) {
+																	sharing_display( '', true );
+															}
+
+															if ( class_exists( 'Jetpack_Likes' ) ) {
+																	$custom_likes = new Jetpack_Likes;
+																	echo $custom_likes->post_likes( '' );
+															}
+															?>
                             </ul>
                         </div>
                     </div>
@@ -28,7 +38,11 @@ get_header(); ?>
                 <?php
         		    ekogito_entry_footer();
                 ?>
+							
             </div>
+								<div class="uk-width-medium-5-10 uk-text-middle">
+					<?php wp_tag_cloud( array( 'taxonomy' => 'category', 'smallest' => 8, 'largest' => 16 ) );?>
+				</div>
         </div>
 	</header><!-- .entry-header -->
 		<hr>
@@ -37,7 +51,7 @@ get_header(); ?>
 		if ( have_posts() ) :
 
 			/* Start the Loop */
-			echo '<div class="uk-grid-width-small-1-2 uk-grid-width-medium-1-3 uk-grid-width-medium-1-4" data-uk-grid="{gutter: 30}">';
+			echo '<div class="uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-medium-1-3" data-uk-grid="{gutter: 30}">';
 			while ( have_posts() ) : the_post();
 
 				/*

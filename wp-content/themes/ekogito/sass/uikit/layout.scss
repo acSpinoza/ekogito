@@ -281,4 +281,57 @@ a:hover {
 .pbs-main-wrapper{
   margin-bottom: 20px;
 }
-    
+
+ul.recent_posts_categories{
+    display: block;
+    position: absolute;
+    left: 20px;
+    line-height: 1.8em;
+    font-size: .9em;
+    list-style: none;
+    text-align: right;
+    border-right: 1px solid rgba(51,51,51,0.1);
+    padding-bottom: 10px;
+    padding-top: 10px;
+    padding-right: 20px;
+}
+
+#jp-relatedposts .jp-relatedposts-items-visual h4.jp-relatedposts-post-title{
+  padding-top: 5px;
+}
+
+#jp-relatedposts .jp-relatedposts-items .jp-relatedposts-post .jp-relatedposts-post-title a{
+  border-bottom: none;
+}
+
+#hugeit-contact-wrapper_3 .buttons-block button.submit,
+#hugeit_preview_button__submit_21,
+#hugeit_preview_button__submit_40,
+.hugeit_form .submit{
+  box-shadow: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #333 !important;
+  border: 1px solid #333 !important;
+  :hover{
+    box-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #333 !important;
+    border: 1px solid rgba(51,51,51,0.3) !important
+  }
+}
+
+
+@media only screen and (max-width: 1450px){
+  .recent_posts_categories {
+     left: -50px !important;
+  }
+}
+
+.pluginButton.pluginButtonInline.pluginConnectButtonDisconnected{
+    height: 24px !important;
+    border-radius: 4px !important;
+    font-size: 13px !important;
+    padding-top: 4px !important;
+}

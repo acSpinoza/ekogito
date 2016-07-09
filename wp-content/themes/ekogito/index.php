@@ -18,14 +18,24 @@ get_header(); ?>
 		<main id="main" class="site-main" role="main">
 		<header class="entry-header uk-animation-fade">
 	    <div class="uk-grid uk-flex-middle" data-uk-grid-margin="" data-uk-grid-match>
-            <div class="uk-width-medium-10-10 uk-row-first">
+            <div class="uk-width-medium-5-10 uk-row-first">
                 <div class="sharedaddy sd-sharing-enabled">
                     <div class="robots-nocontent sd-block sd-social sd-social-icon sd-sharing">
                         <div class="sd-content">
                             <ul>
                                 <li>
-                                    <h1>Journal</h1>
+                                    <h1>Journal </h1>
                                 </li>
+																<?php 
+															if ( function_exists( 'sharing_display' ) ) {
+																	sharing_display( '', true );
+															}
+
+															if ( class_exists( 'Jetpack_Likes' ) ) {
+																	$custom_likes = new Jetpack_Likes;
+																	echo $custom_likes->post_likes( '' );
+															}
+															?>
                             </ul>
                         </div>
                     </div>
@@ -33,8 +43,13 @@ get_header(); ?>
                 <?php
         		    ekogito_entry_footer();
                 ?>
+							
             </div>
+				<div class="uk-width-medium-5-10 uk-text-middle">
+					<?php wp_tag_cloud( array( 'taxonomy' => 'category', 'smallest' => 8, 'largest' => 16 ) );?>
+				</div>
         </div>
+				
 	</header><!-- .entry-header -->
 		<hr>
         
