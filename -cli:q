@@ -1,0 +1,12 @@
+[0;1;32m●[0m redis-server.service - Redis In-Memory Data Store
+   Loaded: loaded (/lib/systemd/system/redis-server.service; enabled; vendor preset: enabled)
+   Active: [0;1;32mactive (running)[0m since Wed 2016-06-29 13:54:53 EDT; 1 weeks 3 days ago
+     Docs: http://redis.io/documentation,
+           man:redis-server(1)
+ Main PID: 975 (redis-server)
+   CGroup: /system.slice/redis-server.service
+           └─975 /usr/bin/redis-server 127.0.0.1:6379       
+
+Jul 09 18:58:00 vps80552 systemd[1]: Started Advanced key-value store.
+Jul 09 18:58:11 vps80552 systemd[1]: Started Redis In-Memory Data Store.
+Warning: Journal has been rotated since unit was started. Log output is incomplete or unavailable.
