@@ -48,25 +48,24 @@ $open_count_total = 0;
 $click_count_total = 0;
 foreach ($emails as $email) {
     $entry = array();
-    $total_sent += $email->total;
-    if (empty($email->total)) {
+    $total_sent += $email->sent;
+    if (empty($email->sent)) {
 //        $entry[0] = date('Y-m-d', $email->send_on);
 //        $entry[1] = 0;
-//	$entry[2] = $email->subject;// . ' (' . percent($open_count, $email->total) . ')';
+//	$entry[2] = $email->subject;// . ' (' . percent($open_count, $email->sent) . ')';
 //        $entry[3] = 0;
         continue;
     }
     //$entry[0] = $email->subject . ' [' . date('Y-m-d', $email->send_on) . ', ' . $email->type . ']';
-    $total_sent += $email->total;
     $entry[0] = date('Y-m-d', $email->send_on);
     $open_count = $wpdb->get_var("select count(distinct user_id) from " . NEWSLETTER_STATS_TABLE . " where email_id=" . $email->id);
     $open_count_total += $open_count;
-    $entry[1] = $open_count / $email->total * 100;
+    $entry[1] = $open_count / $email->sent * 100;
     $entry[1] = round($entry[1], 2);
-    $entry[2] = $email->subject; // . ' (' . percent($open_count, $email->total) . ')';
+    $entry[2] = $email->subject; // . ' (' . percent($open_count, $email->sent) . ')';
     $click_count = $wpdb->get_var("select count(distinct user_id) from " . NEWSLETTER_STATS_TABLE . " where url<>'' and email_id=" . $email->id);
     $click_count_total += $click_count;
-    $entry[3] = $click_count / $email->total * 100;
+    $entry[3] = $click_count / $email->sent * 100;
     $entry[3] = round($entry[3], 2);
 
     $overview_labels[] = strftime('%a, %e %b', $email->send_on);

@@ -101,7 +101,7 @@ $emails = Newsletter::instance()->get_emails('message');
                 </thead>
 
                 <tbody>
-                    <?php foreach ($emails as &$email) {
+                    <?php foreach ($emails as $email) {
                         $email_options = unserialize($email->options);
                         ?>
                         <tr>
@@ -112,7 +112,8 @@ $emails = Newsletter::instance()->get_emails('message');
                                     echo htmlspecialchars($email->subject);
                                 else
                                     echo "Newsletter #" . $email->id;
-                                ?></td>
+                                ?>
+                            </td>
 
                             <td>
                                 <?php

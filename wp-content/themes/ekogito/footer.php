@@ -13,13 +13,12 @@
     <footer id="colophon" class="site-footer" role="contentinfo">
     <div id="tm-footer" class="site-info  tm-footer uk-block uk-block-secondary uk-contrast">
         <div class="uk-container uk-container-center">
-
-            <section class="uk-grid uk-grid-match" data-uk-grid-margin="">
-                <div class="uk-width-medium-1-1 uk-row-first">
-
-                    <div class="uk-panel">
-
-                        <ul class="uk-grid uk-grid-medium uk-flex uk-flex-center">
+             <div class="uk-grid">
+                                    <div class="uk-width-1-3"><div class="uk-panel uk-panel-box">
+                                         <?php echo do_shortcode('[mc4wp_form id="1315"]'); ?>
+                                      </div></div>
+                                    <div class="uk-width-1-3"><div class="uk-panel uk-panel-box">
+                                      <ul class="uk-grid uk-grid-medium uk-flex uk-flex-center">
                             <li>
                                 <a href="https://www.facebook.com/ekogito.co" target="_blank" class="uk-icon-hover uk-icon-small uk-icon-facebook"></a>
                             </li>
@@ -31,11 +30,12 @@
                             <li><a href="<?php echo esc_url( home_url( '/' ) ); ?>">Ekogito <?php echo date("Y"); ?></a>
                             </li>
                         </ul>
+                                      </div></div>
+                                    <div class="uk-width-1-3"><div class="uk-panel uk-panel-box">
+                                        
+                                      </div></div>
+                                </div>
 
-                    </div>
-
-                </div>
-            </section>
 
         </div>
     </div>

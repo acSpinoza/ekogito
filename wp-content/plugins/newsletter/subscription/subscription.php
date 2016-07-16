@@ -21,7 +21,7 @@ class NewsletterSubscription extends NewsletterModule {
 
     function __construct() {
 
-        parent::__construct('subscription', '2.0.1');
+        parent::__construct('subscription', '2.0.2');
 
 //        $this->options_lock = $this->get_options('lock');
 
@@ -169,59 +169,20 @@ class NewsletterSubscription extends NewsletterModule {
             $this->save_options($this->options);
         }
 
-        // Locked content configuration migration
-//        $options_lock = $this->get_options('lock');
-//        if (empty($options_lock)) {
-//            $options_main = Newsletter::instance()->get_options();
-//            if (isset($options_main['lock_message'])) {
-//                $options_lock['ids'] = $options_main['lock_ids'];
-//                $options_lock['url'] = $options_main['lock_url'];
-//                $options_lock['message'] = $options_main['lock_message'];
-//                update_option('newsletter_subscription_lock', $options_lock);
-//            }
-//        }
-//
-//        $this->init_options('lock');
-
         $options_template = $this->get_options('template');
-        if (empty($options_template)) {
+        if (empty($options_template) && isset($this->options['template'])) {
             $options_template['enabled'] = isset($this->options['template_enabled']) ? 1 : 0;
-            $options_template['template'] = isset($this->options['template']) ? $this->options['template'] : '';
+            $options_template['template'] = $this->options['template'];
             add_option('newsletter_subscription_template', $options_template, null, 'no');
         }
         $this->init_options('template', false);
+        
+        if (isset($this->options['template'])) {
+            unset($this->options['template']);
+            unset($this->options['template_enabled']);
+            $this->save_options($this->options);
+        }
 
-//        $options_wp = $this->get_options('wp');
-//        if (empty($options_wp)) {
-//            if (isset($this->options['wp_welcome'])) {
-//                $options_wp['welcome'] = $this->options['wp_welcome'];
-//            }
-//            if (isset($this->options['wp_delete'])) {
-//                $options_wp['delete'] = $this->options['wp_delete'];
-//            }
-//            if (isset($this->options['subscribe_wp_users_label'])) {
-//                $options_wp['subscribe_label'] = $this->options['subscribe_wp_users_label'];
-//            }
-//            if (isset($this->options['subscribe_wp_users'])) {
-//                $options_wp['subscribe'] = $this->options['subscribe_wp_users'];
-//            }
-//            if (isset($this->options['send_confirmation'])) {
-//                $options_wp['confirmation'] = $this->options['send_confirmation'];
-//            }
-//            $this->save_options($options_wp, 'wp');
-//
-//            unset($this->options['wp_welcome']);
-//            unset($this->options['wp_delete']);
-//            unset($this->options['subscribe_wp_users_label']);
-//            unset($this->options['subscribe_wp_users']);
-//            unset($this->options['send_confirmation']);
-//            $this->save_options($this->options);
-//        }
-//
-//        $this->init_options('wp', false);
-
-        // Because users do not understand how to create an "extensions" folder...
-        //@wp_mkdir_p(WP_CONTENT_DIR . '/extensions/newsletter/subscription');
         return true;
     }
 
@@ -516,7 +477,7 @@ class NewsletterSubscription extends NewsletterModule {
         }
 
         // Preferences (field names are nl[] and values the list number so special forms with radio button can work)
-        if (is_array($_REQUEST['nl'])) {
+        if (isset($_REQUEST['nl']) && is_array($_REQUEST['nl'])) {
             $this->logger->debug($_REQUEST['nl']);
             for ($i = 1; $i <= NEWSLETTER_LIST_MAX; $i++) {
                 // If not zero it is selectable by user (on subscription or on profile)

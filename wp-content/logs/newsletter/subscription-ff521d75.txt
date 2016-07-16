@@ -1,0 +1,7 @@
+11-07-2016 23:44:47 - INFO  - 13,5 MB - upgrade_query> Executing update wp_options set autoload='no' where option_name='newsletter_subscription_profile' limit 1
+11-07-2016 23:44:47 - INFO  - 13,5 MB - upgrade_query> Executing update wp_options set autoload='no' where option_name='newsletter_subscription_lists' limit 1
+11-07-2016 23:44:47 - INFO  - 13,5 MB - upgrade_query> Executing update wp_options set autoload='no' where option_name='newsletter_subscription_template' limit 1
+16-07-2016 13:40:47 - INFO  - 2.8 MB - Version changed from 2.0.1 to 2.0.2
+16-07-2016 13:40:47 - INFO  - 2.8 MB - upgrade_query> Executing update wp_options set autoload='yes' where option_name='newsletter_subscription_profile' limit 1
+16-07-2016 13:40:47 - INFO  - 2.8 MB - upgrade_query> Executing update wp_options set autoload='yes' where option_name='newsletter_subscription_lists' limit 1
+16-07-2016 13:40:47 - INFO  - 2.8 MB - upgrade_query> Executing update wp_options set autoload='no' where option_name='newsletter_subscription_template' limit 1

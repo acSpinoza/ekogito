@@ -70,7 +70,7 @@ if ($controls->is_action()) {
         $page_id = wp_insert_post($page);
 
         $controls->data['url'] = get_permalink($page_id);
-        $module->save_options($controls->data);
+        $module->merge_options($controls->data);
     }
 
     if ($controls->is_action('reset')) {

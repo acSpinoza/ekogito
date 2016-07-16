@@ -32,19 +32,21 @@ if (true || $count == 0) {
     $wpdb->query($wpdb->prepare("update " . $wpdb->prefix . "newsletter_sent s1 join " . $wpdb->prefix . "newsletter_stats s2 on s1.user_id=s2.user_id and s1.email_id=s2.email_id and s2.url<>'' and s1.email_id=%d set s1.open=2, s1.ip=s2.ip", $email->id));
 }
 
-$total_count = $total_sent = $email->total;
+$total_count = $total_sent = $email->sent;
 $open_count = (int) $wpdb->get_var("select count(distinct user_id) from " . NEWSLETTER_STATS_TABLE . " where email_id=" . $email_id);
 $click_count = (int) $wpdb->get_var("select count(distinct user_id) from " . NEWSLETTER_STATS_TABLE . " where url<>'' and email_id=" . $email_id);
 
 function percent($value, $total) {
-    if ($total == 0)
+    if ($total == 0) {
         return '-';
+    }
     return sprintf("%.2f", $value / $total * 100) . '%';
 }
 
 function percentValue($value, $total) {
-    if ($total == 0)
+    if ($total == 0) {
         return 0;
+    }
     return round($value / $total * 100);
 }
 ?>
@@ -65,6 +67,12 @@ function percentValue($value, $total) {
 
 
     <div id="tnp-body" style="min-width: 500px">
+        
+        <?php if ($email->status == 'new') { ?>
+        
+        <div class="tnp-warning"><?php _e('No data, newsletter not sent yet.', 'newsletter')?></div>
+        
+        <?php } else { ?>
 
         <form action="" method="post">
             <?php $controls->init(); ?>
@@ -143,7 +151,7 @@ function percentValue($value, $total) {
                                             <div class="tnp-data-value"><?php echo $email->sent; ?> of <?php echo $email->total; ?></div>
                                         <?php else: ?>
                                             <div class="tnp-data-title">Total Sent</div>
-                                            <div class="tnp-data-value"><?php echo $email->total; ?></div>
+                                            <div class="tnp-data-value"><?php echo $email->sent; ?></div>
                                         <?php endif; ?>
                                     </div>
                                     <div class="tnp-data">
@@ -184,6 +192,8 @@ function percentValue($value, $total) {
 
 
         </form>
+        
+        <?php } // if "new" ?>
 
     </div>
     <?php include NEWSLETTER_DIR . '/tnp-footer.php' ?>

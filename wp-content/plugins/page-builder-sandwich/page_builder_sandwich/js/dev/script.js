@@ -155,6 +155,7 @@ if (Function.prototype.name === undefined && Object.defineProperty !== undefined
 
 ContentEdit.INDENT = '';
 ContentEdit.DEFAULT_MAX_ELEMENT_WIDTH = 2000;
+ContentTools.HIGHLIGHT_HOLD_DURATION = 999999;
 
 /* exported PBS */
 var PBS = {};
@@ -454,12 +455,9 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			} else {
 				elem = mainRegion.children[0];
 			}
-			if ( elem.focus ) {
-				elem.focus();
-			}
 
 			// Check if we need to create a new text element.
-			if ( ['DivRow', 'Div', 'Shortcode'].indexOf( elem.constructor.name ) !== -1 ) {
+			if ( 'Text' !== elem.constructor.name ) {
 				var p = new ContentEdit.Text('p', {}, '');
 				if ( isTop ) {
 					elem.parent().attach( p, 0 );
@@ -467,8 +465,6 @@ window.addEventListener( 'DOMContentLoaded', function() {
 					elem.parent().attach( p, elem.parent().children.indexOf( elem ) + 1 );
 				}
 				elem = p;
-				elem.focus();
-
 			}
 
 			// Put the cursor on the element
@@ -479,16 +475,13 @@ window.addEventListener( 'DOMContentLoaded', function() {
 				}
 			}
 			e.preventDefault();
+			elem.focus();
+
 	        var selection = new ContentSelect.Range( index, index );
 	        selection.select( elem._domElement );
 
 			return;
 		}
-
-		// Create an empty paragraph when selecting between elements
-		// if ( editorArea.classList.contains( 'pbs-editing' ) && isEditorArea ) {
-		// 	console.log('right');
-		// }
 	});
 
 	wp.hooks.doAction( 'pbs.init' );
@@ -660,7 +653,9 @@ window.PBSEditor.updateElementContent = function( element, newContent ) {
 	if ( element.constructor.name === 'Shortcode' ) {
 		return;
 	}
-	element.content = new HTMLString.String( newContent ).trim();
+
+	// Retain preserve whitespace, or else some elements (e.g. preformatted) will lose line breaks.
+	element.content = new HTMLString.String( newContent, element.content.preserveWhitespace() ).trim();
 	element.updateInnerHTML();
 	element.taint();
 };
@@ -718,9 +713,18 @@ window.PBSEditor.removeUniqueClassName = function( domElement ) {
 window.PBSEditor.generateUniqueClassName = function() {
 	var name;
 	do {
-		name = 'pbsguid-' + Math.floor( ( 1 + Math.random() ) * 0x100000000 ).toString(36).substring(1);
+		name = 'pbsguid-' + window.PBSEditor.generateHash();
 	} while ( document.querySelector( '.' + name ) );
 	return name;
+};
+
+
+/**
+ * Generates a unique hash.
+ * Used for identifying unique stuff.
+ */
+window.PBSEditor.generateHash = function() {
+	return Math.floor( ( 1 + Math.random() ) * 0x100000000 ).toString(36).substring(1);
 };
 
 
@@ -956,6 +960,46 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	} );
 });
 
+
+
+/**
+ * ContentTools does not support left & right placements ONLY, it always
+ * includes the center. This adjusts things to ignore the center placement
+ * only if left & right are given.
+ */
+( function() {
+	var _Root = ContentEdit.Root.get();
+	var proxied = _Root._getDropPlacement;
+	_Root._getDropPlacement = function( x, y ) {
+		if ( ! this._dropTarget ) {
+			return null;
+		}
+
+		var placements = this._dropTarget.constructor.placements;
+		if ( placements.indexOf( 'center' ) === -1 && placements.indexOf( 'left' ) !== -1 && placements.indexOf( 'right' ) !== -1 ) {
+
+			var rect = this._dropTarget.domElement().getBoundingClientRect(), _ref, vert, horz;
+	        _ref = [ x - rect.left, y - rect.top ], x = _ref[0], y = _ref[1];
+
+			horz = 'center';
+			if ( x < rect.width / 2 ) {
+				horz = 'left';
+			} else {
+				horz = 'right';
+			}
+
+	        vert = 'above';
+	        if ( y > rect.height / 2 ) {
+	          vert = 'below';
+	        }
+
+			return [ vert, horz ];
+		}
+
+		return proxied.call( this, x, y );
+	};
+} )();
+
 /* globals ContentEdit */
 
 /**
@@ -1062,6 +1106,18 @@ ContentEdit.Element.prototype.attr = function(name, value) {
 	ContentEdit.Root.get().trigger('debounced_taint', this);
 
 	return this.debouncedTaint();
+};
+
+
+/**
+ * Removes all CSS classes of the element.
+ */
+ContentEdit.Element.prototype.removeAllCSSClasses = function() {
+	if ( this._domElement && this._domElement.classList ) {
+		for ( var i = this._domElement.classList.length - 1; i >= 0; i-- ) {
+			this.removeCSSClass( this._domElement.classList.item( i ) );
+		}
+	}
 };
 
 /* globals ContentTools, ContentEdit */
@@ -1199,6 +1255,100 @@ ContentTools.IgnitionUI.prototype.mount = function() {
 
 	};
 })();
+
+/* globals ContentEdit */
+
+
+/**
+ * Also use the bounding client rect for determining the current size.
+ * This is a fallback, for cases where the width & height attributes
+ * are not present. Or else the SHIFT+CTRL/CMD+CLICK action on resizables
+ * will not work.
+ */
+( function() {
+	var proxied = ContentEdit.ResizableElement.prototype.size;
+    ContentEdit.ResizableElement.prototype.size = function( newSize ) {
+		var height, width, rect;
+		if ( ! newSize && this._domElement ) {
+			rect = this._domElement.getBoundingClientRect();
+			width = parseInt( rect.width || 1, 10 );
+			height = parseInt( rect.height || 1, 10 );
+			return [ width, height ];
+		}
+		return proxied.call( this, newSize );
+    };
+} )();
+
+
+/**
+ * When clicking on a resizable element while holding down SHIFT + CTRL/CMD
+ * will reset the size to their defaults.
+ */
+( function() {
+	var proxied = ContentEdit.ResizableElement.prototype._onMouseDown;
+	ContentEdit.ResizableElement.prototype._onMouseDown = function(ev) {
+		var corner = this._getResizeCorner( ev.clientX, ev.clientY );
+
+		if ( corner ) {
+			if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
+				this.style( 'width', 'auto' );
+				this.style( 'height', 'auto' );
+				this.attr( 'height', '' );
+				this.attr( 'width', '' );
+			}
+		}
+
+		proxied.call( this, ev );
+	};
+} )();
+
+
+
+/**
+ * Allow `*` droppers.
+ */
+( function() {
+   var proxied = ContentEdit.Element.prototype.drop;
+   ContentEdit.Element.prototype.drop = function( element, placement ) {
+		var root = ContentEdit.Root.get();
+		if ( element && typeof element.type !== 'undefined' ) {
+			if ( ! this.constructor.droppers[ element.type() ] && ! element.constructor.droppers[ this.type() ] && element.constructor.droppers['*'] ) {
+				element._removeCSSClass( 'ce-element--drop' );
+				element._removeCSSClass( 'ce-element--drop-' + placement[0] );
+				element._removeCSSClass( 'ce-element--drop-' + placement[1] );
+				element.constructor.droppers['*']( this, element, placement );
+				root.trigger( 'drop', this, element, placement );
+				return;
+			}
+		}
+		return proxied.call( this, element, placement );
+	};
+} )();
+( function() {
+   var proxied = ContentEdit.Element.prototype._onOver;
+    ContentEdit.Element.prototype._onOver = function(ev) {
+		var ret = proxied.call( this, ev );
+		if ( ! ret ) {
+
+	        var root = ContentEdit.Root.get();
+	        var dragging = root.dragging();
+	        if ( ! dragging ) {
+				return;
+	        }
+	        if ( dragging === this ) {
+				return;
+	        }
+	        if ( root._dropTarget ) {
+				return;
+	        }
+	        if ( this.constructor.droppers['*'] ) {
+				this._addCSSClass( 'ce-element--drop' );
+				return root._dropTarget = this;
+	        }
+		}
+		return ret;
+    };
+} )();
 
 // @see https://gist.github.com/bfintal/63527d3f9dd85e0b15d6
 
@@ -1835,6 +1985,8 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 /* globals ContentTools, ContentEdit, PBSEditor */
 
+PBSEditor.Overlays = [];
+
 PBSEditor.Overlay = (function() {
 
 	function Overlay() {
@@ -1842,6 +1994,9 @@ PBSEditor.Overlay = (function() {
 		this._active = false;
 		this._shown = false;
 		this._isMounted = false;
+		this._classname = '';
+
+		PBSEditor.Overlays.push( this );
 
 		ContentEdit.Root.get().bind('over', function( element ) {
 
@@ -1860,9 +2015,9 @@ PBSEditor.Overlay = (function() {
 			}.bind(this), 10 );
 
 			if ( this.canApply( element ) ) {
-				this.element = element;
+				this.element = this.applyTo( element );
 				this._shown = true;
-				this._show( element );
+				this._show( this.element );
 			}
 		}.bind(this) );
 
@@ -1909,6 +2064,9 @@ PBSEditor.Overlay = (function() {
 	Overlay.prototype.mount = function() {
 		this._domElement.classList.add( 'pbs-quick-action-overlay' );
 		this._domElement.classList.add( 'pbs-overlay-' + this.constructor.name.toLowerCase() );
+		if ( this._classname ) {
+			this._domElement.classList.add( this._classname );
+		}
 		document.body.appendChild( this._domElement );
 		this.addEventHandlers();
 		this._isMounted = true;
@@ -1955,7 +2113,7 @@ PBSEditor.Overlay = (function() {
 		Overlay.active = true;
 		this._domElement.classList.add( 'pbs-active' );
 		document.body.classList.add( 'pbs-overlay-is-active' );
-		document.body.classList.add( 'pbs-overlay-active-' + this.constructor.name.toLowerCase() );
+		document.body.classList.add( 'pbs-overlay-' + this.constructor.name.toLowerCase() );
 		this.onClick();
 		this.onMoveStart();
 	};
@@ -1972,6 +2130,17 @@ PBSEditor.Overlay = (function() {
 		ev.stopPropagation();
 
 		this.onMove();
+
+		// Update the other overlays.
+		Overlay.hideOtherOverlays( this );
+	};
+
+	Overlay.hideOtherOverlays = function( callingOverlay ) {
+		Array.prototype.forEach.call( PBSEditor.Overlays, function( overlay ) {
+			if ( overlay !== callingOverlay ) {
+				overlay._hide();
+			}
+		} );
 	};
 
 	Overlay.prototype._mouseup = function() {
@@ -2025,6 +2194,7 @@ PBSEditor.Overlay = (function() {
 	Overlay.prototype.hide = function() {};
 	Overlay.prototype.onEnter = function() {};
 	Overlay.prototype.onLeave = function() {};
+	Overlay.prototype.applyTo = function( element ) { return element; };
 
 	return Overlay;
 })();
@@ -2230,6 +2400,99 @@ PBSEditor.MarginTop = (function(_super) {
 	return MarginTop;
 
 })(PBSEditor.Overlay);
+
+/* globals PBSEditor, __extends */
+
+/**
+ * Margin Top & Bottom for containers.
+ */
+
+PBSEditor.MarginBottomContainer = ( function( _super ) {
+	__extends( MarginBottomContainer, _super );
+
+	function MarginBottomContainer() {
+		MarginBottomContainer.__super__.constructor.call( this );
+
+		this._classname = 'pbs-overlay-marginbottom';
+		this.supportedElements = [ 'Tabs', 'DivRow', 'Carousel' ];
+	}
+
+	MarginBottomContainer.prototype.getSupportedElement = function( element ) {
+		var iterElem = element, lastMatchedElement = element;
+		while ( iterElem.constructor.name !== 'Region' ) {
+			if ( this.supportedElements.indexOf( iterElem.constructor.name ) !== -1 ) {
+				lastMatchedElement = iterElem;
+			}
+			iterElem = iterElem.parent();
+		}
+		return lastMatchedElement;
+	};
+
+	MarginBottomContainer.prototype.applyTo = function( element ) {
+		return this.getSupportedElement( element );
+	};
+
+	MarginBottomContainer.prototype.canApply = function( element ) {
+		if ( ! element ) {
+			element = this.element;
+		}
+		element = this.getSupportedElement( element );
+		if ( ! wp.hooks.applyFilters( 'pbs.overlay.margin_bottom_container.can_apply', true, element ) ) {
+			return false;
+		}
+		if ( this.supportedElements.indexOf( element.constructor.name ) !== -1 ) {
+			return true;
+		}
+		return false;
+	};
+
+	return MarginBottomContainer;
+
+} )( PBSEditor.MarginBottom );
+
+
+PBSEditor.MarginTopContainer = ( function( _super ) {
+	__extends( MarginTopContainer, _super );
+
+	function MarginTopContainer() {
+		MarginTopContainer.__super__.constructor.call( this );
+
+		this._classname = 'pbs-overlay-margintop';
+		this.supportedElements = [ 'Tabs', 'DivRow', 'Carousel' ];
+	}
+
+	MarginTopContainer.prototype.getSupportedElement = function( element ) {
+		var iterElem = element, lastMatchedElement = element;
+		while ( iterElem.constructor.name !== 'Region' ) {
+			if ( this.supportedElements.indexOf( iterElem.constructor.name ) !== -1 ) {
+				lastMatchedElement = iterElem;
+			}
+			iterElem = iterElem.parent();
+		}
+		return lastMatchedElement;
+	};
+
+	MarginTopContainer.prototype.applyTo = function( element ) {
+		return this.getSupportedElement( element );
+	};
+
+	MarginTopContainer.prototype.canApply = function( element ) {
+		if ( ! element ) {
+			element = this.element;
+		}
+		element = this.getSupportedElement( element );
+		if ( ! wp.hooks.applyFilters( 'pbs.overlay.margin_top_container.can_apply', true, element ) ) {
+			return false;
+		}
+		if ( this.supportedElements.indexOf( element.constructor.name ) !== -1 ) {
+			return true;
+		}
+		return false;
+	};
+
+	return MarginTopContainer;
+
+} )( PBSEditor.MarginTop );
 
 /* globals PBSEditor, __extends */
 
@@ -4472,6 +4735,136 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	});
 });
 
+/* globals ContentEdit, ContentTools, ContentSelect, HTMLString, hljs */
+
+( function() {
+
+	// Updating the html contents removes all highlighting markup.
+	ContentEdit.PreText.prototype.unhighlight = function() {
+		this.updateInnerHTML();
+	};
+
+	// Turn on highlight syntaxing on the element.
+	ContentEdit.PreText.prototype.rehighlight = function() {
+		if ( typeof hljs !== 'undefined' ) {
+			this.storeState();
+			this.removeAllCSSClasses();
+			hljs.highlightBlock( this._domElement );
+			this.restoreState();
+		}
+	};
+
+} )();
+
+
+/**
+ * When generating the html to save, don't include any markup. The additional
+ * markup are the syntax highlighting stuff.
+ */
+( function() {
+	var proxied = ContentEdit.PreText.prototype.html;
+	ContentEdit.PreText.prototype.html = function( indent ) {
+		proxied.call( this, indent );
+		this._cached = this._cached.replace( /<\/?\w+[^>]*>/g, '' );
+		return ( '' + indent + '<' + this._tagName + ( this._attributesToString() ) + '>' ) + ( '' + this._cached + '</' + this._tagName + '>' );
+    };
+
+} )();
+
+
+/**
+ * Remove all syntax highlighting when focsed on the element. Don't do syntax
+ * highlighting during editing.
+ */
+( function() {
+	var proxied = ContentEdit.PreText.prototype.focus;
+    ContentEdit.PreText.prototype.focus = function() {
+		var ret = proxied.call( this );
+		this.unhighlight();
+		return ret;
+    };
+} )();
+
+
+/**
+ * Re-apply the syntax highlighting during mounting.
+ */
+( function() {
+	var proxied = ContentEdit.PreText.prototype.mount;
+    ContentEdit.PreText.prototype.mount = function() {
+		var ret = proxied.call( this );
+		this.rehighlight();
+		return ret;
+    };
+} )();
+
+
+( function() {
+	var proxied = ContentEdit.PreText.prototype.blur;
+    ContentEdit.PreText.prototype.blur = function() {
+		var ret = proxied.call( this );
+		this.rehighlight();
+		return ret;
+    };
+} )();
+
+
+/**
+ * When just starting out, remove all markup in the code. Assume those are all
+ * syntax highlighting stuff.
+ */
+( function() {
+	var proxied = ContentEdit.PreText.fromDOMElement;
+    ContentEdit.PreText.fromDOMElement = function( domElement ) {
+		domElement.innerHTML = domElement.innerHTML.replace( /<\/?\w+[^>]*>/g, '' );
+		return proxied.call( this, domElement );
+    };
+} )();
+
+
+/**
+ * After we stop, turn on syntax highlighting since they will get removed.
+ */
+window.addEventListener( 'DOMContentLoaded', function() {
+    var editor = ContentTools.EditorApp.get();
+	editor.bind( 'stop', function () {
+		if ( window.pbsInitAllPretext ) {
+			window.pbsInitAllPretext();
+		}
+	} );
+} );
+
+
+/**
+ * Support tabs inside PreText elements.
+ */
+( function() {
+	var proxied = ContentEdit.PreText.prototype._onKeyDown;
+    ContentEdit.PreText.prototype._onKeyDown = function( ev ) {
+		if ( ev.keyCode === 9 ) {
+			ev.preventDefault();
+			ContentSelect.Range.query( this._domElement );
+			var selection = ContentSelect.Range.query( this._domElement );
+			var preserveWhitespace = this.content.preserveWhitespace();
+			var insertAt;
+
+			// TODO: When a string is selected, multi-indent:
+			// 1. find the last \n before index 0, then turn into \n\t
+			// 2. turn all \n into \n\t in the selected string.
+
+			// if ( selection.isCollapsed() ) {
+				insertAt = selection.get()[1];
+				this.content = this.content.insert( insertAt, new HTMLString.String( '\t', preserveWhitespace ), preserveWhitespace );
+				this.updateInnerHTML();
+				insertAt += 1;
+				selection = new ContentSelect.Range( insertAt, insertAt );
+				selection.select( this.domElement() );
+			// }
+		}
+		return proxied.call( this, ev );
+    };
+} )();
+
 /* globals ContentTools */
 
 /**
@@ -6359,6 +6752,13 @@ ContentEdit.Icon = ( function( _super ) {
       Icon.__super__._onMouseDown.call(this, ev);
       corner = this._getResizeCorner(ev.clientX, ev.clientY);
       if (corner) {
+
+		  // Reset the size back to 100px x 100px in SHIFT+CTRL/CMD click.
+		  if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
+			  this.style( 'width', '100px' );
+			  this.style( 'height', '100px' );
+		  }
+
 		  // Cancel the normal dragging behavior
         clearTimeout(this._dragTimeout);
         return this.resize(corner, ev.clientX, ev.clientY);
@@ -6737,2105 +7137,1553 @@ window.addEventListener( 'DOMContentLoaded', function() {
 } );
 
 
+/* globals ContentEdit, __extends, PBSEditor, ContentSelect */
+
+ContentEdit.Tabs = ( function( _super ) {
+	__extends( Tabs, _super );
+
+	function Tabs( tagName, attributes ) {
+		Tabs.__super__.constructor.call( this, tagName, attributes );
+		this.isCompundElement = true;
+	}
+
+	Tabs.prototype.cssTypeName = function() {
+		return 'tabs';
+	};
+
+	Tabs.prototype.type = function() {
+		return 'Tabs';
+	};
+
+	Tabs.prototype.typeName = function() {
+		return 'Tabs';
+	};
+
+	Tabs.fromDOMElement = function( domElement ) {
+
+		var c, childNode, childNodes, list, _i, _len;
+		list = new this( domElement.tagName, this.getDOMElementAttributes( domElement ) );
+		childNodes = (function() {
+			var _i, _len, _ref, _results;
+			_ref = domElement.childNodes;
+			_results = [];
+			for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+				c = _ref[_i];
+				_results.push(c);
+			}
+			return _results;
+		})();
+
+		var tagNames = ContentEdit.TagNames.get();
+		for (_i = 0, _len = childNodes.length; _i < _len; _i++) {
+			childNode = childNodes[_i];
+			if (childNode.nodeType !== 1) {
+				continue;
+			}
+
+			var cls;
+			if ( childNode.getAttribute('data-ce-tag') ) {
+				cls = tagNames.match(childNode.getAttribute('data-ce-tag'));
+			} else {
+				cls = tagNames.match(childNode.tagName);
+			}
+
+			var element = cls.fromDOMElement(childNode);
+			if (element) {
+				list.attach(element);
+			}
+		}
+
+		return list;
+	};
+
+	Tabs.prototype.detachTabAndContent = function( tab ) {
+		var inputID = tab._domElement.getAttribute( 'for' );
+		var inputElem = this._domElement.querySelector( '[id="' + inputID + '"]' )._ceElement;
+		var tabID = inputElem.attr( 'data-tab' );
+		var tabRow = this._domElement.querySelector( '[data-panel="' + tabID + '"]' )._ceElement;
+		inputElem.parent().detach( inputElem );
+		tab.parent().detach( tab );
+		tabRow.parent().detach( tabRow );
+		this.reIndexTabs();
+		return tabRow;
+	};
+
+	Tabs.prototype.attachTabAndContent = function( tab, index, row ) {
+		var tabsID = this._domElement.getAttribute( 'class' ).match( /pbs-tabs-(\w+)/ )[0];
+
+		var tabIndex = this.numTabs() + 1;
+
+		var hash = window.PBSEditor.generateHash();
+		while ( document.querySelector( '[id="pbs-tab-' + hash + '"]') ) {
+			hash = window.PBSEditor.generateHash();
+		}
+
+		var radio = document.createElement( 'input' );
+		radio.classList.add( 'pbs-tab-state' );
+		radio.setAttribute( 'type', 'radio' );
+		radio.setAttribute( 'name', tabsID );
+		radio.setAttribute( 'id', 'pbs-tab-' + hash );
+		radio.setAttribute( 'data-tab', tabIndex );
+		radio.setAttribute( 'data-ce-tag', 'static' );
+		this.attach( ContentEdit.Static.fromDOMElement( radio ), 0 );
+
+		tab.attr( 'for', 'pbs-tab-' + hash );
+		row.attr( 'data-panel', tabIndex );
+
+		this._domElement.querySelector( '.pbs-tab-tabs' )._ceElement.attach( tab, index );
+		this._domElement.querySelector( '.pbs-tab-panels' )._ceElement.attach( row );
+
+	};
+
+	/**
+	 * Fixes the indices of the tabs.
+	 * Only works when there is only 1 tab missing.
+	 */
+	Tabs.prototype.reIndexTabs = function() {
+		var numTabs = this._domElement.querySelectorAll( '.pbs-tab-state' ).length;
+		for ( var i = 1; i <= numTabs; i++ ) {
+			var radio = this._domElement.querySelector( '[data-tab="' + i + '"]' );
+			if ( ! radio ) {
+				radio = this._domElement.querySelector( '[data-tab="' + ( i + 1 ) + '"]' );
+				if ( radio ) {
+					radio._ceElement.attr( 'data-tab', i );
+					this._domElement.querySelector( '[data-panel="' + ( i + 1 ) + '"]' )._ceElement.attr( 'data-panel', i );
+				}
+			}
+		}
+	};
+
+	Tabs.prototype.getOpenTab = function() {
+		var radio = this._domElement.querySelector( '.pbs-tab-state:checked' )._ceElement;
+		var panel = this._domElement.querySelector( '[data-panel="' + radio.attr( 'data-tab' ) + '"]' );
+		if ( ! panel ) {
+			panel = this._domElement.querySelector( '[data-panel]' );
+		}
+		return panel._ceElement;
+	};
+
+	Tabs.prototype.numTabs = function() {
+		return this._domElement.querySelectorAll( '.pbs-tab-state' ).length;
+	};
+
+	Tabs.prototype.addTab = function() {
+		var firstTab = this._domElement.querySelector( '.pbs-tab-state' )._ceElement;
+		var radioID = 'pbs-tab-' + window.PBSEditor.generateHash();
+		var tabNum = this.numTabs() + 1;
+		var radio = new ContentEdit.TabRadio( 'input', {
+			'data-ce-tag': 'tabradio',
+			'class': 'pbs-tab-state',
+			'data-tab': tabNum,
+			'id': radioID,
+			'name': firstTab.attr( 'name' ),
+			'type': 'radio'
+		} );
+		this.attach( radio, 0 );
+
+		var tab = new ContentEdit.Tab( 'label', {
+			'data-ce-tag': 'tab',
+			'for': radioID
+		}, '<span>New Tab</span>' );
+
+		var tabContainer = this._domElement.querySelector( '.pbs-tab-tabs' )._ceElement;
+		tabContainer.attach( tab, tabContainer.children.length );
+
+		var panelContainer = this._domElement.querySelector( '.pbs-tab-panels' )._ceElement;
+		var row = new ContentEdit.DivRow( 'div', {
+			'data-panel': tabNum
+		} );
+		panelContainer.attach( row );
+
+		var col = new ContentEdit.DivCol('div');
+		row.attach( col );
+
+		var p = new ContentEdit.Text('p', {}, '');
+		col.attach( p );
+
+		tab.openTab();
+		p.focus();
+	};
+
+	Tabs.prototype.removeTab = function( tab ) {
+		if ( typeof tab === 'undefined' ) {
+			var radio = this._domElement.querySelector( '.pbs-tab-state:checked' )._ceElement;
+			tab = this._domElement.querySelector( 'label[for="' + radio.attr( 'id' ) + '"]' )._ceElement;
+		}
+		var otherTab = tab.nextSibling();
+		if ( ! otherTab ) {
+			otherTab = tab.previousSibling();
+		}
+		this.detachTabAndContent( tab );
+		if ( otherTab ) {
+			otherTab.openTab();
+		} else {
+			this.blur();
+			var focusTo = this.nextSibling();
+			if ( ! focusTo ) {
+				focusTo = this.previousSibling();
+			}
+			if ( focusTo ) {
+				focusTo.focus();
+			}
+			this.parent().detach( this );
+		}
+	};
+
+	Tabs.droppers = PBSEditor.allDroppers;
+
+	return Tabs;
+
+})(ContentEdit.Div);
+
+
+ContentEdit.TagNames.get().register(ContentEdit.Tabs, 'tabs');
+
+
+
+ContentEdit.Tab = ( function( _super ) {
+	__extends( Tab, _super );
+
+	function Tab( tagName, attributes, content ) {
+		Tab.__super__.constructor.call( this, tagName, attributes, content );
+	}
+
+	Tab.prototype.cssTypeName = function() {
+		return 'tab';
+	};
+
+	Tab.prototype.type = function() {
+		return 'Tab';
+	};
+
+	Tab.prototype.typeName = function() {
+		return 'Tab';
+	};
+
+	Tab.prototype.parentTab = function() {
+		return this.parent().parent();
+	};
+
+	Tab.prototype.setActiveTab = function() {
+		var activeTab = this.parentTab()._domElement.querySelector( '.pbs-tab-tabs .pbs-tab-active' );
+		if ( activeTab ) {
+			activeTab._ceElement.removeCSSClass( 'pbs-tab-active' );
+		}
+		this.addCSSClass( 'pbs-tab-active' );
+	};
+
+	Tab.prototype._onMouseDown = function( ev ) {
+		setTimeout( function() {
+			this.setActiveTab();
+		}.bind( this ), 1 );
+		return Tab.__super__._onMouseDown.call( this, ev );
+	};
+
+	Tab.prototype.openTab = function() {
+		this.parentTab()._domElement.querySelector( '[id="' + this.attr( 'for' ) + '"]' ).checked = true;
+		this.setActiveTab();
+	};
+
+	Tab._dropTab = function( element, target, placement ) {
+		var insertIndex = target.parent().children.indexOf( target );
+		if ( placement[1] !== 'left' ) {
+			insertIndex += 1;
+		}
+
+		// Different handling if the tab is dropped into another set of tabs.
+		if ( element.parent() !== target.parent() ) {
+
+			var originalTabElement = element.parentTab();
+
+			// Get the closest tab.
+			var otherTab = element.previousSibling();
+			if ( ! otherTab ) {
+				otherTab = element.nextSibling();
+			}
+
+			var tabRow = element.parentTab().detachTabAndContent( element );
+
+			target.parentTab().attachTabAndContent( element, insertIndex, tabRow );
+			element.openTab();
+
+			// Open the other tab since a tab was removed.
+			if ( otherTab ) {
+				otherTab.openTab();
+			} else {
+
+				// If there are no more tabs, just remove the whole thing.
+				originalTabElement.parent().detach( originalTabElement );
+			}
+
+			return;
+		}
+
+		element.parent().detach( element );
+		return target.parent().attach( element, insertIndex );
+	};
+
+	Tab.prototype._onMouseOver = function( ev ) {
+        var root = ContentEdit.Root.get();
+        if ( root.dragging() ) {
+			this.openTab();
+		}
+		return Tab.__super__._onMouseOver.call( this, ev );
+	};
+
+	Tab.droppers = {
+		'Tab': Tab._dropTab
+	};
+
+	Tab.placements = [ 'left', 'right' ];
+
+	// If a tab is focused, check the matching radio button since they are all disabled.
+	Tab.prototype.focus = function() {
+		this.openTab();
+		return Tab.__super__.focus.call( this );
+	};
+
+	Tab.prototype._keyReturn = function( ev ) {
+		ev.preventDefault();
+		var next = this.nextSibling();
+		if ( next ) {
+			next.focus();
+		}
+	};
+
+	Tab.prototype.isLastTab = function() {
+		return this.parent().children.indexOf( this ) === this.parent().children.length - 1;
+	};
+
+	//
+	Tab.prototype.getMatchingPanel = function() {
+		var inputID = this.attr( 'for' );
+		var inputElem = this.parentTab()._domElement.querySelector( '[id="' + inputID + '"]' )._ceElement;
+		var tabID = inputElem.attr( 'data-tab' );
+		return this.parentTab()._domElement.querySelector( '[data-panel="' + tabID + '"]' )._ceElement;
+	};
+
+	/**
+	 * Make sure the saved HTML has the first tab active.
+	 */
+	Tab.prototype.html = function() {
+		var ret = Tab.__super__.html.call( this );
+		if ( this.parent().children.indexOf( this ) === 0 ) {
+			if ( ! ret.match( /pbs-tab-active/ ) ) {
+				var r = new RegExp( '(<' + this._tagName + '[^>]+class=[\'"])' );
+				if ( ret.match( r ) ) {
+					ret = ret.replace( r, '$1pbs-tab-active ' );
+				} else {
+					r = new RegExp( '(<' + this._tagName + ')' );
+					ret = ret.replace( r, '$1 class="pbs-tab-active"' );
+				}
+			}
+		} else {
+			ret = ret.replace( /\s*pbs-tab-active\s*/g, '' );
+			ret = ret.replace( /\s*class=[\'\"][\'\"]/g, '' );
+		}
+		return ret;
+	};
+
+	Tab.prototype._keyLeft = function( ev ) {
+		if ( this.parent().children.indexOf( this ) === 0 ) {
+			var selection = ContentSelect.Range.query( this._domElement );
+			if ( selection.get()[0] === 0 && selection.isCollapsed() ) {
+				this._keyUp( ev );
+			}
+		}
+		return Tab.__super__._keyLeft.call( this, ev );
+	};
+
+	Tab.prototype._keyUp = function( ev ) {
+		if ( this.parent().children.indexOf( this ) === 0 ) {
+			var selection = ContentSelect.Range.query( this._domElement );
+			if ( selection.get()[0] === 0 && selection.isCollapsed() ) {
+
+				var tabs = this.parent().parent();
+				var index = tabs.parent().children.indexOf( tabs );
+				if ( index > 0 ) {
+					if ( tabs.parent().children[ index - 1 ].content ) {
+						var elem = tabs.parent().children[ index - 1 ];
+						elem.focus();
+
+				        selection = new ContentSelect.Range( elem.content.length(), elem.content.length() );
+				        return selection.select( elem.domElement() );
+					}
+				}
+				var p = new ContentEdit.Text('p', {}, '');
+				tabs.parent().attach( p, index );
+				p.focus();
+			}
+		}
+		return Tab.__super__._keyUp.call( this, ev );
+	};
+
+	Tab.prototype._keyDown = function( ev ) {
+
+		if ( this.parent().children.indexOf( this ) === this.parent().children.length - 1 ) {
+			var selection = ContentSelect.Range.query(this._domElement);
+			if (!(this._atEnd(selection) && selection.isCollapsed())) {
+				return;
+			}
+			if ( this._atEnd( selection ) ) {
+				ev.preventDefault();
+				var row = this.getMatchingPanel();
+				row.children[0].children[0].focus();
+				return;
+			}
+		}
+		return Tab.__super__._keyDown.call( this, ev );
+	};
+
+	Tab.prototype._keyRight = function( ev ) {
+
+	      var selection = ContentSelect.Range.query(this._domElement);
+	      if (!(this._atEnd(selection) && selection.isCollapsed())) {
+	        return;
+	      }
+		  if ( this.isLastTab() ) {
+			  ev.preventDefault();
+			  var row = this.getMatchingPanel();
+			  row.children[0].children[0].focus();
+			  return;
+		  }
+		return Tab.__super__._keyRight.call( this, ev );
+	};
+
+	return Tab;
+
+} )( ContentEdit.Text );
+
+ContentEdit.TagNames.get().register( ContentEdit.Tab, 'tab' );
+
+
+ContentEdit.TabContainer = ( function( _super ) {
+	__extends( TabContainer, _super );
+
+	function TabContainer( tagName, attributes ) {
+		TabContainer.__super__.constructor.call( this, tagName, attributes );
+		// this._content = '';
+	}
+
+	TabContainer.prototype.cssTypeName = function() {
+		return 'tabcontainer';
+	};
+
+	TabContainer.prototype.type = function() {
+		return 'TabContainer';
+	};
+
+	TabContainer.prototype.typeName = function() {
+		return 'TabContainer';
+	};
+
+	TabContainer._dropOutside = function( element, target, placement ) {
+		var insertIndex;
+		element.parent().detach( element );
+		insertIndex = target.parent().parent().children.indexOf( target.parent() );
+		if ( placement[0] === 'below' ) {
+			insertIndex += 1;
+		}
+		return target.parent().parent().attach( element, insertIndex );
+    };
+
+	TabContainer.prototype._onOver = function( ev ) {
+		var ret = TabContainer.__super__._onOver.call( this, ev );
+		if ( ret ) {
+			var root = ContentEdit.Root.get();
+			this._removeCSSClass( 'ce-element--drop' );
+			this.parent()._addCSSClass( 'ce-element--drop' );
+			return root._dropTarget = this.parent();
+		}
+		return ret;
+	};
+
+	TabContainer.droppers = {
+		'*': TabContainer._dropOutside
+	};
+
+	// TabContainer.placements = [ 'above', 'below' ];
+
+	// Cancel the drag event on mouse up
+	TabContainer.prototype._onMouseUp = function(ev) {
+		TabContainer.__super__._onMouseUp.call(this, ev);
+		clearTimeout(this._dragTimeout);
+	};
+
+    TabContainer.prototype._onMouseOut = function(ev) {
+		TabContainer.__super__._onMouseOut.call(this, ev);
+		clearTimeout(this._dragTimeout);
+	};
+
+    TabContainer.prototype._onMouseDown = function(ev) {
+		TabContainer.__super__._onMouseDown.call(this, ev);
+
+		clearTimeout(this._dragTimeout);
+		if ( this.domElement() !== ev.target ) {
+			return;
+		}
+
+		// This fixes dragging in Firefox.
+		ev.preventDefault();
+
+		// If we are in the drag row handle, drag the whole row
+		// @see _onMouseMove
+		// if ( this._domElement.classList.contains('pbs-drag-row') ) {
+		// 	return this.parent().drag(ev.pageX, ev.pageY);
+		// }
+
+		if ( ! this.draggableParent ) {
+			this.draggableParent = this.parent();
+		}
+
+		return this._dragTimeout = setTimeout((function(_this) {
+			return function() {
+				// Drag the column
+				return _this.draggableParent.drag(ev.pageX, ev.pageY);
+				// return _this.drag(ev.pageX, ev.pageY);
+			};
+		})(this), ContentEdit.DRAG_HOLD_DURATION);
+
+	};
+
+	TabContainer.fromDOMElement = function(domElement) {
+
+		var c, childNode, childNodes, list, _i, _len;
+		list = new this(domElement.tagName, this.getDOMElementAttributes(domElement));
+		childNodes = (function() {
+			var _i, _len, _ref, _results;
+			_ref = domElement.childNodes;
+			_results = [];
+			for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+				c = _ref[_i];
+				_results.push(c);
+			}
+			return _results;
+		})();
+
+		var tagNames = ContentEdit.TagNames.get();
+		for (_i = 0, _len = childNodes.length; _i < _len; _i++) {
+			childNode = childNodes[_i];
+			if (childNode.nodeType !== 1) {
+				continue;
+			}
+
+			var cls;
+			if ( childNode.getAttribute('data-ce-tag') ) {
+				cls = tagNames.match(childNode.getAttribute('data-ce-tag'));
+			} else {
+				cls = tagNames.match(childNode.tagName);
+			}
+
+			var element = cls.fromDOMElement(childNode);
+			if (element) {
+				list.attach(element);
+			}
+		}
+
+		return list;
+	};
+
+	return TabContainer;
+
+} )( ContentEdit.Div );
+ContentEdit.TagNames.get().register( ContentEdit.TabContainer, 'tabcontainer' );
+
+
+ContentEdit.TabPanelContainer = ( function( _super ) {
+	__extends( TabPanelContainer, _super );
+
+	function TabPanelContainer( tagName, attributes ) {
+		TabPanelContainer.__super__.constructor.call( this, tagName, attributes );
+	}
+
+	TabPanelContainer.prototype.cssTypeName = function() {
+		return 'tabpanelcontainer';
+	};
+
+	TabPanelContainer.prototype.type = function() {
+		return 'TabPanelContainer';
+	};
+
+	TabPanelContainer.prototype.typeName = function() {
+		return 'TabPanelContainer';
+	};
+
+	TabPanelContainer.fromDOMElement = function(domElement) {
+
+		var c, childNode, childNodes, list, _i, _len;
+		list = new this(domElement.tagName, this.getDOMElementAttributes(domElement));
+		childNodes = (function() {
+			var _i, _len, _ref, _results;
+			_ref = domElement.childNodes;
+			_results = [];
+			for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+				c = _ref[_i];
+				_results.push(c);
+			}
+			return _results;
+		})();
+
+		var tagNames = ContentEdit.TagNames.get();
+		for (_i = 0, _len = childNodes.length; _i < _len; _i++) {
+			childNode = childNodes[_i];
+			if (childNode.nodeType !== 1) {
+				continue;
+			}
+
+			var cls;
+			if ( childNode.getAttribute('data-ce-tag') ) {
+				cls = tagNames.match(childNode.getAttribute('data-ce-tag'));
+			} else {
+				cls = tagNames.match(childNode.tagName);
+			}
+
+			var element = cls.fromDOMElement(childNode);
+			if (element) {
+				list.attach(element);
+			}
+		}
+
+		return list;
+	};
+
+	return TabPanelContainer;
+
+} )( ContentEdit.Div );
+ContentEdit.TagNames.get().register( ContentEdit.TabPanelContainer, 'tabpanelcontainer' );
+
+
+ContentEdit.TabRadio = ( function( _super ) {
+	__extends( TabRadio, _super );
+
+	function TabRadio( tagName, attributes ) {
+		TabRadio.__super__.constructor.call( this, tagName, attributes );
+	}
+
+	TabRadio.prototype.cssTypeName = function() {
+		return 'tabradio';
+	};
+
+	TabRadio.prototype.type = function() {
+		return 'TabRadio';
+	};
+
+	TabRadio.prototype.typeName = function() {
+		return 'TabRadio';
+	};
+
+	// Disable the radio buttons since when a tab is focused it is preventing text
+	// keyboard navigation, since the radio buttons get focused.
+	TabRadio.prototype.mount = function() {
+		var ret = TabRadio.__super__.mount.call( this );
+		this._domElement.setAttribute( 'disabled', 'disabled' );
+		return ret;
+	};
+
+	// Re-enable all radio buttons or else we cannot switch tabs after editing.
+	TabRadio.prototype.unmount = function() {
+		this._domElement.removeAttribute( 'disabled' );
+		return TabRadio.__super__.unmount.call( this );
+	};
+
+	return TabRadio;
+
+} )( ContentEdit.Static );
+
+ContentEdit.TagNames.get().register( ContentEdit.TabRadio, 'tabradio' );
+
+
+wp.hooks.addFilter( 'pbs.overlay.margin_top.can_apply', function( apply, element ) {
+	if ( element && element._domElement && element._domElement.parentNode && element._domElement.parentNode.classList ) {
+		var parent = element._domElement.parentNode;
+		if ( parent.classList && parent.classList.contains( 'pbs-tab-tabs' ) ) {
+			return false;
+		}
+	}
+	return apply;
+} );
+wp.hooks.addFilter( 'pbs.overlay.margin_bottom.can_apply', function( apply, element ) {
+	if ( element && element._domElement && element._domElement.parentNode && element._domElement.parentNode.classList ) {
+		var parent = element._domElement.parentNode;
+		if ( parent.classList && parent.classList.contains( 'pbs-tab-tabs' ) ) {
+			return false;
+		}
+	}
+	return apply;
+} );
+
+
+/**
+ * When pressing the up key at the very start of the current panel, put the cursor on the last tab.
+ */
+(function() {
+	var proxied = ContentEdit.Text.prototype._keyUp;
+	ContentEdit.Text.prototype._keyUp = function( ev ) {
+	    var selection = ContentSelect.Range.query(this._domElement);
+		if ( this.parent().constructor.name === 'DivCol' && this.parent().children.indexOf(this) === 0 && selection.get()[0] === 0 ) {
+			if ( this.parent().parent().parent().constructor.name === 'TabPanelContainer' ) {
+				ev.preventDefault();
+				var tabs = this.parent().parent().parent().parent()._domElement.querySelector( '.pbs-tab-tabs' )._ceElement;
+				var tab = tabs.children[ tabs.children.length - 1 ];
+				tab.focus();
+
+		        selection = new ContentSelect.Range( tab.content.length(), tab.content.length() );
+		        return selection.select( tab.domElement() );
+			}
+		}
+		return proxied.call( this, ev );
+	};
+})();
+
+/**
+ * When pressing the left key at the very start of the current panel, put the cursor on the last tab.
+ */
+(function() {
+   var proxied = ContentEdit.Text.prototype._keyLeft;
+   ContentEdit.Text.prototype._keyLeft = function( ev ) {
+	   var selection = ContentSelect.Range.query(this._domElement);
+	   if ( this.parent().constructor.name === 'DivCol' && this.parent().children.indexOf(this) === 0 && this.parent().parent().children.indexOf( this.parent() ) === 0 && selection.get()[0] === 0 ) {
+		   if ( this.parent().parent().parent().constructor.name === 'TabPanelContainer' ) {
+			   ev.preventDefault();
+			   var tabs = this.parent().parent().parent().parent()._domElement.querySelector( '.pbs-tab-tabs' )._ceElement;
+			   var tab = tabs.children[ tabs.children.length - 1 ];
+			   tab.focus();
+
+			   selection = new ContentSelect.Range( tab.content.length(), tab.content.length() );
+			   return selection.select( tab.domElement() );
+		   }
+	   }
+	   return proxied.call( this, ev );
+   };
+})();
+
+/**
+ * When pressing the down key at the very end of the current panel, put the cursor on the next text element, or create a new one.
+ */
+(function() {
+   var proxied = ContentEdit.Text.prototype._keyDown;
+   ContentEdit.Text.prototype._keyDown = function( ev ) {
+	   var selection = ContentSelect.Range.query(this._domElement);
+	   if ( this.parent().constructor.name === 'DivCol' && this.parent().children.indexOf(this) === this.parent().children.length - 1 && this._atEnd(selection) ) {
+		   if ( this.parent().parent().parent().constructor.name === 'TabPanelContainer' ) {
+
+			   var tabs = this.parent().parent().parent().parent();
+	   			var index = tabs.parent().children.indexOf( tabs );
+	   			if ( index < tabs.parent().children.length - 1 ) {
+	   				if ( tabs.parent().children[ index + 1 ].content ) {
+						ev.preventDefault();
+
+	   					tabs.parent().children[ index + 1 ].focus();
+						selection = new ContentSelect.Range( 0, 0 );
+						return selection.select( tabs.parent().children[ index + 1 ]._domElement );
+	   				}
+	   			}
+	   			var p = new ContentEdit.Text('p', {}, '');
+	   			tabs.parent().attach( p, index + 1 );
+	   			p.focus();
+				return;
+		   }
+	   }
+	   return proxied.call( this, ev );
+   };
+})();
+
+
+/**
+ * When pressing the right key at the very end of the current panel, put the cursor on the next text element, or create a new one.
+ */
+(function() {
+   var proxied = ContentEdit.Text.prototype._keyRight;
+   ContentEdit.Text.prototype._keyRight = function( ev ) {
+	   var selection = ContentSelect.Range.query(this._domElement);
+	   if ( this.parent().constructor.name === 'DivCol' && this.parent().children.indexOf(this) === this.parent().children.length - 1 && this.parent().parent().children.indexOf( this.parent() ) === this.parent().parent().children.length - 1 && this._atEnd(selection) ) {
+		   if ( this.parent().parent().parent().constructor.name === 'TabPanelContainer' ) {
+
+			   var tabs = this.parent().parent().parent().parent();
+	   			var index = tabs.parent().children.indexOf( tabs );
+	   			if ( index < tabs.parent().children.length - 1 ) {
+	   				if ( tabs.parent().children[ index + 1 ].content ) {
+						ev.preventDefault();
+	   					tabs.parent().children[ index + 1 ].focus();
+	   					return;
+	   				}
+	   			}
+	   			var p = new ContentEdit.Text('p', {}, '');
+	   			tabs.parent().attach( p, index + 1 );
+	   			p.focus();
+	   			return;
+		   }
+	   }
+	   return proxied.call( this, ev );
+   };
+})();
+
+/**
+ * When pressing up key towards a tabs element, select the last element of the current tab.
+ */
+(function() {
+	var proxied = ContentEdit.Node.prototype.previous;
+	ContentEdit.Node.prototype.previous = function() {
+		var node = proxied.call( this );
+
+		if ( node && node._domElement && window.pbsSelectorMatches( node._domElement, '.pbs-tab-panels *' ) ) {
+
+			// If not visible.
+			if ( node._domElement.offsetWidth === 0 && node._domElement.offsetHeight === 0 ) {
+				var tabs = node.parent().parent();
+				while ( tabs && tabs.constructor.name !== 'Tabs' ) {
+					tabs = tabs.parent();
+				}
+				if ( tabs ) {
+					node = tabs.getOpenTab();
+
+					var allVisibles = node._domElement.querySelectorAll( '*' );
+					for ( var i = allVisibles.length - 1; i >= 0; i-- ) {
+						if ( allVisibles[ i ]._ceElement ) {
+							return allVisibles[ i ]._ceElement;
+						}
+					}
+				}
+			}
+		}
+
+		return node;
+	};
+})();
+
+
+/**
+ * Dragging columns inside tabs, drag the whole tabs element.
+ */
+( function() {
+	var proxied = ContentEdit.DivCol.prototype._onMouseDown;
+    ContentEdit.DivCol.prototype._onMouseDown = function( ev ) {
+		if ( this.parent().parent()._domElement.classList.contains( 'pbs-tab-panels' ) ) {
+			this.draggableParent = this.parent().parent().parent();
+		}
+		return proxied.call( this, ev );
+	};
+} )();
+
+
+( function() {
+	var proxied = ContentEdit.DivRow.prototype._onOver;
+	ContentEdit.DivRow.prototype._onOver = function( ev ) {
+		var ret = proxied.call( this, ev );
+		if ( ret && this.parent().constructor.name === 'TabPanelContainer' ) {
+			var root = ContentEdit.Root.get();
+			this._removeCSSClass( 'ce-element--drop' );
+			this.parent().parent()._addCSSClass( 'ce-element--drop' );
+			return root._dropTarget = this.parent().parent();
+		}
+		return ret;
+	};
+} )();
 
 
 /* globals ContentEdit, ContentTools */
 
-
-
-
-
 // Remove the size class when resizing images, so that WP can detect
-
-
 // that we now have a custom size.
-
-
 var root = ContentEdit.Root.get();
-
-
 root._overrideImageOnStopResizing = root._onStopResizing;
-
-
 root._onStopResizing = function(ev) {
 
-
-
-
-
 	if ( this._resizing.constructor.name === 'Image' ) {
-
-
 		var match = this._resizing._attributes['class'].match( /size-\w+/ );
-
-
 		if ( match ) {
-
-
 			this._resizing.removeCSSClass( match[0] );
-
-
 		}
 
-
+		// Set the height style to auto, so that images & icons won't get smushed in responsive mode.
+		this._resizing.style( 'height', 'auto' );
 	}
 
-
-
-
-
 	return this._overrideImageOnStopResizing(ev);
-
-
 }.bind(root);
 
 
 
-
-
-
-
-
 // Open the edit Media Manager window on double click
-
-
 ContentEdit.Image.prototype._onDblclick = function() {
-
-
 	this.openMediaManager();
-
-
 };
-
-
-
-
 
 ContentEdit.Image.prototype.openMediaManager = function() {
-
-
 	var frame = wp.media.editor.open( 'edit', {
-
-
 		frame: 'image',
-
-
 		state: 'image-details',
-
-
 		metadata: _pbsImageGetMetaData( this._domElement )
-
-
 	});
-
-
-
-
 
 	frame.state('image-details').on( 'update', function( imageData ) {
-
-
 		_pbsUpdateNonCaptionedImageCTElement( this, imageData );
-
-
 	}.bind(this) );
 
-
-
-
-
 	// Delete the frame's state so that opening another frame won't have the settings
-
-
 	// of the previous frame.
-
-
 	frame.on('close', function() {
-
-
 		wp.media.editor.remove( 'edit' );
-
-
 		frame.detach();
-
-
 	});
-
-
 };
-
-
-
-
-
-
 
 
 // Remove image edit event listener.
-
-
 ContentEdit.Image.prototype._removeDOMEventListeners = function() {
-
-
 	this._domElement.removeEventListener('dblclick', this._onDblClickBound);
-
-
 	window.removeEventListener('keydown', this._onKeyDownBound );
-
-
 };
-
-
-
-
-
-
 
 
 // Simpler mounting, don't add an anchor tag.
-
-
 ContentEdit.Image.prototype.mount = function() {
-
-
-
-
 
 	var i;
 
-
-
-
-
 	// Remove responsive attributes added in by WordPress since these are
-
-
 	// dynamically added on creation.
-
-
 	if ( this._attributes ) {
-
-
 		var responsiveAttributes = [ 'srcset', 'sizes', 'data-lazy-loaded', 'data-lazy-src', 'data-pin-nopin', 'src-orig', 'scale' ];
-
-
 		for ( i = 0; i < responsiveAttributes.length; i++ ) {
-
-
 			if ( this._attributes[ responsiveAttributes[ i ] ] ) {
-
-
 				delete this._attributes[ responsiveAttributes[ i ]  ];
-
-
 			}
-
-
 		}
-
-
 	}
-
-
-
-
 
 	// Remove alignnone. We won't support alignnone since they are problematic.
-
-
 	if ( this._attributes ) {
-
-
 		if ( this._attributes['class'] ) {
-
-
 			var classes = this._attributes['class'].split( ' ' );
-
-
 			if ( classes.indexOf( 'alignnone' ) !== -1 ) {
-
-
 				classes[ classes.indexOf( 'alignnone' ) ] = 'aligncenter';
-
-
 				this._attributes['class'] = classes.join( ' ' );
-
-
 			}
-
-
 		}
-
-
 	}
-
-
-
-
 
   	this._domElement = document.createElement('img');
-
-
     for ( i in this._attributes ) {
-
-
 		if ( this._attributes.hasOwnProperty( i ) ) {
-
-
 			if ( this._attributes[ i ] ) {
-
-
 				this._domElement.setAttribute( i, this._attributes[ i ] );
-
-
 			}
-
-
 		}
-
-
 	}
 
-
-
-
-
 	// Edit image edit event listener.
-
-
 	this._onDblClickBound = this._onDblclick.bind(this);
-
-
 	this._domElement.addEventListener('dblclick', this._onDblClickBound);
 
-
-
-
-
 	// Character press event listener.
-
-
 	this._onKeyDownBound = this._onKeyDown.bind(this);
-
-
 	window.addEventListener('keydown', this._onKeyDownBound );
 
-
-
-
-
 	return ContentEdit.Image.__super__.mount.call(this);
-
-
 };
-
-
-
-
-
-
 
 
 // If typed while an image is focused, create a new paragraph.
-
-
 ContentEdit.Image.prototype._onKeyDown = function(ev) {
-
-
 	// If ONLY shift is pressed, don't do anything.
-
-
 	if ( ev.keyCode === 16 || ev.keyCode === 91 || ev.keyCode === 93 ) {
-
-
 		return;
-
-
 	}
-
-
 	// If ctrl is pressed, don't do anything.
-
-
 	if ( ev.ctrlKey || ev.metaKey ) {
-
-
 		return;
-
-
 	}
-
-
 	// If something else is selected, don't do anything.
-
-
 	if ( ['input', 'select', 'textarea', 'button'].indexOf( ev.target.tagName.toLowerCase() ) !== -1 ) {
-
-
 		return;
-
-
 	}
-
-
 	if ( this.isFocused() ) {
 
-
-
-
-
 		// This fixes the bug where an empty div is added when pressing enter.
-
-
 		ev.preventDefault();
 
-
-
-
-
 		ContentTools.Tools.Paragraph.apply(this, null, function() {});
-
-
 	}
-
-
 };
-
-
-
-
-
-
 
 
 // Simpler droppers
-
-
 ContentEdit.Image._dropBoth = function(element, target, placement) {
-
-
 	var insertIndex;
-
-
 	element.parent().detach(element);
-
-
 	insertIndex = target.parent().children.indexOf(target);
-
-
 	if (placement[0] === 'below' && placement[1] === 'center') {
-
-
 		insertIndex += 1;
-
-
 	}
-
-
 	element.removeCSSClass('alignleft');
-
-
 	element.removeCSSClass('alignright');
-
-
 	element.removeCSSClass('aligncenter');
-
-
 	element.removeCSSClass('alignnone');
-
-
 	if (['left', 'right', 'center'].indexOf( placement[1] ) !== -1 ) {
-
-
 		element.addCSSClass('align' + placement[1]);
-
-
 	}
-
-
 	return target.parent().attach(element, insertIndex);
-
-
 };
-
-
-
-
-
-
 
 
 // Override the droppers to allow for 'alignleft', 'alignright', 'aligncenter',
-
-
 // classes instead of just 'align-left' and 'align-right'.
-
-
 ContentEdit.Image.droppers = {
-
-
 	'Image': ContentEdit.Image._dropBoth,
-
-
 	'PreText': ContentEdit.Image._dropBoth,
-
-
 	'Static': ContentEdit.Image._dropBoth,
-
-
 	'Text': ContentEdit.Image._dropBoth
-
-
 };
-
-
-
-
-
-
 
 
 wp.hooks.addFilter( 'pbs.shortcode.allow_raw_edit', function( allow, scBase, element ) {
-
-
 	if ( scBase === 'caption' ) {
-
-
 		var target = element._domElement.querySelector( 'img' );
 
-
-
-
-
 		var frame = wp.media.editor.open( 'edit', {
-
-
 			frame: 'image',
-
-
 			state: 'image-details',
-
-
 			metadata: _pbsImageGetMetaData( target )
-
-
 		});
-
-
-
-
 
 		frame.state('image-details').on( 'update', function( imageData ) {
-
-
 			_pbsUpdateNonCaptionedImage( target, imageData );
-
-
 		} );
 
-
-
-
-
 		// Delete the frame's state so that opening another frame won't have the settings
-
-
 		// of the previous frame.
-
-
 		frame.on('close', function() {
-
-
 			wp.media.editor.remove( 'edit' );
-
-
 			frame.detach();
-
-
 		});
-
-
 		return false;
-
-
 	}
-
-
 	return allow;
-
-
 } );
 
 
-
-
-
-
-
-
 /************************************************************************************
-
-
  * From updateImage function js/tinymce/plugins/wpeditimage/plugins.js
-
-
  ************************************************************************************/
-
-
 var _pbsToolbarImageHasTextContent = function( node ) {
-
-
 	return node && !! ( node.textContent || node.innerText );
-
-
 };
-
-
 var _pbsToolbarImageGetParent = function ( node, className ) {
-
-
 	while ( node && node.parentNode ) {
-
-
 		if ( node.className && ( ' ' + node.className + ' ' ).indexOf( ' ' + className + ' ' ) !== -1 ) {
-
-
 			return node;
-
-
 		}
 
-
-
-
-
 		node = node.parentNode;
-
-
 	}
 
-
-
-
-
 	return false;
-
-
 };
-
-
 var _pbsUpdateNonCaptionedImage = function( imageNode, imageData ) {
-
-
-
-
 
 	var classes, node, captionNode, id, attrs, linkAttrs, width, height, align;
 
-
-
-
-
 	// classes = tinymce.explode( imageData.extraClasses, ' ' );
-
-
 	classes = imageData.extraClasses.split( ' ' );
 
-
-
-
-
 	if ( ! classes ) {
-
-
 		classes = [];
-
-
 	}
-
-
-
-
 
 	if ( ! imageData.caption ) {
-
-
 		classes.push( 'align' + imageData.align );
-
-
 	}
-
-
-
-
 
 	if ( imageData.attachment_id ) {
-
-
 		classes.push( 'wp-image-' + imageData.attachment_id );
-
-
 		if ( imageData.size && imageData.size !== 'custom' ) {
-
-
 			classes.push( 'size-' + imageData.size );
-
-
 		}
-
-
 	}
-
-
-
-
 
 	width = imageData.width;
-
-
 	height = imageData.height;
 
-
-
-
-
 	if ( imageData.size === 'custom' ) {
-
-
 		width = imageData.customWidth;
-
-
 		height = imageData.customHeight;
-
-
 	}
-
-
-
-
 
 	attrs = {
-
-
 		src: imageData.url,
-
-
 		width: width || null,
-
-
 		height: height || null,
-
-
 		alt: imageData.alt,
-
-
 		title: imageData.title || null,
-
-
 		'class': classes.join( ' ' ) || null
-
-
 	};
-
-
-
-
 
 	// dom.setAttribs( imageNode, attrs );
-
-
 	for ( var key in attrs ) {
-
-
 		if ( attrs.hasOwnProperty( key ) ) {
-
-
 			imageNode.setAttribute( key, attrs[ key ] );
-
-
 		}
-
-
 	}
-
-
-
-
 
 	linkAttrs = {
-
-
 		href: imageData.linkUrl,
-
-
 		rel: imageData.linkRel || null,
-
-
 		target: imageData.linkTargetBlank ? '_blank': null,
-
-
 		'class': imageData.linkClassName || null
-
-
 	};
 
-
-
-
-
 	if ( imageNode.parentNode && imageNode.parentNode.nodeName === 'A' && ! _pbsToolbarImageHasTextContent( imageNode.parentNode ) ) {
-
-
 		// Update or remove an existing link wrapped around the image
-
-
 		if ( imageData.linkUrl ) {
 
-
-
-
-
 			// Update the attributes of the link
-
-
 			// dom.setAttribs( imageNode.parentNode, linkAttrs );
-
-
 			for ( key in linkAttrs ) {
-
-
 				if ( linkAttrs.hasOwnProperty( key ) ) {
-
-
 					if ( linkAttrs[ key ] !== null ) {
-
-
 						imageNode.parentNode.setAttribute( key, linkAttrs[ key ] );
-
-
 					}
-
-
 				}
-
-
 			}
-
-
 		} else {
 
-
-
-
-
 			// Unwrap the image from the link.
-
-
 			// dom.remove( imageNode.parentNode, true );
-
-
 			var oldA = imageNode.parentNode;
-
-
 			oldA.parentNode.insertBefore( imageNode, oldA );
-
-
 			oldA.parentNode.removeChild( oldA );
 
-
-
-
-
 		}
-
-
-
-
 
 	} else if ( imageData.linkUrl ) { // If a link was added to a non-linked image
-
-
 		// if ( linkNode = dom.getParent( imageNode, 'a' ) ) {
-
-
 		var linkNode = _pbsToolbarImageGetParent( imageNode, 'a' );
-
-
 		if ( linkNode ) {
-
-
 			// The image is inside a link together with other nodes,
-
-
 			// or is nested in another node, move it out
-
-
 			// dom.insertAfter( imageNode, linkNode );
-
-
 			imageNode.parentNode.insertBefore( linkNode, imageNode.nextSibling);
-
-
 		}
-
-
-
-
 
 		// Add link wrapped around the image
-
-
 		// linkNode = dom.create( 'a', linkAttrs );
-
-
 		linkNode = document.createElement('a');
-
-
 		for ( var i in linkAttrs ) {
-
-
 			if ( linkAttrs.hasOwnProperty( i ) ) {
-
-
 				if ( linkAttrs[ i ] !== null ) {
-
-
 					linkNode.setAttribute( i, linkAttrs[ i ] );
-
-
 				}
-
-
 			}
-
-
 		}
-
-
 		imageNode.parentNode.insertBefore( linkNode, imageNode );
-
-
 		linkNode.appendChild( imageNode );
-
-
 	}
-
-
-
-
 
 	// captionNode = editor.dom.getParent( imageNode, '.mceTemp' );
-
-
 	captionNode = _pbsToolbarImageGetParent( imageNode, '.mceTemp' );
 
-
-
-
-
 	if ( imageNode.parentNode && imageNode.parentNode.nodeName === 'A' && ! _pbsToolbarImageHasTextContent( imageNode.parentNode ) ) {
-
-
 		node = imageNode.parentNode;
-
-
 	} else {
-
-
 		node = imageNode;
-
-
 	}
-
-
-
-
 
 	// Find the main Text element
-
-
 	var textElement = null;
-
-
 	var currElement = node;
-
-
 	while ( currElement ) {
-
-
 		if ( currElement._ceElement ) {
-
-
 			textElement = currElement._ceElement;
-
-
 			break;
-
-
 		}
-
-
 		currElement = currElement.parentNode;
-
-
 	}
-
-
-
-
-
-
 
 
 	// Captioned image.
-
-
 	var parent, index, newElem;
-
-
 	if ( imageData.caption ) {
 
-
-
-
-
 		id = imageData.attachment_id ? 'attachment_' + imageData.attachment_id : null;
-
-
 		align = 'align' + ( imageData.align || 'none' );
 
-
-
-
-
 		// Default data
-
-
 		var scData = {
-
-
 			tag: 'caption',
-
-
 			type: 'closed',
-
-
 			content: node.outerHTML + ' ' + imageData.caption,
-
-
 			attrs: {
-
-
 				id: id,
-
-
 				align: align,
-
-
 				width: width
-
-
 			}
-
-
 		};
 
-
-
-
-
 		// Generate the shortcode
-
-
 		var shortcode = new wp.shortcode( scData ).string();
-
-
 		parent = textElement.parent();
-
-
 		index = parent.children.indexOf( textElement );
 
-
-
-
-
 		shortcode = wp.shortcode.next( 'caption', shortcode, 0 );
-
-
 		newElem = ContentEdit.Shortcode.createShortcode( shortcode );
-
-
 		parent.attach( newElem, index );
-
-
 		parent.detach( textElement );
 
-
-
-
-
 		newElem.ajaxUpdate( true );
-
-
 		newElem.focus();
-
-
-
-
 
 		textElement = newElem;
 
-
-
-
-
 	} else {
 
-
-
-
-
 		// Normal image.
-
-
 		parent = textElement.parent();
-
-
 		index = parent.children.indexOf( textElement );
-
-
 		newElem = ContentEdit.Image.fromDOMElement( node );
-
-
 		parent.attach( newElem, index );
-
-
 		parent.detach( textElement );
-
-
 		newElem.focus();
-
-
 	}
-
-
 };
-
-
 var _pbsToolbarImageGetParent = function ( node, className ) {
-
-
 	while ( node && node.parentNode ) {
-
-
 		if ( node.className && ( ' ' + node.className + ' ' ).indexOf( ' ' + className + ' ' ) !== -1 ) {
-
-
 			return node;
-
-
 		}
 
-
-
-
-
 		node = node.parentNode;
-
-
 	}
 
-
-
-
-
 	return false;
-
-
 };
-
-
-
-
-
-
 
 
 var _pbsUpdateNonCaptionedImageCTElement = function( imageNode, imageData ) {
 
-
-
-
-
 	var classes, id, attrs, linkAttrs, width, height, align;
 
-
-
-
-
 	// classes = tinymce.explode( imageData.extraClasses, ' ' );
-
-
 	classes = imageData.extraClasses.split( ' ' );
 
-
-
-
-
 	if ( ! classes ) {
-
-
 		classes = [];
-
-
 	}
-
-
-
-
 
 	if ( ! imageData.caption ) {
-
-
 		classes.push( 'align' + imageData.align );
-
-
 	}
-
-
-
-
 
 	if ( imageData.attachment_id ) {
-
-
 		classes.push( 'wp-image-' + imageData.attachment_id );
-
-
 		if ( imageData.size && imageData.size !== 'custom' ) {
-
-
 			classes.push( 'size-' + imageData.size );
-
-
 		}
-
-
 	}
-
-
-
-
 
 	width = imageData.width;
-
-
 	height = imageData.height;
 
-
-
-
-
 	if ( imageData.size === 'custom' ) {
-
-
 		width = imageData.customWidth;
-
-
 		height = imageData.customHeight;
-
-
 	}
-
-
-
-
 
 	attrs = {
-
-
 		src: imageData.url,
-
-
 		width: width || null,
-
-
 		height: height || null,
-
-
 		alt: imageData.alt,
-
-
 		title: imageData.title || null,
-
-
 		'class': classes.join( ' ' ) || null
-
-
 	};
-
-
-
-
 
 	// The aspect ratio might have changed.
-
-
 	imageNode._aspectRatio = height / width;
-
-
 	imageNode.size([width, height]);
 
-
-
-
-
 	// Add the classes
-
-
 	imageNode.removeCSSClass('alignleft');
-
-
 	imageNode.removeCSSClass('alignright');
-
-
 	imageNode.removeCSSClass('aligncenter');
-
-
 	imageNode.removeCSSClass('alignnone');
-
-
 	for ( var i = 0; i < classes.length; i++ ) {
-
-
 		if ( classes[ i ] ) {
-
-
 			imageNode.addCSSClass( classes[ i ] );
-
-
 		}
-
-
 	}
-
-
-
-
 
 	// Add the other attributes
-
-
 	for ( var key in attrs ) {
-
-
 		if ( ! attrs.hasOwnProperty( key ) ) {
-
-
 			continue;
-
-
 		}
-
-
 		if ( key === 'class' ) {
-
-
 			continue;
-
-
 		}
-
-
 		if ( attrs[ key ] !== null ) {
-
-
 			imageNode.attr( key, attrs[ key ] );
-
-
 		} else {
-
-
 			imageNode.removeAttr( key );
-
-
 		}
-
-
 	}
-
-
-
-
 
 	linkAttrs = {
-
-
 		href: imageData.linkUrl,
-
-
 		rel: imageData.linkRel || null,
-
-
 		target: imageData.linkTargetBlank ? '_blank': null,
-
-
 		'class': imageData.linkClassName || null
-
-
 	};
 
-
-
-
-
 	if ( imageNode.a ) {
-
-
 		if ( imageData.linkUrl ) {
-
-
 			// Update the attributes of the link
-
-
 			// dom.setAttribs( imageNode.parentNode, linkAttrs );
-
-
 			for ( key in linkAttrs ) {
-
-
 				if ( linkAttrs.hasOwnProperty( key ) ) {
-
-
 					if ( linkAttrs[ key ] !== null ) {
-
-
 						imageNode.a[ key ] = linkAttrs[ key ];
-
-
 					} else {
-
-
 						delete imageNode.a[ key ];
-
-
 					}
-
-
 				}
-
-
 			}
-
-
 		} else {
-
-
 			imageNode.a = null;
-
-
 		}
-
-
 	} else if ( imageData.linkUrl ) {
-
-
 		imageNode.a = {};
-
-
 		for ( key in linkAttrs ) {
-
-
 			if ( linkAttrs.hasOwnProperty( key ) ) {
-
-
 				if ( linkAttrs[ key ] !== null ) {
-
-
 					imageNode.a[ key ] = linkAttrs[ key ];
-
-
 				}
-
-
 			}
-
-
 		}
-
-
 	}
-
-
-
-
-
-
 
 
 	// We always come from a non-captioned image, transform into a caption shortcode and
-
-
 	// never from a captioned image (that's another function)
-
-
 	if ( imageData.caption ) {
 
-
-
-
-
 		id = imageData.attachment_id ? 'attachment_' + imageData.attachment_id : null;
-
-
 		align = 'align' + ( imageData.align || 'none' );
 
-
-
-
-
 		// Default data
-
-
 		var scData = {
-
-
 			tag: 'caption',
-
-
 			type: 'closed',
-
-
 			content: imageNode.html() + ' ' + imageData.caption,
-
-
 			attrs: {
-
-
 				id: id,
-
-
 				align: align,
-
-
 				width: width
-
-
 			}
-
-
 		};
 
-
-
-
-
 		// Generate the shortcode
-
-
 		var shortcode = new wp.shortcode( scData );//.string();
 
-
-
-
-
 		var newElem = ContentEdit.Shortcode.createShortcode( wp.shortcode.next( 'caption', shortcode.string(), 0 ) );
-
-
 		var index = imageNode.parent().children.indexOf( imageNode );
-
-
 		imageNode.parent().attach( newElem, index );
-
-
 		imageNode.parent().detach( imageNode );
-
-
 		newElem.ajaxUpdate( true );
-
-
 		return;
-
-
-
-
 
 	}
 
-
-
-
-
 };
-
-
-
-
-
-
 
 
 // From js/tinymce/plugins/wpeditimage/plugin.js
-
-
 var _pbsImageGetMetaData = function( img ) {
 
-
-
-
-
 	// Modified from extractImageData() in plugin.js
-
-
 	var attachmentID = img.getAttribute('class').match(/wp-image-(\d+)/);
-
-
 	var align = img.getAttribute('class').match(/align(\w+)/);
-
-
 	var size = img.getAttribute('class').match(/size-(\w+)/);
-
-
 	var i;
 
-
-
-
-
 	var tmpClasses = img.getAttribute('class').split(' ');
-
-
 	var extraClasses = [];
-
-
-
-
 
 	var classRegex = /wp-image-\d+|align\w+|size-\w+|ce-element[-\w]*/;
 
-
-
-
-
 	// Extract classes on Image Elements
-
-
 	if ( img._ceElement ) {
-
-
 		if ( img._ceElement.a && img._ceElement.a['class'] ) {
-
-
 			var aClasses = img._ceElement.a['class'].split(' ');
-
-
 			for ( i = 0; i < aClasses.length; i++ ) {
-
-
 				if ( ! aClasses[ i ].match(classRegex) ) {
-
-
 					extraClasses.push( aClasses[ i ] );
-
-
 				}
-
-
 			}
-
-
 		}
-
-
 	}
-
-
-
-
 
 	for ( i = 0; i < tmpClasses.length; i++ ) {
-
-
 		if ( ! tmpClasses[ i ].match(classRegex) ) {
-
-
 			extraClasses.push( tmpClasses[ i ] );
-
-
 		}
-
-
 	}
 
-
-
-
-
 	var metadata = {
-
-
 		attachment_id: attachmentID ? attachmentID[1] : false,
-
-
 		size: size ? size[1] : 'custom',
-
-
 		caption: '',
-
-
 		align: align ? align[1] : 'none',
-
-
 		extraClasses: extraClasses.join(' '),
-
-
 		link: false,
-
-
 		linkUrl: '',
-
-
 		linkClassName: '',
-
-
 		linkTargetBlank: false,
-
-
 		linkRel: '',
-
-
 		title: ''
-
-
 	};
-
-
 	metadata.url = img.getAttribute('src');
-
-
 	metadata.alt = img.getAttribute('alt');
-
-
 	metadata.title = img.getAttribute('title');
 
-
-
-
-
 	var width = img.getAttribute('width');
-
-
 	var height = img.getAttribute('height');
 
-
-
-
-
 	metadata.customWidth = metadata.width = width;
-
-
 	metadata.customHeight = metadata.height = height;
 
 
-
-
-
-
-
-
 	// Extract caption
-
-
 	var captionClassName = [];
-
-
 	var captionBlock = img.parentNode;
-
-
 	while ( captionBlock !== null && typeof captionBlock.classList !== 'undefined' ) {
 
-
-
-
-
 		if ( captionBlock.classList.contains( 'wp-caption' ) ) {
-
-
 			break;
-
-
 		}
-
-
 		captionBlock = captionBlock.parentNode;
-
-
 	}
 
-
-
-
-
 	if ( captionBlock && captionBlock.classList ) {
-
-
 		var classes = captionBlock.classList;
 
-
-
-
-
 		for ( i = 0; i < classes.length; i++ ) {
-
-
 			var c = classes.item( i );
-
-
 			if ( /^align/.test( c ) ) {
-
-
 				metadata.align = c.replace( 'align', '' );
-
-
 			} else if ( c && c !== 'wp-caption' ) {
-
-
 				captionClassName.push( c );
-
-
 			}
-
-
 		}
-
-
-
-
 
 		metadata.captionClassName = captionClassName.join( ' ' );
 
-
-
-
-
 		var caption = captionBlock.querySelector('.wp-caption-text');
-
-
 		if ( caption ) {
-
-
 			metadata.caption = caption.innerHTML.replace( /<br[^>]*>/g, '$&\n' ).replace( /^<p>/, '' ).replace( /<\/p>$/, '' );
-
-
 		}
-
-
 	}
-
-
-
-
 
 	// Extract linkTo
-
-
 	if ( img.parentNode && img.parentNode.nodeName === 'A' ) {
-
-
 		var link = img.parentNode;
-
-
 		metadata.linkUrl = link.getAttribute( 'href' );
-
-
 		metadata.linkTargetBlank = link.getAttribute( 'target' ) === '_blank' ? true : false;
-
-
 		metadata.linkRel = link.getAttribute( 'rel' );
-
-
 		metadata.linkClassName = link.className;
-
-
 	}
-
-
 	// Extract linkTo for Image Elements
-
-
 	if ( img._ceElement ) {
-
-
 		if ( img._ceElement.a ) {
-
-
 			metadata.linkUrl = img._ceElement.a.href;
-
-
 			metadata.linkTargetBlank = img._ceElement.a.target === '_blank' ? true : false;
-
-
 			metadata.linkRel = img._ceElement.a.rel;
-
-
 			metadata.linkClassName = img._ceElement.a['class'];
-
-
 		}
-
-
 	}
-
-
-
-
 
 	return metadata;
-
-
 };
-
-
-
-
-
-
-
-
 
 
 
 // Upon load, unwrap all images from their paragraph tags so that they can all be rendered as Image Elements.
-
-
 /**
-
-
 Scenarios:
-
-
 <p><img>blahblah</p> --> <img><p>blahblah</p>
-
-
 <p>start<img>end</p> --> <p>start</p><img><p>end</p>
-
-
 */
-
-
 window.addEventListener( 'DOMContentLoaded', function() {
-
-
 	if ( ! document.querySelector('[data-name="main-content"]') ) {
-
-
 		return;
-
-
 	}
-
-
-
-
 
 	var editableArea = document.querySelector('[data-name="main-content"]');
-
-
 	var selector = 'a:not([data-ce-tag]) > img.alignright, a:not([data-ce-tag]) > img.alignleft, a:not([data-ce-tag]) > img.aligncenter, a:not([data-ce-tag]) > img.alignnone, p > img.alignright, p > img.alignleft, p > img.aligncenter, p > img.alignnone';
 
-
-
-
-
 	while ( editableArea.querySelector( selector ) ) {
-
-
 		var el = editableArea.querySelector( selector );
-
-
 		var mainImageNode = el;
-
-
 		if ( el.parentNode.tagName === 'A' ) {
-
-
 			mainImageNode = el.parentNode;
-
-
 			mainImageNode.setAttribute('data-ce-tag', 'img');
-
-
 		}
-
-
-
-
 
 		if ( mainImageNode.parentNode.tagName === 'P' ) {
-
-
 			var p = mainImageNode.parentNode;
-
-
 			var startingIndex = p.innerHTML.indexOf( mainImageNode.outerHTML );
-
-
 			var endingIndex = startingIndex + mainImageNode.outerHTML.length;
-
-
 			var tip = p.innerHTML.substr(0, startingIndex).trim();
-
-
 			var tail = p.innerHTML.substr(endingIndex).trim();
 
-
-
-
-
 			var newContent = '';
-
-
 			var clonedPNode;
-
-
 			if ( tip !== '' ) {
-
-
 				clonedPNode = p.cloneNode();
-
-
 				clonedPNode.innerHTML = tip;
-
-
 				newContent += clonedPNode.outerHTML;
-
-
 			}
-
-
 			newContent += mainImageNode.outerHTML;
-
-
 			if ( tail !== '' ) {
-
-
 				clonedPNode = p.cloneNode();
-
-
 				clonedPNode.innerHTML = tail;
-
-
 				newContent += clonedPNode.outerHTML;
-
-
 			}
-
-
 			p.outerHTML = newContent;
-
-
 		}
-
-
 	}
-
-
-
-
 
 	// WordPress adds br tags after images in certain scenario, remove them
-
-
 	// since we do not need them.
-
-
 	while ( editableArea.querySelector('img ~ br, [data-ce-tag="img"] ~ br') ) {
-
-
 		editableArea.querySelector('img ~ br, [data-ce-tag="img"] ~ br').remove();
-
-
 	}
-
-
 });
 
 
-
-
-
-
-
-
 /*******************************************************************************
-
-
  * Clean image tags on saving.
-
-
  *******************************************************************************/
-
-
 wp.hooks.addFilter( 'pbs.save', function( html ) {
 
-
-
-
-
 	// Remove the data-ce-tag="img" left by CT.
-
-
 	html = html.replace( /\sdata-ce-tag=["']img["']/g, '' );
 
-
-
-
-
 	// Remove the empty class left by CT.
-
-
 	html = html.replace( /(<a[^>]*)\sclass((\s|>)[^>]*>)/g, '$1$2' );
 
-
-
-
-
 	// Put back images inside paragraph tags.
-
-
-	html = html.replace( /((<a[^>]+>\s*)?<img[^>]*>(\s*<\/a>)?)\s*(<p[^>]*>)/g, '$4$1' );
-
-
-
-
+	html = html.replace( /((<a[^>]+>\s*)?<img[^>]*>(\s*<\/a>)?)\s*(<p[^\w>]*>)/g, '$4$1' );
 
 	// Wrap images which aren't inside paragraph tags inside paragraph tags.
-
-
 	html = html.replace( /(<[^pa][^>]*>\s*)(<img[^>]*>)/g, '$1<p>$2</p>' );
-
-
 	html = html.replace( /(<[^p][^>]*>\s*)(<a[^>]+>\s*<img[^>]*>\s*<\/a>)/g, '$1<p>$2</p>' );
 
-
-
-
-
 	// Remove br tags after images since WP sometimes adds them.
-
-
 	html = html.replace( /((<a[^>]+>\s*)?<img[^>]*>(\s*<\/a>)?)\s*(<br[^>]*>)*/g, '$1' );
 
-
-
-
-
 	return html;
-
-
 } );
-
-
 
 /**
  * Widgets are actually just shortcodes.
@@ -9124,6 +8972,37 @@ HTMLString.String.prototype.getStyle = function( styleName, element ) {
 	}
 
 	return getComputedStyle( nodeToCheck )[ styleName ];
+};
+
+
+/**
+ * Fixed: Edge bug where PBS did not start at all and was stuck in "Please Wait".
+ * HACK: IE Edge sometimes sends an array containing an empty array to this method.
+ *
+ * @see https://github.com/GetmeUK/ContentTools/issues/258
+ */
+HTMLString.Character.prototype.addTags = function() {
+	var tag, tags, _i, _len, _results;
+	tags = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+	_results = [];
+	for (_i = 0, _len = tags.length; _i < _len; _i++) {
+		tag = tags[_i];
+
+        // HACK: IE Edge sometimes sends an array containing an empty array to this method.
+        if ( Array.isArray( tag ) ) {
+			continue;
+        }
+
+		if (tag.selfClosing()) {
+			if (!this.isTag()) {
+				this._tags.unshift(tag.copy());
+			}
+			continue;
+		}
+
+		_results.push(this._tags.push(tag.copy()));
+	}
+	return _results;
 };
 
 /* globals PBSEditor, pbsParams */
@@ -10109,6 +9988,8 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 		oldGroup.style.overflow = 'hidden';
 		oldGroup.offsetHeight; // force repaint
 		oldGroup.style.height = 0;
+
+		// Remove from dom after transition.
 		oldGroup.addEventListener('transitionend', function transitionEnd(event) {
 			if (event.propertyName === 'height') {
 				this.removeEventListener('transitionend', transitionEnd, false);
@@ -10118,6 +9999,16 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 				this.parentNode.removeChild( this );
 			}
 		}.bind(oldGroup), false);
+
+		// Fallback, when fast switching, transitionend sometimes does not fire.
+		setTimeout( function() {
+			if ( typeof this.view !== 'undefined' ) {
+				this.view.remove();
+			}
+			if ( this.parentNode ) {
+				this.parentNode.removeChild( this );
+			}
+		}.bind(oldGroup), 350);
 	}
 	this._oldGroups = [];
 	while ( this._newGroups.length ) {
@@ -10203,7 +10094,10 @@ ContentTools.ToolboxUI.prototype.placeGroup = function( group ) {
 				// tooltips will not display.
 				setTimeout( function() {
 					if ( ! didTransition && this ) {
-						this.style.overflow = 'visible';
+						if ( ! this.classList.contains('pbs-collapse') ) {
+							this.style.height = 'auto';
+							this.style.overflow = 'visible';
+						}
 					}
 				}.bind( this ), 350 );
 
@@ -10657,7 +10551,7 @@ PBSOption.Button = Backbone.View.extend({
 
 	_canApplyUpdater: function() {
 		this.el.classList.remove( 'ct-tool--disabled' );
-		if ( this.optionSettings.canApply && this.model.get('element') ) {
+		if ( this.optionSettings.canApply && this.model.get('element') && this.model.get('element')._domElement ) {
 			if ( ! this.optionSettings.canApply( this.model.get('element'), this ) ) {
 				this.el.classList.add( 'ct-tool--disabled' );
 			}
@@ -10665,13 +10559,13 @@ PBSOption.Button = Backbone.View.extend({
 	},
 
 	_isAppliedUpdater: function() {
-		if ( this.optionSettings.isApplied && this.model.get('element') ) {
+		if ( this.optionSettings.isApplied && this.model.get('element') && this.model.get('element')._domElement ) {
 			this.updateIsApplied( this.optionSettings.isApplied( this.model.get('element'), this ) );
 		}
 	},
 
 	mouseenter: function() {
-		if ( this.optionSettings.mouseenter ) {
+		if ( this.optionSettings.mouseenter && this.model.get('element') && this.model.get('element')._domElement ) {
 			this.optionSettings.mouseenter( this.model.get('element'), this );
 		}
 		if ( this.optionSettings.hold ) {
@@ -10685,7 +10579,7 @@ PBSOption.Button = Backbone.View.extend({
 	},
 
 	mouseleave: function() {
-		if ( this.optionSettings.mouseleave ) {
+		if ( this.optionSettings.mouseleave && this.model.get('element') && this.model.get('element')._domElement ) {
 			this.optionSettings.mouseleave( this.model.get('element'), this );
 		}
 		if ( this.optionSettings.hold ) {
@@ -13864,16 +13758,17 @@ window.pbsAddInspector( 'DivRow', {
 			'class': 'ct-tool--remove',
 			'click': function( element ) {
 				element.blurIfFocused();
+				var otherElement = element.nextSibling();
+				if ( ! otherElement ) {
+					otherElement = element.previousSibling();
+				}
 				element.parent().detach( element );
+				if ( otherElement ) {
+					otherElement.focus();
+				}
 			},
 			'canApply': function ( element ) {
 				return wp.hooks.applyFilters( 'inspector.row.delete.can_apply', true, element );
-			},
-			'mouseenter': function( element ) {
-				element._domElement.classList.add('ce-element--over');
-			},
-			'mouseleave': function( element ) {
-				element._domElement.classList.remove('ce-element--over');
 			}
 		}
 	]
@@ -14612,6 +14507,86 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	]
 } );
 
+/**
+ * TODO:
+ add tab
+ remove tab
+tab:
+	 icon
+ Tabs:
+	 General
+	 	horizontal / vertical
+	 	tab alignment (left, center, right, stretch or when vertical top, center, bottom, stretch)
+   	 	icon location
+	style buttons:
+		tab active accent color
+	 	panel bg color (will also carry to the bg color of the active tab)
+	 	enable/disable border effect
+		 style
+		 	- classic tabs
+			- modern tabs
+			- minimalist (line with arrow)
+			- minimalist (clean with underline)
+*/
+
+
+
+/* globals pbsParams */
+
+window.pbsAddInspector( 'Tabs', {
+	'label': pbsParams.labels.tabs,
+	'options': [
+		{
+			'name': pbsParams.labels.add_tab,
+			'type': 'button',
+			'class': 'pbs-button-carousel-add-slide',
+			'click': function( element ) {
+				element.addTab();
+			}
+		},
+		{
+			'name': pbsParams.labels.remove_tab,
+			'type': 'button',
+			'class': 'pbs-button-carousel-remove-slide',
+			'click': function( element ) {
+				element.removeTab();
+			}
+		},
+		{
+			'name': pbsParams.labels.delete_tabs,
+			'type': 'button',
+			'class': 'ct-tool--remove',
+			'click': function( element ) {
+				element.blur();
+				element.parent().detach( element );
+			}
+		}
+	]
+} );
+
+/* globals ContentTools, __extends */
+
+/**
+ * This serves as the base for all big element buttons
+ */
+ContentTools.Tools.ElementButton = ( function( _super ) {
+	__extends( ElementButton, _super );
+
+	function ElementButton() {
+		return ElementButton.__super__.constructor.apply( this, arguments );
+	}
+
+	ElementButton.canApply = function( element ) {
+		if ( element.constructor.name === 'Tab' ) {
+			return false;
+		}
+    	return true;
+    };
+
+	return ElementButton;
+
+} )( ContentTools.Tool );
+
 /* globals ContentTools, ContentEdit, HTMLString, pbsParams */
 
 /***************************************************************************
@@ -15287,6 +15262,14 @@ ContentTools.Tool.refreshTooltip = function( value ) {
 
 })();
 
+
+/**
+ * Inherit Table.canApply on the ElementButton.
+ */
+( function() {
+	ContentTools.Tools.Table.canApply = ContentTools.Tools.ElementButton.canApply;
+} )();
+
 /* globals ContentTools, ContentEdit, pbsParams */
 
 ContentTools.Tools.AlignRight.shortcut = 'ctrl+r';
@@ -15810,10 +15793,6 @@ ContentTools.Tools.Shortcode = (function(_super) {
 
 	Shortcode.buttonName = pbsParams.labels.shortcode;
 
-	Shortcode.canApply = function() {
-		return true;
-    };
-
 	Shortcode.apply = function(element, selection, callback) {
 
 		PBSEditor.shortcodeFrame.open({
@@ -15877,7 +15856,7 @@ ContentTools.Tools.Shortcode = (function(_super) {
 
 	return Shortcode;
 
-})(ContentTools.Tool);
+} )( ContentTools.Tools.ElementButton );
 
 
 /* globals ContentTools, ContentEdit, PBS, pbsSelectorMatches */
@@ -16772,10 +16751,6 @@ ContentTools.Tools.TwoColumn = (function(_super) {
 
 	OneColumn.buttonName = pbsParams.labels.one_column;
 
-	OneColumn.canApply = function(element, selection) {
-		return true;
-    };
-
 	OneColumn.apply = function(element, selection, callback) {
 		var row = new ContentEdit.DivRow('div');
 		var col = new ContentEdit.DivCol('div');
@@ -16797,7 +16772,7 @@ ContentTools.Tools.TwoColumn = (function(_super) {
 
 	return OneColumn;
 
-})(ContentTools.Tool);
+} )( ContentTools.Tools.ElementButton );
 
 
 ContentTools.Tools.TwoColumn = (function(_super) {
@@ -16816,10 +16791,6 @@ ContentTools.Tools.TwoColumn = (function(_super) {
 	TwoColumn.tagName = 'twocolumn';
 
 	TwoColumn.buttonName = pbsParams.labels.two_column;
-
-	TwoColumn.canApply = function(element, selection) {
-		return true;
-    };
 
 	TwoColumn.apply = function(element, selection, callback) {
 
@@ -16847,7 +16818,7 @@ ContentTools.Tools.TwoColumn = (function(_super) {
 
 	return TwoColumn;
 
-})(ContentTools.Tool);
+} )( ContentTools.Tools.ElementButton );
 
 
 ContentTools.Tools.ThreeColumn = (function(_super) {
@@ -16866,10 +16837,6 @@ ContentTools.Tools.ThreeColumn = (function(_super) {
 	ThreeColumn.tagName = 'threecolumn';
 
 	ThreeColumn.buttonName = pbsParams.labels.three_column;
-
-	ThreeColumn.canApply = function(element, selection) {
-		return true;
-    };
 
 	ThreeColumn.apply = function(element, selection, callback) {
 
@@ -16903,7 +16870,7 @@ ContentTools.Tools.ThreeColumn = (function(_super) {
 
 	return ThreeColumn;
 
-})(ContentTools.Tool);
+} )( ContentTools.Tools.ElementButton );
 
 
 ContentTools.Tools.FourColumn = (function(_super) {
@@ -16922,10 +16889,6 @@ ContentTools.Tools.FourColumn = (function(_super) {
 	FourColumn.tagName = 'fourcolumn';
 
 	FourColumn.buttonName = pbsParams.labels.four_column;
-
-	FourColumn.canApply = function(element, selection) {
-		return true;
-    };
 
 	FourColumn.apply = function(element, selection, callback) {
 
@@ -16965,7 +16928,7 @@ ContentTools.Tools.FourColumn = (function(_super) {
 
 	return FourColumn;
 
-})(ContentTools.Tool);
+} )( ContentTools.Tools.ElementButton );
 
 
 
@@ -17462,10 +17425,6 @@ ContentTools.Tools.Sidebar = (function(_super) {
 
 	Sidebar.buttonName = pbsParams.labels.sidebar;
 
-	Sidebar.canApply = function() {
-    	return true;
-    };
-
 	Sidebar.apply = function(element, selection, callback) {
 
 		var defaultSidebar = '';
@@ -17492,7 +17451,7 @@ ContentTools.Tools.Sidebar = (function(_super) {
 
 	return Sidebar;
 
-})(ContentTools.Tool);
+} )( ContentTools.Tools.ElementButton );
 
 
 /* globals ContentEdit, ContentTools, __extends, pbsParams */
@@ -17553,10 +17512,6 @@ ContentTools.Tools.Icon = (function(_super) {
 
 	Icon.buttonName = pbsParams.labels.icon;
 
-	Icon.canApply = function(element, selection) {
-		return true;
-    };
-
 	Icon.apply = function(element, selection, callback) {
 
 		PBSEditor.iconFrame.open({
@@ -17574,7 +17529,7 @@ ContentTools.Tools.Icon = (function(_super) {
 
 	return Icon;
 
-})(ContentTools.Tool);
+} )( ContentTools.Tools.ElementButton );
 
 /* globals ContentTools, wpLink, HTMLString, ContentSelect */
 
@@ -17854,10 +17809,6 @@ ContentTools.Tools.Widget = (function(_super) {
 
 	Widget.buttonName = pbsParams.labels.widget;
 
-	Widget.canApply = function() {
-		return true;
-    };
-
 	Widget.apply = function(element, selection, callback) {
 		PBSEditor.widgetFrame.open({
 			title: pbsParams.labels.insert_widget,
@@ -17896,7 +17847,7 @@ ContentTools.Tools.Widget = (function(_super) {
 
 	return Widget;
 
-})(ContentTools.Tool);
+} )(ContentTools.Tools.ElementButton );
 
 /* globals ContentEdit, ContentTools, __extends, pbsParams */
 
@@ -17916,10 +17867,6 @@ ContentTools.Tools.Html = (function(_super) {
 	Html.tagName = 'html';
 
 	Html.buttonName = pbsParams.labels.html;
-
-	Html.canApply = function() {
-		return true;
-    };
 
 	Html.apply = function(element, selection, callback) {
 
@@ -17948,7 +17895,7 @@ ContentTools.Tools.Html = (function(_super) {
 
 	return Html;
 
-})(ContentTools.Tool);
+} )( ContentTools.Tools.ElementButton );
 
 /* globals ContentEdit, ContentTools, __extends, pbsParams */
 
@@ -17973,10 +17920,6 @@ ContentTools.Tools.Map = ( function( _super ) {
 
 	// Map.premium = true;
 
-	Map.canApply = function() {
-		return true;
-	};
-
 	Map.apply = function( element, selection, callback ) {
 
 		var newElem = ContentEdit.Map.create();
@@ -17992,8 +17935,86 @@ ContentTools.Tools.Map = ( function( _super ) {
 
 	return Map;
 
-})( ContentTools.Tool );
+} )( ContentTools.Tools.ElementButton );
 
+/* globals ContentEdit, ContentTools, __extends, pbsParams */
+
+ContentTools.Tools.Tabs = ( function( _super ) {
+	__extends( Tabs, _super );
+
+	function Tabs() {
+		return Tabs.__super__.constructor.apply( this, arguments );
+	}
+
+	ContentTools.ToolShelf.stow( Tabs, 'tabs' );
+
+	Tabs.label = pbsParams.labels.tabs;
+
+	Tabs.icon = 'tabs';
+
+	Tabs.tagName = 'tabs';
+
+	Tabs.buttonName = pbsParams.labels.tabs;
+
+	Tabs.premium = true;
+
+	Tabs.apply = function(element, selection, callback) {
+
+		var hashes = [];
+		while ( hashes.length < 4 ) {
+			var hash = window.PBSEditor.generateHash();
+			if ( document.querySelector( '.pbs-tabs-' + hash ) ) {
+				continue;
+			}
+			if ( document.querySelector( '[id="pbs-tabs-' + hash + '"]' ) ) {
+				continue;
+			}
+			if ( hashes.indexOf( hash ) !== -1 ) {
+				continue;
+			}
+			hashes.push( hash );
+		}
+
+		var elem = document.createElement( 'div' );
+		elem.classList.add( 'pbs-tabs-' + hashes[0] );
+		elem.setAttribute( 'data-ce-tag', 'tabs' );
+
+		/* jshint multistr: true */
+		elem.innerHTML =
+			'<input class="pbs-tab-state" type="radio" name="pbs-tabs-' + hashes[0] + '" id="pbs-tab-' + hashes[1] + '" data-tab="1" data-ce-tag="tabradio" checked />' +
+			'<input class="pbs-tab-state" type="radio" name="pbs-tabs-' + hashes[0] + '" id="pbs-tab-' + hashes[2] + '" data-tab="2" data-ce-tag="tabradio" />' +
+			'<input class="pbs-tab-state" type="radio" name="pbs-tabs-' + hashes[0] + '" id="pbs-tab-' + hashes[3] + '" data-tab="3" data-ce-tag="tabradio" />' +
+			'<div class="pbs-tab-tabs" data-ce-tag="tabcontainer">' +
+		        '<label for="pbs-tab-' + hashes[1] + '" data-ce-tag="tab" class="pbs-tab-active"><span style="font-weight: bold;">Tab 1</span></label>' +
+		        '<label for="pbs-tab-' + hashes[2] + '" data-ce-tag="tab"><span style="font-weight: bold;">Tab 2</span></label>' +
+		        '<label for="pbs-tab-' + hashes[3] + '" data-ce-tag="tab"><span style="font-weight: bold;">Tab 3</span></label>' +
+		    '</div>' +
+			'<div class="pbs-tab-panels" data-ce-tag="tabpanelcontainer">' +
+				'<div class="pbs-row" data-panel="1"><div class="pbs-col"><p>Tab 1 content</p></div></div>' +
+				'<div class="pbs-row" data-panel="2"><div class="pbs-col"><p>Tab 2 content</p></div></div>' +
+				'<div class="pbs-row" data-panel="3"><div class="pbs-col"><p>Tab 3 content</p></div></div>' +
+			'</div>';
+
+		var newElem = ContentEdit.Tabs.fromDOMElement( elem );
+
+		// Don't allow tabs to be created inside tabs, create it after the current tabs.
+		if ( window.pbsSelectorMatches( element._domElement, '[data-ce-tag="tabs"] *' ) ) {
+			while ( element && element.constructor.name !== 'Tabs' ) {
+				element = element.parent();
+			}
+		}
+
+		var index = element.parent().children.indexOf( element );
+		element.parent().attach( newElem, index + 1 );
+
+		newElem.focus();
+
+		return callback(true);
+	};
+
+	return Tabs;
+
+} )( ContentTools.Tools.ElementButton );
 
 
 
@@ -18001,41 +18022,27 @@ ContentTools.Tools.Map = ( function( _super ) {
 
 
 
-
-
 // The Media Manager window needs to know our post ID so that Insert from URL will work.
-
 
 if ( wp.media.view.settings.post ) {
 
-
 	wp.media.view.settings.post.id = pbsParams.post_id;
-
 
 }
 
 
 
-
-
 ContentTools.Tools.pbsMedia = (function(_super) {
-
 
 	__extends(pbsMedia, _super);
 
 
 
-
-
 	function pbsMedia() {
-
 
 		return pbsMedia.__super__.constructor.apply(this, arguments);
 
-
 	}
-
-
 
 
 
@@ -18043,11 +18050,7 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
-
-
 	pbsMedia.label = pbsParams.labels.media;
-
-
 
 
 
@@ -18055,11 +18058,7 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
-
-
 	pbsMedia.shortcut = 'ctrl+m';
-
-
 
 
 
@@ -18067,107 +18066,63 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
-
-
-    pbsMedia.canApply = function() {
-
-
-		return true;
-
-
-    };
-
-
-
-
-
 	pbsMedia.apply = function(element, selection) {
-
 
 		if ( this._isOpen() ) {
 
-
 			return;
 
-
 		}
-
-
 
 
 
 		var root = ContentEdit.Root.get();
 
-
 		var elem = root.focused();
-
-
 
 
 
         ContentSelect.Range.query(elem._domElement);
 
-
         selection = ContentSelect.Range.query(elem._domElement);
-
 
 		window._tempSelection = selection;
 
 
 
-
-
 		// We override the insert function to make this insert in CT.
 
-
 		window._pbsAddMediaOrigInsert = wp.media.editor.insert;
-
 
 		wp.media.editor.insert = this.pbsAddMediaOverrideInsert;
 
 
 
-
-
 		wp.media.editor.open();
 
-
 	};
-
-
 
 
 
 	pbsMedia._isOpen = function() {
 
-
 		// The editor is not present at the start.
-
 
 		if ( ! wp.media.editor.get() ) {
 
-
 			return false;
-
 
 		}
 
 
 
-
-
 		// Check if the media manager window is visible.
-
 
 		var el = wp.media.editor.get().el;
 
-
 		return ! ( el.offsetWidth === 0 && el.offsetHeight === 0 );
 
-
 	};
-
-
 
 
 
@@ -18175,62 +18130,41 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
-
-
 	    var index, newElem, root = ContentEdit.Root.get();
-
-
 
 
 
 		// Blur the currently selected element.
 
-
 	    if ( root.focused() ) {
-
 
 			var elem = root.focused();
 
 
 
-
-
 			// If adding an image, add an Image Element.
-
 
 			var addedImage = false;
 
-
 			if ( ! html.match( /^\[/ ) ) {
-
 
 				var dummy = document.createElement('p');
 
-
 				dummy.innerHTML = html;
-
 
 				newElem = ContentEdit.Image.fromDOMElement( dummy.firstChild );
 
-
 				if ( newElem ) {
-
 
 					index = elem.parent().children.indexOf( elem );
 
-
 					elem.parent().attach( newElem, index + 1 );
-
 
 					addedImage = true;
 
-
 					newElem.focus();
 
-
 				}
-
-
 
 
 
@@ -18238,60 +18172,39 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
-
-
 				var base = html.match( /^\[(\w+)/ );
-
 
 				base = base[1];
 
-
 				var shortcode = wp.shortcode.next( base, html, 0 );
-
 
 				newElem = ContentEdit.Shortcode.createShortcode( shortcode );
 
-
 				index = elem.parent().children.indexOf( elem );
-
 
 				elem.parent().attach( newElem, index + 1 );
 
 
 
-
-
 				newElem.ajaxUpdate( true );
-
 
 				newElem.focus();
 
 
 
-
-
 			}
-
 
 	    }
 
 
 
-
-
 		// Revert to the original insert function.
-
 
 		wp.media.editor.insert = window._pbsAddMediaOrigInsert;
 
-
 		delete window._pbsAddMediaOrigInsert;
 
-
 	};
-
-
-
 
 
 
@@ -18301,12 +18214,7 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 
 
-
-
-})(ContentTools.Tool);
-
-
-
+} )( ContentTools.Tools.ElementButton );
 
 
 
@@ -18314,69 +18222,47 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 /**
 
-
  * Open the media tool when an image gets dragged into the screen.
-
 
  */
 
-
 (function() {
-
 
 	var dragEnterHandler = function() {
 
-
 		var root = ContentEdit.Root.get();
-
 
 		var elem = root.focused();
 
-
 		if ( elem ) {
-
 
 			window.PBSEditor.getToolUI( 'pbs-media' ).apply( elem, null );
 
-
 		}
-
 
 	};
 
 
 
-
-
 	window.addEventListener( 'DOMContentLoaded', function() {
-
 
 		var editor = ContentTools.EditorApp.get();
 
-
 		editor.bind('start', function() {
-
 
 			document.addEventListener('dragenter', dragEnterHandler);
 
-
 		});
-
 
 		editor.bind('stop', function() {
 
-
 			document.removeEventListener('dragenter', dragEnterHandler);
-
 
 		});
 
-
 	});
 
-
 })();
-
 
 
 ////= include _tool-toggle-advanced.js
@@ -22777,7 +22663,7 @@ ContentTools.DEFAULT_TOOLS = [
 		'html',
 
 		'map',
-
+		'tabs',
 		'onecolumn',
 		'twocolumn',
 		'threecolumn',
@@ -22808,20 +22694,9 @@ window.PBSEditor.advancedTools = [
 window.addEventListener( 'DOMContentLoaded', function() {
 	new PBSEditor.MarginBottom();
 	new PBSEditor.MarginTop();
+	new PBSEditor.MarginBottomContainer();
+	new PBSEditor.MarginTopContainer();
 	new PBSEditor.OverlayColumnWidth();
 	new PBSEditor.OverlayColumnWidthRight();
 	new PBSEditor.OverlayColumnWidthLabels();
 });
-
-
-// ContentEdit.TagNames.get().register( ContentEdit.Text, 'label' );
-//
-// (function() {
-// 	var proxied = ContentEdit.Text.prototype.drop;
-// 	ContentEdit.Text.prototype.drop = function( element, placement ) {
-// 		console.log('drop', element, placement);
-// 		return proxied.call( this, element, placement );
-// 	//   Text.__super__.drop.call(this, element, placement);
-// 	//   return this.restoreState();
-// 	};
-// })();

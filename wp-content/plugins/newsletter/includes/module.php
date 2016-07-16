@@ -100,7 +100,7 @@ class NewsletterModule {
         $options = array_merge($default_options, $options);
         $this->save_options($options, $sub);
         if ($autoload) {
-            $this->upgrade_query('update ' . $wpdb->options . " set autoload='no' where option_name='" . $this->get_prefix($sub) . "' limit 1");
+            $this->upgrade_query('update ' . $wpdb->options . " set autoload='yes' where option_name='" . $this->get_prefix($sub) . "' limit 1");
         } else {
             $this->upgrade_query('update ' . $wpdb->options . " set autoload='no' where option_name='" . $this->get_prefix($sub) . "' limit 1");
         }

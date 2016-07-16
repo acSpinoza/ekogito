@@ -509,7 +509,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			// Remove all data-shortcode and replace it with the decoded shortcode. Do this from last to first to preserve nesting.
 			$html = new simple_html_dom();
-			$html->load( stripslashes( $content ) );
+			$html->load( stripslashes( $content ), true, false );
 
 			$elements = $html->find( '[data-ce-tag="embed"]' );
 			for ( $i = count( $elements ) - 1; $i >= 0; $i-- ) {
@@ -661,7 +661,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			// Remove all data-shortcode and replace it with the decoded shortcode. Do this from last to first to preserve nesting.
 			$html = new simple_html_dom();
-			$html->load( stripslashes( $content ) );
+			$html->load( stripslashes( $content ), true, false );
 
 			$shortcodes = $html->find( '[data-shortcode]' );
 			for ( $i = count( $shortcodes ) - 1; $i >= 0; $i-- ) {
@@ -716,6 +716,9 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 		 */
 		public function cleanup_content( $content ) {
 
+			// Remove line breaks, except for those inside preformatted tags.
+			$content = preg_replace( '/[\r\n](?![^<]*<\/pre>)/', ' ', $content );
+
 			// Separate divs into their own lines.
 			$content = preg_replace( '/(<\/?div[^>]*>)[\s]+/', "$1\n", $content );
 
@@ -730,6 +733,9 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			// Multiple p tags can convert to multiple \n's, just keep to 2 \ns.
 			$content = preg_replace( '/\n\n{2,}/', "\n\n", $content );
+
+			// Noscripts can sometimes appear because of some plugins, this messes up the content.
+			$content = preg_replace( '/<noscript[^>]*>.*?<\/noscript>/', '', $content );
 
 			return apply_filters( 'pbs_cleanup_content', $content );
 		}

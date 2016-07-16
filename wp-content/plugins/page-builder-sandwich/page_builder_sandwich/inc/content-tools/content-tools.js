@@ -2885,6 +2885,49 @@
       }).call(this)).join('\n').trim();
     };
 
+    Region.prototype.setContent = function(domElementOrHTML) {
+      var c, child, childNode, childNodes, cls, domElement, element, tagNames, wrapper, _i, _j, _len, _len1, _ref;
+      domElement = domElementOrHTML;
+      if (domElementOrHTML.childNodes === void 0) {
+        wrapper = document.createElement('div');
+        wrapper.innerHTML = domElementOrHTML;
+        domElement = wrapper;
+      }
+      _ref = this.children.slice();
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        child = _ref[_i];
+        this.detach(child);
+      }
+      tagNames = ContentEdit.TagNames.get();
+      childNodes = (function() {
+        var _j, _len1, _ref1, _results;
+        _ref1 = domElement.childNodes;
+        _results = [];
+        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+          c = _ref1[_j];
+          _results.push(c);
+        }
+        return _results;
+      })();
+      for (_j = 0, _len1 = childNodes.length; _j < _len1; _j++) {
+        childNode = childNodes[_j];
+        if (childNode.nodeType !== 1) {
+          continue;
+        }
+        if (childNode.getAttribute("data-ce-tag")) {
+          cls = tagNames.match(childNode.getAttribute("data-ce-tag"));
+        } else {
+          cls = tagNames.match(childNode.tagName);
+        }
+        element = cls.fromDOMElement(childNode);
+        domElement.removeChild(childNode);
+        if (element) {
+          this.attach(element);
+        }
+      }
+      return ContentEdit.Root.get().trigger('ready', this);
+    };
+
     return Region;
 
   })(ContentEdit.NodeCollection);
@@ -3509,14 +3552,9 @@
       return this._keyLeft(ev);
     };
 
-    Text.prototype._atEnd = function(selection) {
-      var atEnd;
-      atEnd = selection.get()[0] === this.content.length();
-      if (selection.get()[0] === this.content.length() - 1 && this.content.characters[this.content.characters.length - 1].isTag('br')) {
-        atEnd = true;
-      }
-      return atEnd;
-    };
+	Text.prototype._atEnd = function(selection) {
+	  return selection.get()[0] >= this.content.length();
+	};
 
     Text.prototype._flagIfEmpty = function() {
       if (this.content.length() === 0) {
@@ -3569,7 +3607,7 @@
 
   })(ContentEdit.Element);
 
-  ContentEdit.TagNames.get().register(ContentEdit.Text, 'address', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p' );
+  ContentEdit.TagNames.get().register(ContentEdit.Text, 'address', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p');
 
   ContentEdit.PreText = (function(_super) {
     __extends(PreText, _super);
@@ -3595,6 +3633,13 @@
       return 'Preformatted';
     };
 
+    PreText.prototype.blur = function() {
+      if (this.isMounted()) {
+        this._domElement.innerHTML = this.content.html();
+      }
+      return PreText.__super__.blur.call(this);
+    };
+
     PreText.prototype.html = function(indent) {
       var content;
       if (indent == null) {
@@ -3612,22 +3657,34 @@
     PreText.prototype.updateInnerHTML = function() {
       var html;
       html = this.content.html();
-      html += '\n';
       this._domElement.innerHTML = html;
+      this._ensureEndZWS();
       ContentSelect.Range.prepareElement(this._domElement);
       return this._flagIfEmpty();
     };
 
     PreText.prototype._onKeyUp = function(ev) {
       var html, newSnaphot, snapshot;
+      this._ensureEndZWS();
       snapshot = this.content.html();
-      html = this._domElement.innerHTML.replace(/[\n]$/, '');
+      html = this._domElement.innerHTML;
+      html = html.replace(/\u200B$/g, '');
       this.content = new HTMLString.String(html, this.content.preserveWhitespace());
       newSnaphot = this.content.html();
       if (snapshot !== newSnaphot) {
         this.taint();
       }
       return this._flagIfEmpty();
+    };
+
+    PreText.prototype._keyBack = function(ev) {
+      var selection;
+      selection = ContentSelect.Range.query(this._domElement);
+      if (selection.get()[0] <= this.content.length()) {
+        return PreText.__super__._keyBack.call(this, ev);
+      }
+      selection.set(this.content.length(), this.content.length());
+      return selection.select(this._domElement);
     };
 
     PreText.prototype._keyReturn = function(ev) {
@@ -3651,6 +3708,18 @@
       selection.set(cursor, cursor);
       selection.select(this._domElement);
       return this.taint();
+    };
+
+    PreText.prototype._ensureEndZWS = function() {
+      if (!this._domElement.lastChild) {
+        return;
+      }
+      if (this._domElement.innerHTML[this._domElement.innerHTML.length - 1] === '\u200B') {
+        return;
+      }
+      this.storeState();
+      this._domElement.lastChild.textContent += '\u200B';
+      return this.restoreState();
     };
 
     PreText.droppers = {
@@ -7604,7 +7673,7 @@
     };
 
     _EditorApp.prototype.save = function() {
-      var args, child, html, modifiedRegions, name, passive, region, root, _ref;
+      var args, child, html, modifiedRegions, name, passive, region, root, _ref, _ref1;
       passive = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
       root = ContentEdit.Root.get();
       if (root.lastModified() === this._rootLastModified && passive) {
@@ -7622,6 +7691,11 @@
           }
         }
         if (!passive) {
+		  _ref1 = region.children;
+		  for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+			child = _ref1[_i];
+			child.unmount();
+		  }
           region.domElement().innerHTML = html;
         }
         if (region.lastModified() === this._regionsLastModified[name]) {

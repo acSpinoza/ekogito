@@ -111,19 +111,24 @@ if ($controls->is_action('test') || $controls->is_action('save') || $controls->i
         }
     }
 
-    $sex = $controls->data['sex'];
-    if (is_array($sex)) {
-        $query .= " and sex in (";
-        foreach ($sex as $x) {
-            $query .= "'" . esc_sql($x) . "', ";
+    if (isset($controls->data['sex'])) {
+        $sex = $controls->data['sex'];
+        if (is_array($sex)) {
+            $query .= " and sex in (";
+            foreach ($sex as $x) {
+                $query .= "'" . esc_sql($x) . "', ";
+            }
+            $query = substr($query, 0, -2);
+            $query .= ")";
         }
-        $query = substr($query, 0, -2);
-        $query .= ")";
     }
 
     $email['query'] = $query;
-    $email['total'] = $wpdb->get_var(str_replace('*', 'count(*)', $query));
-
+    if ($email['status'] == 'sent') {
+        $email['total'] = $email['sent'];
+    } else {
+        $email['total'] = $wpdb->get_var(str_replace('*', 'count(*)', $query));
+    }
     if ($controls->is_action('send') && $controls->data['send_on'] < time()) {
         $controls->data['send_on'] = time();
     }
@@ -281,7 +286,7 @@ if ($email['editor'] == 0) {
 
         <p class="submit">
             <?php $controls->button_back('?page=newsletter_emails_index') ?>
-            <?php if ($email['status'] != 'sending') $controls->button_save(); ?>
+            <?php if ($email['status'] != 'sending' && $email['status'] != 'sent') $controls->button_save(); ?>
             <?php if ($email['status'] != 'sending' && $email['status'] != 'sent') $controls->button_confirm('test', 'Save and test', 'Save and send test emails to test addresses?'); ?>
 
             <?php if ($email['status'] == 'new') $controls->button_confirm('send', __('Send', 'newsletter'), __('Start real delivery?', 'newsletter')); ?>
@@ -396,7 +401,11 @@ if ($email['editor'] == 0) {
                         </th>
                         <td>
                             <?php
-                            echo $wpdb->get_var(str_replace('*', 'count(*)', $email['query']));
+                            if ($email['status'] != 'sent') {
+                                echo $wpdb->get_var(str_replace('*', 'count(*)', $email['query']));
+                            } else {
+                                echo $email['sent'];
+                            }
                             ?>
                             <p class="description">
                                 <?php _e('Save to update if on targeting filters have been changed', 'newsletter') ?>

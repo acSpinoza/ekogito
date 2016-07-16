@@ -1,10 +1,10 @@
 === Page Builder Sandwich - Front-End Drag and Drop Page Builder  ===
 Contributors: bfintal, gambitph
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=D2MK28E7BDLHC
-Tags: page builder, page builder plugin, builder, layout builder, page, landing page builder, home page builder, landing page builder, page layout, drag and drop builder, frontend editor, visual, frontend builder, front-end builder, drag and drop, editor, column, columns, shortcode, layout, table, nested, composer, beaver builder, siteorigin, responsive, wysiwyg editor
+Tags: page builder, page builder plugin, builder, layout builder, page, landing page builder, home page builder, landing page builder, page layout, drag and drop builder, frontend editor, visual, frontend builder, front-end builder, drag and drop, editor, column, columns
 Requires at least: 4.2
-Tested up to: 4.5.2
-Stable tag: 2.16.1
+Tested up to: 4.5.3
+Stable tag: 2.17
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -119,6 +119,37 @@ If you cannot see the "Edit with Page Builder Sandwich" button on your frontend,
 The new Page Builder Sandwich is completely different from the old one. We've ditched the old backend page builder for the more awesome frontend page building experience. If you're upgrading from version 1.x, a migration notice should appear on the top of your admin which should help you migrate your content into the new system.
 
 == Changelog ==
+
+= 2.17 =
+* New: Tabs element with more options (premium only - more styling options coming soon)
+* New: Added syntax highlighting for preformatted text. The language is auto-detected. (premium only)
+* New: Tabs element with basic capabilities
+* New: Removes noscript tags upon saving. Some plugins somehow add noscript tags. Although this does not have any negative effects, the content area gets cluttered with nonsense.
+* New: Shift + Ctrl/Cmd clicking on the sides of resizable elements (images & icons) will now reset their size back to defaults.
+* Enhancement: Toolbar are now always above overlay controls to make them accessible.
+* Enhancement: Drag and drop arrows are now more faded.
+* Enhancement: Images being dragged will no longer have a temporary dark background.
+* Fixed: Set the style height to `auto` when resizing to prevent images and icons from becoming squished.
+* Fixed: Now prevents icons from retaining a large height for smaller screens.
+* Fixed: Resized images will no longer break aspect ratio.
+* Fixed: Buttons now have margin-bottom so that they won't look cramped in smaller screens.
+* Fixed: Rare occasions where the map element would produce an error during initialization.
+* Fixed: Line breaks inside preformatted text get stripped out when saving.
+* Fixed: Highlighting Texts shows glitches in the inspector. Extra menus from Row Properties appear glitched on the Insert Content.
+* Fixed: Having an image followed by preformatted text places the image inside the preformatted text area.
+* Fixed: Hitting the return key doesn't work when at the end of preformatted text areas.
+* Fixed: Hitting the tab key while inside preformatted text will now add a tab.
+* Fixed: File permission errors that result in "Please Wait..." messages
+* Fixed: Edge bug where PBS did not start at all and was stuck in "Please Wait".
+* Fixed: Invisible characters (e.g. in preformatted text) stops the down/right button from working properly.
+* Fixed: Clicking above or below the content will now properly create an empty paragraph when a carousel or other similar elements are on the start/end.
+* Fixed: Set the highlighting time of the entire editor area to 999999 to prevent it from showing up.
+* Fixed: Images can sometimes throw javascript errors regarding their tooltips.
+* Fixed: Column button tooltip labels are now correct.
+* Fixed: New paragraphs created by clicking outside the editable area now gets focused properly.
+* Fixed: Switching quickly between elements will now correctly remove the settings of previously selected elements.
+* Fixed: Changing border-radius on images does not work in Firefox.
+* Fixed: An error occurs in Firefox and Edge when deleting whole rows.
 
 = 2.16.1 =
 * Fixed: Our bad! Words broke into individual letters when wrapping inside columns, our intention was to fix word wrapping instead of word breaking.

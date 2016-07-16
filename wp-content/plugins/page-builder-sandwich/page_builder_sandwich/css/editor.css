@@ -11,7 +11,7 @@ body .ce-element--drop-above::before,
 body .ce-element--drop-below::before,
 body .ce-element--drop-left::before,
 body .ce-element--drop-right::before {
-	opacity: 0.8 !important;
+	opacity: 0.4 !important;
 }
 
 body .ct-widget.ct-inspector {
@@ -53,7 +53,7 @@ body .pbs-editing[data-name="main-content"] [data-shortcode]:hover:before {
 }
 
 .ce-element--drop * {
-	opacity: .3;
+	opacity: .7;
 }
 
 .ce-element--drop:before {
@@ -148,7 +148,7 @@ body .pbs-editing[data-name="main-content"] [data-shortcode]:hover:before {
 .ce-element--focused.ce-element--type-video,
 .ce-element--over.ce-element--type-image,
 .ce-element--over.ce-element--type-video {
-	background-color: rgba(233, 212, 96, 0.15);
+	background-color: rgba(233, 212, 96, 0.15) !important;
 }
 
 .pbs-editing[data-editable] .pbs-row .pbs-col {
@@ -1734,6 +1734,7 @@ body .ct-tool.pbs-tool-option .pbs-option-subtitle {
 
 .ct-widget .ct-tool.pbs-tool-large.ct-tool--disabled {
 	border-color: #ECF0F1;
+	opacity: 0.6;
 }
 
 .ct-widget .ct-tool.pbs-tool-large .pbs-tool-title {
@@ -2116,6 +2117,9 @@ html.pbs-inspector-docked-left .ct-toolbox {
 	margin-bottom: 0;
 	text-align: inherit;
 	text-align: initial;
+	font-family: "Open Sans", sans-serif;
+	font-size: 12px;
+	line-height: 1.5em;
 }
 
 .ct-widget .ct-tool-group .pbs-description a {
@@ -2286,7 +2290,9 @@ html.pbs-inspector-docked-left .ct-toolbox {
 .pbs-button-shadow:before,
 .pbs-button-zoom:before,
 .pbs-button-map-ui:before,
-.pbs-button-map-marker:before {
+.pbs-button-map-marker:before,
+.pbs-tabs-orientation:before,
+.pbs-tabs-alignment:before {
 	font-family: 'pbs';
 	font-size: 16px;
 }
@@ -2455,6 +2461,14 @@ html.pbs-inspector-docked-left .ct-toolbox {
 
 .pbs-button-map-marker:before {
 	content: '\EA74';
+}
+
+.pbs-tabs-orientation:before {
+	content: '\EA76';
+}
+
+.pbs-tabs-alignment:before {
+	content: '\EA75';
 }
 
 .pbs-inspector-group .ct-tool--disabled {
@@ -4275,7 +4289,7 @@ div.hopscotch-bubble .hopscotch-bubble-number {
 	-webkit-transform: translateX(50%);
 	transform: translateX(50%);
 	line-height: 1em;
-	z-index: 9999999;
+	z-index: 999;
 }
 
 .pbs-quick-action-overlay:hover > * {
@@ -4288,7 +4302,7 @@ div.hopscotch-bubble .hopscotch-bubble-number {
 
 .pbs-quick-action-overlay {
 	position: absolute;
-	z-index: 9999999;
+	z-index: 999;
 }
 
 .pbs-inspector-docked-left .pbs-quick-action-overlay {
@@ -4399,7 +4413,7 @@ body.pbs-overlay-is-active .pbs-quick-action-overlay.pbs-overlay-overlaycolumnwi
 	border: 1px solid #5696D4;
 	background: rgba(255, 255, 255, 0.8);
 	cursor: s-resize;
-	z-index: 99999999;
+	z-index: 999;
 }
 
 .pbs-overlay-overlaymapheight > * {

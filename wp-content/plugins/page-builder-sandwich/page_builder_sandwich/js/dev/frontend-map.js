@@ -162,7 +162,7 @@ initPBSMaps = function( mapElem, successCallback, failCallback ) { // jshint ign
  * Re-centers the map to its settings.
  */
 window.pbsMapsReCenter = function( mapElem ) {
-	if ( google ) {
+	if ( typeof google !== 'undefined' ) {
 		if ( mapElem && mapElem.nodeType ) {
 			var lat = parseFloat( mapElem.getAttribute( 'data-lat' ) );
 			var lng = parseFloat( mapElem.getAttribute( 'data-lng' ) );

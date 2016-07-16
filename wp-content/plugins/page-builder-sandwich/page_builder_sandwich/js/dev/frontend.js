@@ -286,3 +286,56 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 });
 
+/* globals hljs */
+
+(function() {
+
+	window.pbsInitAllPretext = function() {
+
+		if ( typeof hljs === 'undefined' ) {
+			return;
+		}
+		var codes = document.querySelectorAll( '.pbs-main-wrapper pre' );
+		Array.prototype.forEach.call( codes, function( el ) {
+			hljs.highlightBlock( el );
+		} );
+	};
+
+	// Initialize on start up.
+	window.addEventListener( 'DOMContentLoaded', window.pbsInitAllPretext );
+})();
+
+
+window.pbsTabsRefreshActiveTab = function( tabsElement ) {
+	var radio = tabsElement.querySelector( '.pbs-tab-state:checked' );
+	var id = radio.getAttribute( 'id' );
+	var tabs = tabsElement.querySelector( '.pbs-tab-tabs ' );
+	if ( tabs ) {
+		var activeTab = tabs.querySelector( '.pbs-tab-active' );
+		if ( activeTab ) {
+			activeTab.classList.remove( 'pbs-tab-active' );
+		}
+		activeTab = tabs.querySelector( '[for="' + id + '"]' );
+		if ( activeTab ) {
+			activeTab.classList.add( 'pbs-tab-active' );
+		}
+	}
+};
+
+( function() {
+
+	// Initialize
+	window.addEventListener( 'DOMContentLoaded', function() {
+
+		document.addEventListener( 'change', function( ev ) {
+			if ( ev.target ) {
+				if ( ev.target.classList.contains( 'pbs-tab-state' ) ) {
+					window.pbsTabsRefreshActiveTab( ev.target.parentNode );
+				}
+			}
+		} );
+
+	} );
+
+} )();
+

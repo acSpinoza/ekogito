@@ -108,19 +108,26 @@ if ($controls->is_action('test') || $controls->is_action('save') || $controls->i
         }
     }
 
-    $sex = $controls->data['sex'];
-    if (is_array($sex)) {
-        $query .= " and sex in (";
-        foreach ($sex as $x) {
-            $query .= "'" . $x . "', ";
+    if (isset($controls->data['sex'])) {
+        $sex = $controls->data['sex'];
+        if (is_array($sex)) {
+            $query .= " and sex in (";
+            foreach ($sex as $x) {
+                $query .= "'" . $x . "', ";
+            }
+            $query = substr($query, 0, -2);
+            $query .= ")";
         }
-        $query = substr($query, 0, -2);
-        $query .= ")";
     }
 
     $email['query'] = $query;
-    $email['total'] = $wpdb->get_var(str_replace('*', 'count(*)', $query));
-
+    if ($email['status'] == 'sent') {
+        $email['total'] = $email['sent'];
+    } else {
+        $email['total'] = $wpdb->get_var(str_replace('*', 'count(*)', $query));
+    }
+    
+    
     if ($controls->is_action('send') && $controls->data['send_on'] < time()) {
         $controls->data['send_on'] = time();
     }
@@ -236,7 +243,7 @@ if ($controls->is_action('test')) {
 
             <p class="submit">
                 <?php $controls->button_back('?page=newsletter_emails_composer&id=' . $email['id']) ?>
-                <?php if ($email['status'] != 'sending') $controls->button_save(); ?>
+                <?php if ($email['status'] != 'sending' && $email['status'] != 'sent') $controls->button_save(); ?>
                 <?php if ($email['status'] != 'sending' && $email['status'] != 'sent') $controls->button_confirm('test', 'Save and test', 'Save and send test emails to test addresses?'); ?>
 
                 <?php if ($email['status'] == 'new') $controls->button_confirm('send', __('Send', 'newsletter'), __('Start real delivery?', 'newsletter')); ?>

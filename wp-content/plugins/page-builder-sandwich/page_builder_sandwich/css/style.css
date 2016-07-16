@@ -184,6 +184,7 @@ body iframe {
 	float: none !important;
 	margin-left: auto;
 	margin-right: auto;
+	max-width: 100%;
 }
 
 [data-ce-tag="icon"] svg {
@@ -340,6 +341,210 @@ body iframe {
 
 .pbs-editing .ce-element--dragging[data-ce-tag="map"] * {
 	pointer-events: none !important;
+}
+
+[data-ce-tag="tabs"] {
+	margin-bottom: 24px;
+}
+
+[data-ce-tag="tabs"] .pbs-tab-state {
+	position: absolute;
+	left: -10000px;
+}
+
+[data-ce-tag="tabs"] .pbs-tab-tabs {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: -ms-flexbox;
+	display: flex;
+	-webkit-box-orient: horizontal;
+	-webkit-box-direction: normal;
+	-webkit-flex-direction: row;
+	-ms-flex-direction: row;
+	flex-direction: row;
+	-webkit-box-pack: start;
+	-webkit-justify-content: flex-start;
+	-ms-flex-pack: start;
+	justify-content: flex-start;
+}
+
+[data-ce-tag="tabs"] .pbs-tab-tabs > * {
+	display: inline-block;
+	padding: 15px;
+	vertical-align: top;
+	cursor: hand;
+	cursor: pointer;
+}
+
+[data-ce-tag="tabs"] [data-panel] {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: -ms-flexbox;
+	display: flex;
+	margin: 0 !important;
+	overflow: hidden;
+	opacity: 0;
+	height: 0;
+	-webkit-transition: opacity .4s ease-in-out;
+	transition: opacity .4s ease-in-out;
+}
+
+[data-ce-tag="tabs"] [data-tab="1"][aria-selected] ~ .pbs-tab-panels [data-panel="1"],
+[data-ce-tag="tabs"] [data-tab="1"]:checked ~ .pbs-tab-panels [data-panel="1"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="2"][aria-selected] ~ .pbs-tab-panels [data-panel="2"],
+[data-ce-tag="tabs"] [data-tab="2"]:checked ~ .pbs-tab-panels [data-panel="2"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="3"][aria-selected] ~ .pbs-tab-panels [data-panel="3"],
+[data-ce-tag="tabs"] [data-tab="3"]:checked ~ .pbs-tab-panels [data-panel="3"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="4"][aria-selected] ~ .pbs-tab-panels [data-panel="4"],
+[data-ce-tag="tabs"] [data-tab="4"]:checked ~ .pbs-tab-panels [data-panel="4"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="5"][aria-selected] ~ .pbs-tab-panels [data-panel="5"],
+[data-ce-tag="tabs"] [data-tab="5"]:checked ~ .pbs-tab-panels [data-panel="5"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="6"][aria-selected] ~ .pbs-tab-panels [data-panel="6"],
+[data-ce-tag="tabs"] [data-tab="6"]:checked ~ .pbs-tab-panels [data-panel="6"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="7"][aria-selected] ~ .pbs-tab-panels [data-panel="7"],
+[data-ce-tag="tabs"] [data-tab="7"]:checked ~ .pbs-tab-panels [data-panel="7"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="8"][aria-selected] ~ .pbs-tab-panels [data-panel="8"],
+[data-ce-tag="tabs"] [data-tab="8"]:checked ~ .pbs-tab-panels [data-panel="8"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="9"][aria-selected] ~ .pbs-tab-panels [data-panel="9"],
+[data-ce-tag="tabs"] [data-tab="9"]:checked ~ .pbs-tab-panels [data-panel="9"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="10"][aria-selected] ~ .pbs-tab-panels [data-panel="10"],
+[data-ce-tag="tabs"] [data-tab="10"]:checked ~ .pbs-tab-panels [data-panel="10"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="11"][aria-selected] ~ .pbs-tab-panels [data-panel="11"],
+[data-ce-tag="tabs"] [data-tab="11"]:checked ~ .pbs-tab-panels [data-panel="11"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="12"][aria-selected] ~ .pbs-tab-panels [data-panel="12"],
+[data-ce-tag="tabs"] [data-tab="12"]:checked ~ .pbs-tab-panels [data-panel="12"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="13"][aria-selected] ~ .pbs-tab-panels [data-panel="13"],
+[data-ce-tag="tabs"] [data-tab="13"]:checked ~ .pbs-tab-panels [data-panel="13"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="14"][aria-selected] ~ .pbs-tab-panels [data-panel="14"],
+[data-ce-tag="tabs"] [data-tab="14"]:checked ~ .pbs-tab-panels [data-panel="14"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="15"][aria-selected] ~ .pbs-tab-panels [data-panel="15"],
+[data-ce-tag="tabs"] [data-tab="15"]:checked ~ .pbs-tab-panels [data-panel="15"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="16"][aria-selected] ~ .pbs-tab-panels [data-panel="16"],
+[data-ce-tag="tabs"] [data-tab="16"]:checked ~ .pbs-tab-panels [data-panel="16"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="17"][aria-selected] ~ .pbs-tab-panels [data-panel="17"],
+[data-ce-tag="tabs"] [data-tab="17"]:checked ~ .pbs-tab-panels [data-panel="17"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="18"][aria-selected] ~ .pbs-tab-panels [data-panel="18"],
+[data-ce-tag="tabs"] [data-tab="18"]:checked ~ .pbs-tab-panels [data-panel="18"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="19"][aria-selected] ~ .pbs-tab-panels [data-panel="19"],
+[data-ce-tag="tabs"] [data-tab="19"]:checked ~ .pbs-tab-panels [data-panel="19"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] [data-tab="20"][aria-selected] ~ .pbs-tab-panels [data-panel="20"],
+[data-ce-tag="tabs"] [data-tab="20"]:checked ~ .pbs-tab-panels [data-panel="20"] {
+	opacity: 1;
+	height: auto;
+}
+
+[data-ce-tag="tabs"] .pbs-tab-tabs {
+	position: relative;
+}
+
+[data-ce-tag="tabs"] .pbs-tab-tabs:before {
+	content: '';
+	display: block;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	border-top: 1px solid rgba(40, 44, 42, 0.1);
+	position: absolute;
+	z-index: 0;
+}
+
+[data-ce-tag="tabs"] .pbs-tab-tabs > * {
+	border-right: 1px solid rgba(40, 44, 42, 0.1);
+	border-top: 1px solid rgba(40, 44, 42, 0.1);
+	z-index: 1;
+}
+
+[data-ce-tag="tabs"] .pbs-tab-tabs > *:first-child {
+	border-left: 1px solid rgba(40, 44, 42, 0.1);
+}
+
+[data-ce-tag="tabs"] .pbs-tab-tabs > * {
+	background: rgba(40, 44, 42, 0.05);
+}
+
+[data-ce-tag="tabs"] .pbs-tab-tabs > *:hover {
+	background: rgba(40, 44, 42, 0.02);
+}
+
+[data-ce-tag="tabs"] .pbs-tab-tabs .pbs-tab-active {
+	background: #fff;
+	border-bottom: 0;
 }
 
 @media (max-width: 900px) {

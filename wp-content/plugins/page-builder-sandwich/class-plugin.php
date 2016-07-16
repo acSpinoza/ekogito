@@ -9,7 +9,7 @@
 Plugin Name: Page Builder Sandwich Lite
 Description: The easiest way to build your website without any code. A true drag & drop page builder for WordPress.
 Author: Gambit Technologies
-Version: 2.16.1
+Version: 2.17
 Author URI: http://gambit.ph
 Plugin URI: http://pagebuildersandwich.com
 Text Domain: page-builder-sandwich
@@ -31,7 +31,7 @@ if ( defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) ) {
 }
 
 // Identifies the current plugin version.
-defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '2.16.1' );
+defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '2.17' );
 
 // The slug used for translations & other identifiers.
 defined( 'PAGE_BUILDER_SANDWICH' ) or define( 'PAGE_BUILDER_SANDWICH', 'page-builder-sandwich' );
@@ -73,6 +73,7 @@ if ( ! PBS_IS_LITE ) {
 	require_once( 'class-icons-uploader.php' );
 	require_once( 'class-element-newsletter.php' );
 	require_once( 'class-element-carousel.php' );
+	require_once( 'class-element-pretext.php' );
 } else {
 	require_once( 'class-lite-tracking.php' );
 }
