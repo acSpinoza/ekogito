@@ -56,7 +56,7 @@
 
                     <a class="uk-navbar-brand website-logo" href="<?php echo esc_url( home_url( '/' ) ); ?>" rel="home">
                         
-											<img class="uk-margin uk-margin-remove" src="https://www.ekogito.co/wp-content/uploads/ekogito-logo.png" width="auto" height="50" title="Ekogito.co" alt="Ekogito.co" scale="0" style="margin-top: -10px !important;height:50px;width:auto;">
+											<img class="uk-margin uk-margin-remove" src="https://www.ekogito.co/wp-content/uploads/ekogito-logo-site.png" width="auto" height="35" title="Ekogito.co" alt="Ekogito.co" scale="0" style="margin-top: -10px !important;height:35px;width:auto;">
                     </a>
 
                     <div class="uk-navbar-flip uk-hidden-small uk-contrast">
