@@ -45,6 +45,7 @@ function ekogito_setup() {
 	// This theme uses wp_nav_menu() in one location.
 	register_nav_menus( array(
 		'primary' => esc_html__( 'Primary', 'ekogito' ),
+		'footer' => esc_html__( 'Footer', 'ekogito' ),
 	) );
 
 	/*
@@ -371,6 +372,56 @@ if ( $projects_posts->have_posts() ) :
 add_shortcode('projects_list', 'projects_list');
 
 
+function children_posts(){
+
+
+// WP_Query arguments
+$children_args = array(
+    'post_type'      => 'page',
+    'posts_per_page' => 3,
+    'post_parent'    => 560,
+    'order'          => 'ASC',
+    'orderby'        => 'menu_order',
+		'post_status' 	 => array( 'publish' ),
+ );
+
+// The Query
+$children = new WP_Query( $children_args );
+
+
+if ( $children->have_posts() ) :
+	
+		ob_start();
+			/* Start the Loop */
+			echo '<div class="grid-frontpage uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-medium-1-2" data-uk-grid="{gutter: 20}">';
+		while ($children->have_posts()) : $children->the_post();
+
+				/*
+				 * Include the Post-Format-specific template for the content.
+				 * If you want to override this in a child theme, then include a file
+				 * called content-___.php (where ___ is the Post Format name) and that will be used instead.
+				 */
+				get_template_part( 'template-parts/content', get_post_format() );
+
+			endwhile;
+            echo '</div>';
+            echo '<div class="uk-flex uk-flex-middle uk-text-center uk-container-center">';
+			the_posts_navigation();
+			echo '</div>';
+
+		else :
+
+			get_template_part( 'template-parts/content', 'none' );
+
+		endif; 
+	
+	return ob_get_clean();
+	
+}
+
+add_shortcode('children-posts', 'children_posts');
+
+
 function get_post_id($atts, $content = null ){
 	
 	
@@ -451,3 +502,81 @@ function jetpackme_more_related_posts( $options ) {
     return $options;
 }
 add_filter( 'jetpack_relatedposts_filter_options', 'jetpackme_more_related_posts' );
+
+
+
+
+function inspirations_mtl(){
+	
+ob_start();
+	?>
+
+ <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        height: 100%;
+      }
+    </style>
+Carte
+
+<div id="map"></div>
+    <script>
+initMap();
+function initMap() {
+  var map = new google.maps.Map(document.getElementById('map'), {
+    zoom: 11,
+    center: {lat: 41.876, lng: -87.624}
+  });
+
+  var ctaLayer = new google.maps.KmlLayer({
+    url: 'http://googlemaps.github.io/js-v2-samples/ggeoxml/cta.kml',
+    map: map
+  });
+}
+
+    </script>
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js">
+    </script>
+<?php
+	return ob_get_clean();
+	
+}
+
+add_shortcode('inspirations_mtl', 'inspirations_mtl');
+
+
+
+function ekogito_carte(){
+	
+ob_start();
+	?>
+	Carte
+
+	<script>
+console.log('carte');
+function initMap() {
+  var myLatLng = {lat: -25.363, lng: 131.044};
+
+
+
+  // Create a marker and set its position.
+  var marker = new google.maps.Marker({
+    map: map,
+    position: myLatLng,
+    title: 'Hello World!'
+  });
+}
+    </script>
+	<?php
+	return ob_get_clean();
+	
+}
+
+add_shortcode('ekogito_carte', 'ekogito_carte');
+
+

@@ -41,6 +41,7 @@ if(has_post_thumbnail()){
 																	echo $custom_likes->post_likes( '' );
 															}
 															?>
+															
                             </ul>
                         </div>
                     </div>

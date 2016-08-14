@@ -2,17 +2,13 @@
 # This file is distributed under the same license as the Stable (latest release) package.
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2016-07-06 16:43:46+0000\n"
+"PO-Revision-Date: 2016-08-10 19:14:29+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
 "X-Generator: GlotPress/2.1.0-alpha\n"
 "Project-Id-Version: Stable (latest release)\n"
-
-#: modules/sso.php:1012
-msgid "Two-Step Authentication is required to access this site. Please visit your <a href=\"%1$s\" target=\"_blank\">Security Settings</a> to configure <a href=\"%2$S\" target=\"_blank\">Two-step Authentication</a> for your account."
-msgstr "L&rsquo;authentification à deux facteurs est requise pour accéder à ce site. Merci de vous rendre dans vos <a href=\"%1$s\" target=\"_blank\">réglages de sécurité</a> pour configurer <a href=\"%2$S\" target=\"_blank\">l&rsquo;authentification à deux facteurs</a> pour votre compte."
 
 #: modules/sso.php:1038
 msgid "You already have an account on this site. Please <a href=\"%1$s\">sign in</a> with your username and password and then connect to WordPress.com."
@@ -1303,9 +1299,9 @@ msgstr "Autoriser les administrateurs de chaque site à gérer les connexions à
 msgid "Protect whitelist"
 msgstr "Protéger la liste blanche"
 
-#. #-#-#-#-#  tmp-jetpack.pot (Jetpack by WordPress.com 4.1)  #-#-#-#-#
+#. #-#-#-#-#  tmp-jetpack.pot (Jetpack by WordPress.com 4.1.1)  #-#-#-#-#
 #. Plugin URI of the plugin/theme
-#. #-#-#-#-#  tmp-jetpack.pot (Jetpack by WordPress.com 4.1)  #-#-#-#-#
+#. #-#-#-#-#  tmp-jetpack.pot (Jetpack by WordPress.com 4.1.1)  #-#-#-#-#
 #. Author URI of the plugin/theme
 msgid "http://jetpack.com"
 msgstr "http://jetpack.com"
@@ -2329,7 +2325,7 @@ msgstr "Abonnements au blog"
 
 #: modules/subscriptions.php:822
 msgid "The email you entered was invalid. Please check and try again."
-msgstr "L&#8217;adresse e-mail que vous avez entrée n'est pas valide. Merci de vérifier et d&#8217;essayer à nouveau."
+msgstr "L’adresse e-mail que vous avez saisie n’est pas valide. Merci de vérifier et d’essayer à nouveau."
 
 #: modules/subscriptions.php:831
 msgid "You have already subscribed to this site. Please check your inbox."
@@ -3954,26 +3950,26 @@ msgstr "Code d&rsquo;erreur&nbsp;: %s"
 msgid "That connection has been removed."
 msgstr "Cette connexion a été retirée."
 
-#: modules/publicize/publicize-jetpack.php:409
+#: modules/publicize/publicize-jetpack.php:391
 msgctxt "Refresh connection with {social media service}"
 msgid "Refresh connection with %s"
 msgstr "Rafraîchir la connexion avec %s"
 
-#: modules/publicize/publicize-jetpack.php:483
-#: modules/publicize/publicize-jetpack.php:500
-#: modules/publicize/publicize-jetpack.php:623
+#: modules/publicize/publicize-jetpack.php:465
+#: modules/publicize/publicize-jetpack.php:482
+#: modules/publicize/publicize-jetpack.php:605
 msgid "Publicize to my %s:"
 msgstr "Publier vers votre %s&nbsp;:"
 
-#: modules/publicize/publicize-jetpack.php:484
+#: modules/publicize/publicize-jetpack.php:466
 msgid "Facebook Wall"
 msgstr "Mur Facebook"
 
-#: modules/publicize/publicize-jetpack.php:501
+#: modules/publicize/publicize-jetpack.php:483
 msgid "Facebook Page"
 msgstr "Page Facebook"
 
-#: modules/publicize/publicize-jetpack.php:624
+#: modules/publicize/publicize-jetpack.php:606
 msgid "Tumblr blog"
 msgstr "Blog Tumblr"
 
@@ -5112,10 +5108,6 @@ msgid "View Full Site"
 msgstr "Voir tout le site"
 
 #: modules/minileven/theme/pub/minileven/footer.php:59
-msgid "http://wordpress.org/"
-msgstr "http://wordpress.org/"
-
-#: modules/minileven/theme/pub/minileven/footer.php:59
 msgid "Semantic Personal Publishing Platform"
 msgstr "Plate-forme sémantique de publication personnelle"
 
@@ -5369,12 +5361,6 @@ msgstr "Liste des révisions de votre CSS"
 msgid "CSS Stylesheet Editor"
 msgstr "Editeur de Feuille de Style CSS"
 
-#: modules/custom-css/custom-css.php:999
-msgid ""
-"New to CSS? Start with a <a href=\"http://www.htmldog.com/guides/cssbeginner/\" target=\"_blank\">beginner tutorial</a>. Questions?\n"
-"\t\tAsk in the <a href=\"http://wordpress.org/support/forum/themes-and-templates\" target=\"_blank\">Themes and Templates forum</a>."
-msgstr "Pour vous familiariser avec l&rsquo;édition CSS, consultez ce <a href=\"http://css.steaw.com/index.html\" target=\"_blank\">tutoriel pour débutants</a>, ou posez vos questions sur les <a href=\"http://wordpress-fr.net/support/\" target=\"_blank\">forums de support francophone</a>."
-
 #: modules/custom-css/custom-css.php:1002
 msgid "Note: Custom CSS will be reset when changing themes."
 msgstr "Note&nbsp; votre CSS sera désactivé lorsque vous changerez de thème. "
@@ -5398,8 +5384,8 @@ msgstr "La largeur par défaut du contenu sur le thème %s est de %d pixels."
 #: modules/custom-css/custom-css.php:1078
 #: modules/custom-css/custom-css.php:1169
 #: modules/custom-css/custom-css.php:1210 modules/minileven/minileven.php:287
-#: modules/publicize/publicize-jetpack.php:531
-#: modules/publicize/publicize-jetpack.php:643 modules/publicize/ui.php:299
+#: modules/publicize/publicize-jetpack.php:513
+#: modules/publicize/publicize-jetpack.php:625 modules/publicize/ui.php:299
 msgid "OK"
 msgstr "OK"
 
@@ -7163,7 +7149,7 @@ msgstr "Jetpack contient la version la plus récente de l&#8217;ancienne extensi
 msgid "Home"
 msgstr "Accueil"
 
-#. #-#-#-#-#  tmp-jetpack.pot (Jetpack by WordPress.com 4.1)  #-#-#-#-#
+#. #-#-#-#-#  tmp-jetpack.pot (Jetpack by WordPress.com 4.1.1)  #-#-#-#-#
 #. Plugin Name of the plugin/theme
 #: class.jetpack.php:3592 class.jetpack.php:3605 class.jetpack.php:4805
 #: views/admin/network-admin-header.php:5

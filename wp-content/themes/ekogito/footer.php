@@ -15,7 +15,9 @@
         <div class="uk-container uk-container-center">
              <div class="uk-grid">
                                     <div class="uk-width-1-3"><div class="uk-panel uk-panel-box">
+                                       <div class="uk-hidden-small">
                                          <?php echo do_shortcode('[mc4wp_form id="1315"]'); ?>
+                                      </div>
                                       </div></div>
                                     <div class="uk-width-1-3"><div class="uk-panel uk-panel-box">
                                       <ul class="uk-grid uk-grid-medium uk-flex uk-flex-center">
@@ -32,7 +34,19 @@
                         </ul>
                                       </div></div>
                                     <div class="uk-width-1-3"><div class="uk-panel uk-panel-box">
-                                        
+                                      <div class="uk-hidden-small">
+                                              <?php
+                			wp_nav_menu( array(
+                				'menu'              => 'footer',
+                				'theme_location'    => 'footer',
+                				'depth'             => 1,
+                				'container'         => 'uk-navbar-nav',
+                				'menu_class'        => 'uk-navbar-nav',
+                				'fallback_cb'       => 'basey_primary_menu::fallback',
+                				'walker'            => new basey_primary_menu())
+                			);
+                			?>	
+                                      </div>
                                       </div></div>
                                 </div>
 

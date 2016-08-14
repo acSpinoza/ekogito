@@ -5,12 +5,14 @@ WP-Cache Config Sample File
 See wp-cache.php for author details.
 */
 
+$cache_time_interval = '600'; //Added by WP-Cache Manager
+$cache_schedule_type = 'interval'; //Added by WP-Cache Manager
 $wp_cache_preload_on = 1; //Added by WP-Cache Manager
 $wp_cache_preload_taxonomies = 1; //Added by WP-Cache Manager
 $wp_cache_preload_email_volume = 'many'; //Added by WP-Cache Manager
 $wp_cache_preload_email_me = 0; //Added by WP-Cache Manager
 $wp_cache_preload_interval = 90; //Added by WP-Cache Manager
-$wp_cache_preload_posts = '42'; //Added by WP-Cache Manager
+$wp_cache_preload_posts = '55'; //Added by WP-Cache Manager
 $wp_cache_mobile_groups = ''; //Added by WP-Cache Manager
 $wp_cache_mobile_prefixes = 'w3c , w3c-, acs-, alav, alca, amoi, audi, avan, benq, bird, blac, blaz, brew, cell, cldc, cmd-, dang, doco, eric, hipt, htc_, inno, ipaq, ipod, jigs, kddi, keji, leno, lg-c, lg-d, lg-g, lge-, lg/u, maui, maxo, midp, mits, mmef, mobi, mot-, moto, mwbp, nec-, newt, noki, palm, pana, pant, phil, play, port, prox, qwap, sage, sams, sany, sch-, sec-, send, seri, sgh-, shar, sie-, siem, smal, smar, sony, sph-, symb, t-mo, teli, tim-, tosh, tsm-, upg1, upsi, vk-v, voda, wap-, wapa, wapi, wapp, wapr, webc, winw, winw, xda , xda-'; //Added by WP-Cache Manager
 $wp_cache_refresh_single_only = '0'; //Added by WP-Cache Manager
@@ -29,7 +31,7 @@ if ( ! defined('WPCACHEHOME') )
 $cache_compression = 1; //Added by WP-Cache Manager
 $cache_enabled = true; //Added by WP-Cache Manager
 $super_cache_enabled = true; //Added by WP-Cache Manager
-$cache_max_time = 3600; //in seconds
+$cache_max_time = '1800'; //Added by WP-Cache Manager
 //$use_flock = true; // Set it true or false if you know what to use
 $cache_path = '/var/www/vhosts/ekogito/wp-content/cache'; //Added by WP-Cache Manager
 $file_prefix = 'wp-cache-';

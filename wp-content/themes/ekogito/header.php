@@ -12,14 +12,15 @@
 ?><!DOCTYPE html>
 <html <?php language_attributes(); ?>>
 <head>
+<meta property="fb:pages" content="227429627598229" />
 <meta name="google-site-verification" content="9zcZW3HSSMZ_zmyzu7sPk0QouoNNqdSIjM-8wfWDjSk" />
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <link rel="profile" href="http://gmpg.org/xfn/11">
 <link rel="pingback" href="<?php bloginfo( 'pingback_url' ); ?>">
-<link href='https://fonts.googleapis.com/css?family=Open+Sans:400,400italic,300,300italic,600,600italic' rel='stylesheet' type='text/css'>
-<link href='https://fonts.googleapis.com/css?family=Amatic+SC:400,700' rel='stylesheet' type='text/css'>	
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCb8GnWDx_F9GNWUerSkEmIuyihKrP_RPI"></script>
+<link href="https://fonts.googleapis.com/css?family=Bungee+Outline|Cabin+Sketch:400,700|Fredericka+the+Great|Open+Sans+Condensed:300,300i|Open+Sans:300,300i" rel="stylesheet">
 <script>
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
   (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
@@ -54,8 +55,8 @@
                 <nav class="uk-navbar">
 
                     <a class="uk-navbar-brand website-logo" href="<?php echo esc_url( home_url( '/' ) ); ?>" rel="home">
-                        <i class="uk-icon-justify uk-icon-dot-circle-o uk-icon-large uk-text-danger "></i>
-                        <span class="uk-contrast uk-text-large" style="color:#fff"><?php bloginfo( 'name' ); ?></span>
+                        
+											<img class="uk-margin uk-margin-remove" src="https://www.ekogito.co/wp-content/uploads/ekogito-logo.png" width="auto" height="50" title="Ekogito.co" alt="Ekogito.co" scale="0" style="margin-top: -10px !important;height:50px;width:auto;">
                     </a>
 
                     <div class="uk-navbar-flip uk-hidden-small uk-contrast">
