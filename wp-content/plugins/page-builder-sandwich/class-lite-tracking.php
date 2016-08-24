@@ -64,7 +64,10 @@ if ( ! class_exists( 'PBSLiteTracking' ) ) {
 		 * @since 2.8.2
 		 */
 		public function rated() {
-			$nonce = sanitize_text_field( trim( $_POST['nonce'] ) );
+			if ( empty( $_POST['nonce'] ) ) { // Input var: okay.
+				die();
+			}
+			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
 			if ( ! wp_verify_nonce( $nonce, 'pbs_lite_tracking' ) ) {
 				die();
 			}
@@ -84,7 +87,10 @@ if ( ! class_exists( 'PBSLiteTracking' ) ) {
 		public function frontend_pinged() {
 
 			// Security.
-			$nonce = sanitize_text_field( trim( $_POST['nonce'] ) );
+			if ( empty( $_POST['nonce'] ) ) { // Input var: okay.
+				die();
+			}
+			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
 			if ( ! wp_verify_nonce( $nonce, 'pbs_lite_tracking' ) ) {
 				die();
 			}
@@ -145,10 +151,9 @@ if ( ! class_exists( 'PBSLiteTracking' ) ) {
 				'id' => 'pbs_rate',
 				'title' => '<span class="ab-icon"></span>'
 					. __( 'Rate PB Sandwich!', PAGE_BUILDER_SANDWICH )
-					. '<span id="pbs-rate-info">'
-					. '<span id="pbs-rate-desc">' . __( "Hey there!<br>It looks like you've been actively building your pages for more than an hour now. I'd like to ask a favor from you and rate Page Builder Sandwich in the WordPress.org plugin directory. Getting a great review from you would be awesome!", PAGE_BUILDER_SANDWICH ) . '</span>' .
-					'<span id="pbs-rate-go">' . __( "Sure I'll rate", PAGE_BUILDER_SANDWICH ) . '</span>' .
-					'<span id="pbs-rate-no">' . __( 'Maybe later', PAGE_BUILDER_SANDWICH ) . '</span>',
+					. '<span id="pbs-rate-info"><span id="pbs-rate-desc">' . __( "Hey there!<br>It looks like you've been actively building your pages for more than an hour now. I'd like to ask a favor from you and rate Page Builder Sandwich in the WordPress.org plugin directory. Getting a great review from you would be awesome!", PAGE_BUILDER_SANDWICH )
+					. '</span><span id="pbs-rate-go">' . __( "Sure I'll rate", PAGE_BUILDER_SANDWICH )
+					. '</span><span id="pbs-rate-no">' . __( 'Maybe later', PAGE_BUILDER_SANDWICH ) . '</span>',
 				'href'  => '#',
 				'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-hidden' ),
 			);

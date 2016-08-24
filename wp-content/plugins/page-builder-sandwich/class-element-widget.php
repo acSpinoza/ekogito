@@ -105,7 +105,6 @@ if ( ! class_exists( 'PBSElementWidget' ) ) {
 			if ( empty( $_POST['nonce'] ) ) { // Input var okay.
 				die();
 			}
-
 			$nonce = sanitize_key( $_POST['nonce'] ); // Input var okay.
 			if ( ! wp_verify_nonce( $nonce, 'pbs_widget_templates' ) ) {
 				die();
@@ -128,7 +127,9 @@ if ( ! class_exists( 'PBSElementWidget' ) ) {
 
 				?>
 				<script type="text/html" id="tmpl-pbs-widget-<?php echo esc_attr( $widget_slug ) ?>">
-					<?php echo $form ?>
+					<?php
+					echo $form; // WPCS: XSS ok.
+					?>
 				</script>
 				<?php
 

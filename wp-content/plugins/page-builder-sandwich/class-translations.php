@@ -81,6 +81,7 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 
 				// Used in _inspector.js.
 				'shortcodes_not_attributes_detected' => __( 'No attributes or content detected', PAGE_BUILDER_SANDWICH ),
+				'no_attributes_available' => __( 'No attributes available.', PAGE_BUILDER_SANDWICH ),
 				'inspector_title' => __( '%s Properties', PAGE_BUILDER_SANDWICH ),
 				'note_options_are_detected' => __( 'Options are detected from usage of this shortcode', PAGE_BUILDER_SANDWICH ),
 				'note_shortcode_not_appearing' => __( "Note: If the element doesn't show up, you may need to refresh the page.", PAGE_BUILDER_SANDWICH ),
@@ -373,6 +374,9 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'insert_design' => __( 'Insert Design', PAGE_BUILDER_SANDWICH ),
 				'insert_content' => __( 'Insert Content', PAGE_BUILDER_SANDWICH ),
 				'tabs' => __( 'Tabs', PAGE_BUILDER_SANDWICH ),
+				's_attribute' => __( '%s attribute', PAGE_BUILDER_SANDWICH ),
+				'select_one' => __( 'Select one', PAGE_BUILDER_SANDWICH ),
+				'select_a_post_type' => __( 'Select a post type', PAGE_BUILDER_SANDWICH ),
 
 				// Tooltips.
 				'visit_link' => __( 'Visit Link', PAGE_BUILDER_SANDWICH ),
@@ -396,6 +400,11 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'save_and_update' => __( 'Save and Update', PAGE_BUILDER_SANDWICH ),
 				'save_as_draft' => __( 'Save as Draft', PAGE_BUILDER_SANDWICH ),
 				'save_as_pending' => __( 'Save as Pending Review', PAGE_BUILDER_SANDWICH ),
+
+				// Lite version notes.
+				'map_lite_footer' => sprintf( __( 'You can further stylize your maps with the %sPremium Version%s.', PAGE_BUILDER_SANDWICH ), '<a href="https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=map-inspector&utm_campaign=Page%20Builder%20Sandwich" target="_blank">', '</a>' ),
+				'tabs_lite_footer' => sprintf( __( 'Vertical tabs and more options are available with the %sPremium Version%s.', PAGE_BUILDER_SANDWICH ), '<a href="https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=tabs-inspector&utm_campaign=Page%20Builder%20Sandwich" target="_blank">', '</a>' ),
+				'icon_lite_footer' => sprintf( __( 'Get more icons, further style and add tooltips to your icons with the %sPremium Version%s.', PAGE_BUILDER_SANDWICH ), '<a href="https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=icon-inspector&utm_campaign=Page%20Builder%20Sandwich" target="_blank">', '</a>' ),
 			);
 			return $args;
 		}

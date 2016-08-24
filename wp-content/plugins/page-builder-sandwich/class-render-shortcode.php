@@ -64,7 +64,6 @@ if ( ! class_exists( 'PBSRenderShortcode' ) ) {
 		function __construct() {
 			add_filter( 'the_content', array( $this, 'shortcode_render' ), 9999 );
 			add_action( 'after_setup_theme', array( $this, 'shortcode_render_halt_early' ), 0 );
-			// add_action( 'wp_head', array( $this, 'shortcode_render_halt_head' ), 0 );
 			add_action( 'shutdown', array( $this, 'shortcode_render_end' ), 0 );
 		}
 
@@ -84,10 +83,13 @@ if ( ! class_exists( 'PBSRenderShortcode' ) ) {
 					return false;
 				}
 			}
-			if ( empty( $_POST['action'] ) || empty( $_POST['nonce'] ) || 'pbs_shortcode_render' !== $_POST['action'] ) {
+			if ( empty( $_POST['nonce'] ) ) { // Input var: okay.
 				return false;
 			}
-			if ( ! wp_verify_nonce( $_POST['nonce'], 'pbs_shortcode' ) ) {
+			if ( ! wp_verify_nonce( sanitize_key( $_POST['nonce'] ), 'pbs_shortcode' ) ) { // Input var: okay.
+				return false;
+			}
+			if ( empty( $_POST['action'] ) || 'pbs_shortcode_render' !== $_POST['action'] ) { // Input var: okay.
 				return false;
 			}
 			return true;
@@ -173,7 +175,7 @@ if ( ! class_exists( 'PBSRenderShortcode' ) ) {
 			ob_start();
 			if ( $wp_styles && is_array( $wp_styles->queue ) ) {
 				foreach ( $wp_styles->queue as $handle ) {
-					if ( ! in_array( $handle, $this->original_style_handles ) ) {
+					if ( ! in_array( $handle, $this->original_style_handles, true ) ) {
 						$wp_styles->do_item( $handle );
 					}
 				}
@@ -183,14 +185,14 @@ if ( ! class_exists( 'PBSRenderShortcode' ) ) {
 			ob_start();
 			if ( $wp_scripts && is_array( $wp_scripts->queue ) ) {
 				foreach ( $wp_scripts->queue as $handle ) {
-					if ( ! in_array( $handle, $this->original_script_handles ) ) {
+					if ( ! in_array( $handle, $this->original_script_handles, true ) ) {
 						$wp_scripts->do_item( $handle );
 					}
 				}
 			}
 			$data['scripts'] = ob_get_clean();
 
-			echo json_encode( $data );
+			echo wp_json_encode( $data );
 		}
 
 
@@ -219,7 +221,10 @@ if ( ! class_exists( 'PBSRenderShortcode' ) ) {
 			$this->original_script_handles = $wp_scripts->queue;
 
 			// Render and remember the shortcode.
-			$shortcode = base64_decode( $_POST['shortcode'] );
+			$shortcode = '';
+			if ( ! empty( $_POST['shortcode'] ) ) { // Input var: okay. WPCS: CSRF ok.
+				$shortcode = base64_decode( wp_unslash( $_POST['shortcode'] ) ); // Input var: okay. WPCS: CSRF ok. WPCS: sanitization ok.
+			}
 			$this->saved_shortcode_data = do_shortcode( $shortcode );
 
 			return '';
@@ -233,10 +238,10 @@ if ( ! class_exists( 'PBSRenderShortcode' ) ) {
 /**
  * This is needed during shortcode rendering, we need to do this at the root level.
  */
-if ( ! empty( $_POST['action'] ) && ! empty( $_POST['nonce'] ) && 'pbs_shortcode_render' == $_POST['action'] ) {
+if ( ! empty( $_POST['action'] ) && ! empty( $_POST['nonce'] ) && 'pbs_shortcode_render' === $_POST['action'] ) { // Input var: okay.
 
 	// Don't do this while in login pages.
-	if ( ! empty( $GLOBALS['pagenow'] ) && ! in_array( $GLOBALS['pagenow'], array( 'wp-login.php', 'wp-register.php' ) ) ) {
+	if ( ! empty( $GLOBALS['pagenow'] ) && ! in_array( $GLOBALS['pagenow'], array( 'wp-login.php', 'wp-register.php' ), true ) ) {
 		ob_start();
 		PBSRenderShortcode::$did_initial_ob_start = true;
 	}

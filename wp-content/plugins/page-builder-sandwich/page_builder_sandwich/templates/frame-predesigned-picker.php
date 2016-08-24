@@ -15,7 +15,7 @@
 	</div>
 	<div class="media-frame-content pbs-search-list-frame">
 		<div class="pbs-search-list">
-			<div class="pbs-no-results"><?php _e( 'No matches found', PAGE_BUILDER_SANDWICH ) ?></div>
+			<div class="pbs-no-results"><?php esc_html_e( 'No matches found', PAGE_BUILDER_SANDWICH ) ?></div>
 		</div>
 		<?php
 		?>
@@ -25,7 +25,7 @@
 			<div class="media-toolbar-secondary">
 			</div>
 			<div class="media-toolbar-primary search-form">
-				<button type="button" class="button button-primary media-button button-large"><?php _e( 'Insert Design', PAGE_BUILDER_SANDWICH ) ?></button>
+				<button type="button" class="button button-primary media-button button-large"><?php esc_html_e( 'Insert Design', PAGE_BUILDER_SANDWICH ) ?></button>
 			</div>
 		</div>
 	</div>

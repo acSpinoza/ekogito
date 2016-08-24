@@ -26,7 +26,7 @@
 						<?php printf( __( 'Only %sDashicons%s are available. %sUpgrading to Premium%s will unlock more icons, bullet & button icons and the ability to upload your own.', PAGE_BUILDER_SANDWICH ),
 							'<a href="https://developer.wordpress.org/resource/dashicons/">',
 							'</a>',
-							'<a href="https://pagebuildersandwich.com/?utm_source=lite-plugin&utm_medium=icon-picker&utm_campaign=Page%20Builder%20Sandwich">',
+							'<a href="https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=icon-picker&utm_campaign=Page%20Builder%20Sandwich">',
 							'</a>'
 						) ?>
 					</p>

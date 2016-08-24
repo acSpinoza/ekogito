@@ -102,11 +102,8 @@ if ( ! class_exists( 'PBSIcons' ) ) {
 				'id' => array(),
 			),
 
-			'defs' => array(
-		    // 'style' =>array('type' => array(),
-			),
+			'defs' => array(),
 
-			// 'desc' => array(),
 			'ellipse' => array(
 				'class' => array(),
 				'clip-path' => array(),
@@ -694,14 +691,17 @@ if ( ! class_exists( 'PBSIcons' ) ) {
 		 * @since 2.9
 		 */
 		public function search_icon() {
-			if ( empty( $_POST['nonce'] ) || empty( $_POST['s'] ) ) {
+			if ( empty( $_POST['nonce'] ) ) { // Input var: okay.
 				die();
 			}
-			$nonce = sanitize_text_field( trim( $_POST['nonce'] ) );
-			$s = sanitize_text_field( trim( $_POST['s'] ) );
+			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
 			if ( ! wp_verify_nonce( $nonce, 'icon_search' ) ) {
 				die();
 			}
+			if ( empty( $_POST['s'] ) ) { // Input var: okay.
+				die();
+			}
+			$s = trim( sanitize_text_field( wp_unslash( $_POST['s'] ) ) ); // Input var: okay.
 
 			include 'class-icons-helper.php';
 			$all_icons = pbs_icons();
@@ -727,7 +727,7 @@ if ( ! class_exists( 'PBSIcons' ) ) {
 			ksort( $matched_icons );
 			$matched_icons = apply_filters( 'pbs_search_icon', $matched_icons );
 
-			echo json_encode( $matched_icons );
+			echo wp_json_encode( $matched_icons );
 			die();
 		}
 	}

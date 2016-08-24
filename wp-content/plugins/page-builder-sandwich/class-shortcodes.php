@@ -19,6 +19,16 @@ if ( ! class_exists( 'PBSShortcodes' ) ) {
 	 */
 	class PBSShortcodes {
 
+		/**
+		 * Shortcodes to hide from the frontend.
+		 *
+		 * @var array
+		 */
+		private $shortcodes_to_hide = array(
+			'pbs_widget',
+			'pbs_sidebar',
+		);
+
 
 		/**
 		 * A unique incremental identifier for widget shortcodes.
@@ -27,12 +37,28 @@ if ( ! class_exists( 'PBSShortcodes' ) ) {
 		 */
 		public $widget_ids = 1;
 
+
 		/**
 		 * Hook into the frontend.
 		 */
 		function __construct() {
 			add_shortcode( 'pbs_widget', array( $this, 'widget' ) );
 			add_shortcode( 'pbs_sidebar', array( $this, 'sidebar' ) );
+			add_filter( 'pbs_shortcodes_to_hide_in_picker', array( $this, 'hide_shortcodes_from_picker' ) );
+		}
+
+
+		/**
+		 * Remove PBS internal shortcodes from the shortcode picker modal & other processes.
+		 *
+		 * @since 2.18
+		 *
+		 * @param array $shortcodes The list of shortcodes.
+		 *
+		 * @return array The modified list of shortcodes.
+		 */
+		public function hide_shortcodes_from_picker( $shortcodes ) {
+			return array_merge( $shortcodes, $this->shortcodes_to_hide );
 		}
 
 

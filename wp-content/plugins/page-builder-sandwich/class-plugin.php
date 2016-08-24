@@ -9,11 +9,11 @@
 Plugin Name: Page Builder Sandwich Lite
 Description: The easiest way to build your website without any code. A true drag & drop page builder for WordPress.
 Author: Gambit Technologies
-Version: 2.17
+Version: 2.18
 Author URI: http://gambit.ph
 Plugin URI: http://pagebuildersandwich.com
 Text Domain: page-builder-sandwich
-Domain Path: /languages
+Domain Path: /languages/
 SKU: PBS
  */
 
@@ -31,7 +31,7 @@ if ( defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) ) {
 }
 
 // Identifies the current plugin version.
-defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '2.17' );
+defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '2.18' );
 
 // The slug used for translations & other identifiers.
 defined( 'PAGE_BUILDER_SANDWICH' ) or define( 'PAGE_BUILDER_SANDWICH', 'page-builder-sandwich' );
@@ -65,6 +65,9 @@ require_once( 'class-element-sidebar.php' );
 require_once( 'class-element-html.php' );
 require_once( 'class-element-map.php' );
 require_once( 'class-translations.php' );
+require_once( 'class-shortcode-mapper.php' );
+require_once( 'class-shortcode-mapper-3rd-party.php' );
+require_once( 'class-inspector.php' );
 if ( ! PBS_IS_LITE && ! class_exists( 'EDD_SL_Plugin_Updater' ) ) {
 	include( 'page_builder_sandwich/inc/EDD_SL_Plugin_Updater.php' );
 }
@@ -141,7 +144,7 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 
 				if ( PBS_IS_LITE ) {
 					$plugin_meta[] = sprintf( "<a href='%s' target='_blank'>%s</a>",
-						'https://pagebuildersandwich.com/?utm_source=lite-plugin&utm_medium=plugin-meta-link&utm_campaign=Page%20Builder%20Sandwich
+						'https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=plugin-meta-link&utm_campaign=Page%20Builder%20Sandwich
 ',
 						__( 'Go Premium', PAGE_BUILDER_SANDWICH )
 					);
@@ -155,6 +158,7 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 			return $plugin_meta;
 		}
 
+
 		/**
 		 * Adds plugin links for different developer tools (for internal use only, these won't show up in user's sites).
 		 *
@@ -167,9 +171,9 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 		public function dev_tool_links( $plugin_meta, $plugin_file ) {
 			if ( plugin_basename( __FILE__ ) === $plugin_file ) {
 
-				if ( file_exists( trailingslashit( plugin_dir_path( __FILE__ ) ) . 'design-element-cleanup.php' ) ) {
+				if ( pbs_is_dev() ) {
 					$plugin_meta[] = sprintf( "<br><a href='%s' target='_blank'>%s</a>",
-						plugins_url( 'design-element-cleanup.php', __FILE__ ),
+						plugins_url( '_design-element-cleanup.php', __FILE__ ),
 						'[DEV TOOL] Pre-Designed Element HTML Cleaner'
 					);
 				}
@@ -269,4 +273,21 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 	}
 
 	new PageBuilderSandwichPlugin();
+}
+
+
+/**
+ * Returns true if we are in development mode and not in a built copy.
+ *
+ * @since 2.18
+ *
+ * @return boolean True if we are developing.
+ */
+function pbs_is_dev() {
+	if ( defined( 'WP_DEBUG' ) ) {
+		if ( WP_DEBUG ) {
+			return file_exists( trailingslashit( plugin_dir_path( __FILE__ ) ) . '_design-element-cleanup.php' );
+		}
+	}
+	return false;
 }

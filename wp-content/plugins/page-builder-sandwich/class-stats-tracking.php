@@ -59,19 +59,23 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 				die();
 			}
 
-			// Check if we have the necessary fields.
-			if ( empty( $_POST['post_id'] ) || ! isset( $_POST['main-content'] ) || empty( $_POST['save_nonce'] ) ) {
+			if ( empty( $_POST['save_nonce'] ) ) { // Input var: okay.
 				die();
 			}
 
 			// Security check.
-			if ( ! wp_verify_nonce( $_POST['save_nonce'], 'pbs_save' . get_current_user_id() ) ) {
+			if ( ! wp_verify_nonce( sanitize_key( $_POST['save_nonce'] ), 'pbs_save' . get_current_user_id() ) ) { // Input var: okay.
+				die();
+			}
+
+			// Check if we have the necessary fields.
+			if ( empty( $_POST['post_id'] ) || ! isset( $_POST['main-content'] ) ) { // Input var: okay.
 				die();
 			}
 
 			// Sanitize data.
-			$post_id = intval( $_POST['post_id'] );
-			$content = sanitize_post_field( 'post_content', $_POST['main-content'], $post_id, 'db' );
+			$post_id = intval( $_POST['post_id'] ); // Input var: okay.
+			$content = sanitize_post_field( 'post_content', wp_unslash( $_POST['main-content'] ), $post_id, 'db' ); // Input var: okay. WPCS: sanitization ok.
 
 			$data = array(
 				'referrer' => trailingslashit( get_site_url() ),
@@ -82,8 +86,8 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 				'icon_searches' => '',
 			);
 
-			if ( ! empty( $_POST['icon_searches'] ) ) {
-				$data['icon_searches'] = sanitize_text_field( $_POST['icon_searches'] );
+			if ( ! empty( $_POST['icon_searches'] ) ) { // Input var: okay.
+				$data['icon_searches'] = sanitize_text_field( wp_unslash( $_POST['icon_searches'] ) ); // Input var: okay.
 			}
 
 			// Generate a unique hash that will be used for security checks.
@@ -91,7 +95,6 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 
 			$request = wp_remote_post( PBS_STATS_URL,
 				array(
-					// 'timeout' => 20,
 					'sslverify' => false,
 					'body' => $data,
 				)
@@ -152,16 +155,20 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 		 * @since 2.11
 		 */
 		public function optin_answer_handler() {
-			if ( empty( $_POST['nonce'] ) || empty( $_POST['optin'] ) ) {
+			if ( empty( $_POST['nonce'] ) ) { // Input var: okay.
 				die();
 			}
-			$nonce = sanitize_text_field( trim( $_POST['nonce'] ) );
-			$optin = sanitize_text_field( trim( $_POST['optin'] ) );
+			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
 			if ( ! wp_verify_nonce( $nonce, 'pbs_optin' ) ) {
 				die();
 			}
 
-			if ( 'yes' != $optin ) {
+			if ( empty( $_POST['optin'] ) ) { // Input var: okay.
+				die();
+			}
+			$optin = trim( sanitize_text_field( wp_unslash( $_POST['optin'] ) ) ); // Input var: okay.
+
+			if ( 'yes' !== $optin ) {
 				$optin = 'no';
 			}
 			update_option( 'pbs_stats_tracking_opted_in', $optin );
@@ -180,7 +187,7 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 			if ( empty( $screen ) ) {
 				return;
 			}
-			if ( 'plugins' != $screen->id ) {
+			if ( 'plugins' !== $screen->id ) {
 				return;
 			}
 
@@ -202,7 +209,7 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 			if ( empty( $screen ) ) {
 				return $params;
 			}
-			if ( 'plugins' != $screen->id ) {
+			if ( 'plugins' !== $screen->id ) {
 				return $params;
 			}
 
@@ -232,25 +239,25 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 			if ( empty( $screen ) ) {
 				return;
 			}
-			if ( 'plugins' != $screen->id ) {
+			if ( 'plugins' !== $screen->id ) {
 				return;
 			}
 
 			?>
 			<script type="text/html" id="tmpl-pbs-deactivate-question">
 				<div class="pbs-deactivate-question">
-					<h2><?php _e( 'Deactivating? Let Us Know Why!', PAGE_BUILDER_SANDWICH ) ?></h2>
-					<p><?php _e( 'Let us know your reason and we&apos;ll use your feedback to make Page Builder Sandwich a better fit for you and other users.', PAGE_BUILDER_SANDWICH ) ?></p>
-					<p><label for="pbs_has_error"><input type="radio" name="pbs_reason" id="pbs_has_error" value="error"> <?php _e( 'It&apos;s not working correctly', PAGE_BUILDER_SANDWICH ) ?></label></p>
-					<p><label for="pbs_missing_feature"><input type="radio" name="pbs_reason" id="pbs_missing_feature" value="missing_feature"> <?php _e( 'It&apos;s missing a feature', PAGE_BUILDER_SANDWICH ) ?></label></p>
-					<p><label for="pbs_found_alternative"><input type="radio" name="pbs_reason" id="pbs_found_alternative" value="found_alternative"> <?php _e( 'I found a better alternative', PAGE_BUILDER_SANDWICH ) ?></label></p>
-					<p><label for="pbs_other"><input type="radio" name="pbs_reason" id="pbs_other" value="other"> <?php _e( 'Other', PAGE_BUILDER_SANDWICH ) ?></label></p>
-					<p class="pbs-deactivate-advanced"><label for="pbs_description"><span id="pbs_description_label"><?php _e( 'Feedback', PAGE_BUILDER_SANDWICH ) ?></span><textarea name="pbs_description" id="pbs_description"></textarea></label></p>
-					<p class="pbs-deactivate-advanced"><label for="pbs_email"><span id="pbs_email_label"><?php _e( 'Enter your email so we can let you know if we have resolved your issues', PAGE_BUILDER_SANDWICH ) ?></span><input type="text" name="pbs_email" id="pbs_email"></label></p>
+					<h2><?php esc_html_e( 'Deactivating? Let Us Know Why!', PAGE_BUILDER_SANDWICH ) ?></h2>
+					<p><?php esc_html_e( "Let us know your reason and we'll use your feedback to make Page Builder Sandwich a better fit for you and other users.", PAGE_BUILDER_SANDWICH ) ?></p>
+					<p><label for="pbs_has_error"><input type="radio" name="pbs_reason" id="pbs_has_error" value="error"> <?php esc_html_e( "It's not working correctly", PAGE_BUILDER_SANDWICH ) ?></label></p>
+					<p><label for="pbs_missing_feature"><input type="radio" name="pbs_reason" id="pbs_missing_feature" value="missing_feature"> <?php esc_html_e( "It's missing a feature", PAGE_BUILDER_SANDWICH ) ?></label></p>
+					<p><label for="pbs_found_alternative"><input type="radio" name="pbs_reason" id="pbs_found_alternative" value="found_alternative"> <?php esc_html_e( 'I found a better alternative', PAGE_BUILDER_SANDWICH ) ?></label></p>
+					<p><label for="pbs_other"><input type="radio" name="pbs_reason" id="pbs_other" value="other"> <?php esc_html_e( 'Other', PAGE_BUILDER_SANDWICH ) ?></label></p>
+					<p class="pbs-deactivate-advanced"><label for="pbs_description"><span id="pbs_description_label"><?php esc_html_e( 'Feedback', PAGE_BUILDER_SANDWICH ) ?></span><textarea name="pbs_description" id="pbs_description"></textarea></label></p>
+					<p class="pbs-deactivate-advanced"><label for="pbs_email"><span id="pbs_email_label"><?php esc_html_e( 'Enter your email so we can let you know if we have resolved your issues', PAGE_BUILDER_SANDWICH ) ?></span><input type="text" name="pbs_email" id="pbs_email"></label></p>
 					<p class='pbs-buttons'>
 						<input type="hidden" id="pbs_deactivate_nonce" value="<?php echo esc_attr( wp_create_nonce( 'pbs_deactivate' ) ) ?>"/>
-						<a href='#' class='pbs-button pbs-button-deactivate-yes'><?php _e( 'Send Feedback & Deactivate', PAGE_BUILDER_SANDWICH ) ?></a>
-						<a href='#' class='pbs-button pbs-button-deactivate-no'><?php _e( 'Just Deactivate', PAGE_BUILDER_SANDWICH ) ?></a>
+						<a href='#' class='pbs-button pbs-button-deactivate-yes'><?php esc_html_e( 'Send Feedback & Deactivate', PAGE_BUILDER_SANDWICH ) ?></a>
+						<a href='#' class='pbs-button pbs-button-deactivate-no'><?php esc_html_e( 'Just Deactivate', PAGE_BUILDER_SANDWICH ) ?></a>
 					</p>
 				</div>
 			</script>
@@ -264,23 +271,27 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 		 * @since 2.11
 		 */
 		public function deactivate_answer_handler() {
-			if ( empty( $_POST['nonce'] ) || empty( $_POST['reason'] ) ) {
+			if ( empty( $_POST['nonce'] ) ) { // Input var: okay.
 				die();
 			}
-			$nonce = sanitize_text_field( trim( $_POST['nonce'] ) );
+			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
 			if ( ! wp_verify_nonce( $nonce, 'pbs_deactivate' ) ) {
 				die();
 			}
 
+			if ( empty( $_POST['reason'] ) ) { // Input var: okay.
+				die();
+			}
+
 			$data = array(
-				'reason' => sanitize_text_field( trim( $_POST['reason'] ) ),
+				'reason' => trim( sanitize_text_field( wp_unslash( $_POST['reason'] ) ) ), // Input var: okay.
 			);
 
-			if ( ! empty( $_POST['description'] ) ) {
-				$data['description'] = sanitize_text_field( trim( $_POST['description'] ) );
+			if ( ! empty( $_POST['description'] ) ) { // Input var: okay.
+				$data['description'] = trim( sanitize_text_field( wp_unslash( $_POST['description'] ) ) ); // Input var: okay.
 			}
-			if ( ! empty( $_POST['email'] ) ) {
-				$data['email'] = sanitize_text_field( trim( $_POST['email'] ) );
+			if ( ! empty( $_POST['email'] ) ) { // Input var: okay.
+				$data['email'] = trim( sanitize_text_field( wp_unslash( $_POST['email'] ) ) ); // Input var: okay.
 			}
 
 			$request = wp_remote_post( PBS_DEACTIVATE_URL,

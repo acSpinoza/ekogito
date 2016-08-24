@@ -63,7 +63,22 @@ class MPSUM_Admin {
 	*/
 	private function __construct() {
 		add_action( 'init', array( $this, 'init' ), 9 );
+		add_filter( 'set-screen-option', array( $this, 'add_screen_option_save' ), 10, 3 );
 	} //end constructor
+	
+	/**
+	* Save the screen options.
+	*
+	* Save the screen options.
+	*
+	* @since 6.2.0 
+	* @access static
+	*
+	* @return string URL to the admin panel page.
+	*/
+	public function add_screen_option_save( $status, $option, $value ) {
+		return MPSUM_Admin_Screen_Options::save_options( $status, $option, $value );
+	}
 	
 	/**
 	* Return the URL to the admin panel page.
@@ -137,7 +152,7 @@ class MPSUM_Admin {
 		new MPSUM_Admin_Core( self::get_slug() );
 		new MPSUM_Admin_Advanced( self::get_slug() );
 		
-		
+		MPSUM_Admin_Screen_Options::maybe_save_dashboard_screen_option();
 		
 	}	
 	
@@ -156,6 +171,21 @@ class MPSUM_Admin {
 		new MPSUM_Admin_Help();
 	}
 	
+	/**
+	* Initializes the screen options.
+	*
+	* Initializes the screen options.
+	*
+	* @since 6.2
+	* @access public
+	* @see init
+	* @internal Uses load_{$hook} action
+	*
+	*/
+	public function init_screen_options() {
+		MPSUM_Admin_Screen_Options::run();
+	}
+	
 	public function enqueue_scripts() {
     	$pagenow = isset( $_GET[ 'page' ] ) ? $_GET[  'page' ] : false;
     	$is_active_tab = isset( $_GET[ 'tab' ] ) ? $_GET[ 'tab' ] : false;
@@ -165,8 +195,19 @@ class MPSUM_Admin {
             return;	
         }
         
-    	wp_enqueue_script( 'mpsum_dashboard', MPSUM_Updates_Manager::get_plugin_url( '/js/admin.js' ), array( 'jquery' ), '20160429', true );
-    	wp_localize_script( 'mpsum_dashboard', 'mpsum', array( 'spinner' => MPSUM_Updates_Manager::get_plugin_url( '/images/spinner.gif' ) ) );
+    	wp_enqueue_script( 'mpsum_dashboard', MPSUM_Updates_Manager::get_plugin_url( '/js/admin.js' ), array( 'jquery' ), '20160817', true );
+    	
+    	$user_id = get_current_user_id();
+		$dashboard_showing = get_user_meta( $user_id, 'mpsum_dashboard', true );
+		if ( ! $dashboard_showing ) {
+			$dashboard_showing = 'on';
+		}
+    	wp_localize_script( 'mpsum_dashboard', 'mpsum', array( 
+    		'spinner'           => MPSUM_Updates_Manager::get_plugin_url( '/images/spinner.gif' ),
+    		'tabs'              => _x( 'Tabs', 'Show or hide admin tabs', 'stops-core-theme-and-plugin-updates' ),
+    		'dashboard'         => _x( 'Show Dashboard', 'Show or hide the dashboard', 'stops-core-theme-and-plugin-updates' ),
+    		'dashboard_showing' => $dashboard_showing,
+    	) );
     	wp_enqueue_style( 'mpsum_dashboard', MPSUM_Updates_Manager::get_plugin_url( '/css/style.css' ), array(), '20160502' );
     }
 	
@@ -185,6 +226,7 @@ class MPSUM_Admin {
 		$hook = add_dashboard_page( __( 'Updates Options', 'stops-core-theme-and-plugin-updates' ) , __( 'Updates Options', 'stops-core-theme-and-plugin-updates' ), 'install_plugins', self::get_slug(), array( $this, 'output_admin_interface' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
 		add_action( "load-$hook", array( $this, 'init_help_screen' ) );
+		add_action( "load-$hook", array( $this, 'init_screen_options' ) );
 	}
 	
 	/**
@@ -202,6 +244,7 @@ class MPSUM_Admin {
 		$hook = add_dashboard_page( __( 'Updates Options', 'stops-core-theme-and-plugin-updates' ) , __( 'Updates Options', 'stops-core-theme-and-plugin-updates' ), 'install_plugins', self::get_slug(), array( $this, 'output_admin_interface' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
 		add_action( "load-$hook", array( $this, 'init_help_screen' ) );	
+		add_action( "load-$hook", array( $this, 'init_screen_options' ) );
 	}
 	
 	/**
@@ -223,12 +266,16 @@ class MPSUM_Admin {
 			<?php
             $core_options = MPSUM_Updates_Manager::get_options( 'core' );
 			$tabs = array();
-			$tabs[] = array(
-    			'url'    => add_query_arg( array( 'tab' => 'dashboard' ), self::get_url() ), /* URL to the tab */
-    			'label'  => esc_html__( 'Dashboard', 'stops-core-theme-and-plugin-updates' ),
-    			'get'    => 'dashboard' /*$_GET variable*/,
-    			'action' => 'mpsum_admin_tab_dashboard' /* action variable in do_action */
-            );
+			
+			if ( 'off' !== get_user_meta( get_current_user_id(), 'mpsum_dashboard', true ) ) {
+				$tabs[] = array(
+	    			'url'    => add_query_arg( array( 'tab' => 'dashboard' ), self::get_url() ), /* URL to the tab */
+	    			'label'  => esc_html__( 'Dashboard', 'stops-core-theme-and-plugin-updates' ),
+	    			'get'    => 'dashboard' /*$_GET variable*/,
+	    			'action' => 'mpsum_admin_tab_dashboard' /* action variable in do_action */
+	            );
+			}
+			
             $tabs[] = array(
 				'url'    => add_query_arg( array( 'tab' => 'main' ), self::get_url() ), /* URL to the tab */
 				'label'  => esc_html__( 'General', 'stops-core-theme-and-plugin-updates' ),
@@ -265,6 +312,9 @@ class MPSUM_Admin {
 			if ( $tabs && !empty( $tabs ) )  {
 				$tab_html =  '<h2 class="nav-tab-wrapper">';
 				$active_tab = isset( $_GET[ 'tab' ] ) ? sanitize_text_field( $_GET[ 'tab' ] ) : 'dashboard';
+				if ( 'off' === get_user_meta( get_current_user_id(), 'mpsum_dashboard', true ) && 'dashboard' == $active_tab ) {
+					$active_tab = 'main';
+				}
 				$do_action = false;
 				foreach( $tabs as $tab ) {
 					$classes = array( 'nav-tab' );
@@ -282,6 +332,7 @@ class MPSUM_Admin {
 					echo $tab_html;	
 				}
 				if ( $do_action ) {
+					
 					/**
 					* Perform a tab action.
 					*

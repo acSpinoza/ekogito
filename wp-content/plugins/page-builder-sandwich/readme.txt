@@ -1,10 +1,10 @@
 === Page Builder Sandwich - Front-End Drag and Drop Page Builder  ===
 Contributors: bfintal, gambitph
-Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=D2MK28E7BDLHC
-Tags: page builder, page builder plugin, builder, layout builder, page, landing page builder, home page builder, landing page builder, page layout, drag and drop builder, frontend editor, visual, frontend builder, front-end builder, drag and drop, editor, column, columns
+Donate link: https://pagebuildersandwich.com
+Tags: page builder, page builder plugin, builder, layout builder, page, landing page builder, home page builder, landing page builder, page layout, drag and drop builder, frontend editor, visual, frontend builder, front-end builder, site builder, drag and drop, editor, column, columns, shortcode mapping, website builder, website builder plugin
 Requires at least: 4.2
-Tested up to: 4.5.3
-Stable tag: 2.17
+Tested up to: 4.6
+Stable tag: 2.18
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,16 +14,17 @@ A revolutionary frontend drag & drop page builder. Create pages effortlessly & w
 
 [vimeo https://vimeo.com/160196365]
 
-Page Builder Sandwich is a live frontend drag and drop page builder for WordPress that is unique from the rest. We have revolutionized things, and now you can build your site just the way how your visitors would see it, and not just from a visual representation of it. We have brought things to the next level, now you just have to click on your content and start typing to edit anything.
+Page Builder Sandwich is quite possibly the the last page builder you'll ever need. With its front-end drag and drop capabilities, Page Builder Sandwich allows you to create and design your site the way your visitors see it. Get access to numerous features such as shortcode mapping, hassle-free and pop up-less editing, and more. With us, you're sure to have a page building experience like no other.
 
-Try out our [live demo](http://demo.pagebuildersandwich.com/?utm_source=wordpress.org&utm_medium=description&utm_campaign=Demo
-) now!
-
-Learn more about about the premium version & features at [PageBuilderSandwich.com](https://pagebuildersandwich.com/?utm_source=wordpress.org&utm_medium=description&utm_campaign=Page%20Builder%20Sandwich)
+> [Live Demo](http://demo.pagebuildersandwich.com/?utm_source=wordpress.org&utm_medium=description&utm_campaign=Demo) | [Main Website](https://pagebuildersandwich.com/?utm_source=wordpress.org&utm_medium=description&utm_campaign=Page%20Builder%20Sandwich) | [Lite vs. Premium](https://pagebuildersandwich.com/compare?utm_source=wordpress.org&utm_medium=description&utm_campaign=Page%20Builder%20Sandwich)
 
 = Okay.. What's Unique? =
 
 Most of the time, page builders make you go through a lot of popups just to edit a simple thing. For example, if you want to edit a heading, you'll have to open up a popup, type in a text field, then save and close the popup. With Page Builder Sandwich, it's super easy, just click on your content and start typing. It's so much faster and intuitive.
+
+= Global Shortcode Mapping =
+
+Other page builders let you map out the different attributes of the shortcodes that you have. Page Builder Sandwich on the other hand, does things in a global scale. We have hundreds of plugins listed in our shortcode mapping database. Shortcodes from popular plugins in the WordPress plugin directory will be mapped out right away, complete with attribute descriptions to boot. Easily create and edit shortcodes from NextGEN Gallery, JetPack, ACF, WooCommerce, Shortcodes Ultimate, bbPress, and hundreds more. This feature is unique to Page Builder Sandwich.
 
 = No Coding Knowledge Necessary =
 
@@ -63,7 +64,7 @@ We have successfully used Page Builder Sandwich with a lot of themes including t
 Page Builder Sandwich integrates with how WordPress deals with content, so it should work well with your existing pages. Your content should be editable right away in the frontend.
 
 > <strong>Premium Version Available</strong><br>
-> This Lite version contains a lot of features, if you need more features like buttons, carousels and pre-designed sections, these are available along with awesome customer support in [Page Builder Sandwich Premium](https://pagebuildersandwich.com/?utm_source=wordpress.org&utm_medium=description&utm_campaign=Page%20Builder%20Sandwich).
+> This Lite version contains a lot of features, if you need more features like buttons, carousels and pre-designed sections, these are available along with awesome customer support in [Page Builder Sandwich Premium](https://pagebuildersandwich.com/compare?utm_source=wordpress.org&utm_medium=description&utm_campaign=Page%20Builder%20Sandwich).
 
 = Translations Supported =
 
@@ -73,19 +74,20 @@ Page Builder Sandwich integrates with how WordPress deals with content, so it sh
 * Spanish (Spain es_ES) - Thanks to Alex Lp
 
 > <strong>Help Translate Page Builder Sandwich Into Your Language</strong><br>
-> Help translate to your language! Head over to the [Transifex project page for Page Builder Sandwich](https://www.transifex.com/gambit-technologies-inc/page-builder-sandwich/).
+> Help translate to your language! Login into WordPress.org, then just click on the [Translate this plugin button](https://translate.wordpress.org/projects/wp-plugins/page-builder-sandwich) on the sidebar to begin translating.
 
 = What's in the Premium Version? =
 
-The premium version gives you some awesome [features](https://pagebuildersandwich.com/features/):
+The premium version gives you some awesome [features](https://pagebuildersandwich.com/compare?utm_source=wordpress.org&utm_medium=description&utm_campaign=Page%20Builder%20Sandwich):
 
+* Enhanced Shortcode Mapping Controls
 * Map Element with advanced styling options
 * Button Element with advanced styling options
 * Carousel Element
 * Newsletter Element (MailChimp, Aweber & MailPoet)
 * More Vector/SVG icons
 * Tables
-* Pre-Designed Sections
+* Pre-Designed Sections that you can mix and match
 * [Theme Builder](https://pagebuildersandwich.com/theme/)
 
 == Installation ==
@@ -119,6 +121,20 @@ If you cannot see the "Edit with Page Builder Sandwich" button on your frontend,
 The new Page Builder Sandwich is completely different from the old one. We've ditched the old backend page builder for the more awesome frontend page building experience. If you're upgrading from version 1.x, a migration notice should appear on the top of your admin which should help you migrate your content into the new system.
 
 == Changelog ==
+
+= 2.18 =
+* New: Shortcode Mapping with so far 435 mapped shortcodes from 144 plugins
+* Enhanced: In line with WordPress 4.6 updates, we're now using the same system font stack as WordPress to make loading faster.
+* Enhanced: Now hides PBS' widget & sidebar shortcodes from the shortcode picker list.
+* Enhanced: Added a delay before rendering shortcodes to prevent early renders that miss attribute changes.
+* Enhanced: Added a label on a map element's toolbar.
+* Fixed: Deleting an element now updates the inspector properly and doesn't leave the old inspector contents behind.
+* Fixed: Deleting an element inside the row now if it's the only element now selects the blank content of the row.
+* Fixed: Shortcodes during the render stage will no longer shrink with their faded contents overlapping other content.
+* Fixed: Saving error that happens sometimes when the Google Map script was not loaded.
+* Fixed: Tabs element was disabled in the lite version (sorry!!)
+* Fixed: Dragging the map height overlay button resulted in the body tag getting unwanted styles.
+* Fixed: Hitting the delete key while an input is focused in the inspector deletes the entire element.
 
 = 2.17 =
 * New: Tabs element with more options (premium only - more styling options coming soon)

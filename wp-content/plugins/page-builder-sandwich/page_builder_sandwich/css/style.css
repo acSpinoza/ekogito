@@ -577,6 +577,11 @@ body iframe {
 	margin-bottom: 0 !important;
 }
 
+.pbs-main-wrapper > .pbs-row > .pbs-col {
+	padding-left: 0px !important;
+	padding-right: 0px !important;
+}
+
 }
 
 @media only screen and (max-width: 640px), screen and (max-height: 400px) {

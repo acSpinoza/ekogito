@@ -207,6 +207,10 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			include 'page_builder_sandwich/templates/frame-predesigned-picker.php';
 
 			if ( ! PBS_IS_LITE ) {
+				include 'page_builder_sandwich/templates/option-multicheck.php';
+				include 'page_builder_sandwich/templates/option-image.php';
+				include 'page_builder_sandwich/templates/option-number.php';
+
 				include 'page_builder_sandwich/templates/design-element-page-headings.php';
 				include 'page_builder_sandwich/templates/design-element-page-headings-2.php';
 				include 'page_builder_sandwich/templates/design-element-page-headings-3.php';
@@ -271,7 +275,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				echo '<textarea id="dummy-wplink-textarea"></textarea>';
 
 				// The variable adminajax isn't normally defined in the frontend and is needed by wpLink.
-				echo '<script>var ajaxurl = "' . admin_url( 'admin-ajax.php' ) . '";</script>';
+				echo '<script>var ajaxurl = "' . esc_url( admin_url( 'admin-ajax.php' ) ) . '";</script>';
 			}
 		}
 
@@ -345,8 +349,8 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			if ( PBS_IS_LITE ) {
 
-				// TODO add link to: https://pagebuildersandwich.com/downloads/page-builder-sandwich/?edd_action=add_to_cart&download_id=118&edd_options[price_id]=2
-				// TODO add link to: https://pagebuildersandwich.com/downloads/page-builder-sandwich/?edd_action=add_to_cart&download_id=118&edd_options[price_id]=1
+				// TODO add link to: https://pagebuildersandwich.com/downloads/page-builder-sandwich/?edd_action=add_to_cart&download_id=118&edd_options[price_id]=2 .
+				// TODO add link to: https://pagebuildersandwich.com/downloads/page-builder-sandwich/?edd_action=add_to_cart&download_id=118&edd_options[price_id]=1 .
 				$args = array(
 					'id'    => 'pbs_go_premium',
 					'title' => '<span class="ab-icon"></span>'
@@ -371,9 +375,9 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			$args = array(
 				'id'    => 'pbs_help_icon',
-				'title' => '<span class="ab-icon"></span> ' . __( 'Tips', PAGE_BUILDER_SANDWICH ) . '<span class="pbs-help-label">' .
-							'<strong>' . __( 'Some Tips', PAGE_BUILDER_SANDWICH ) . '</strong>' .
-							'<br>&middot; ' . __( '<em>Click</em> on your site content area and start typing', PAGE_BUILDER_SANDWICH ) .
+				'title' => '<span class="ab-icon"></span> ' . __( 'Tips', PAGE_BUILDER_SANDWICH ) . '<span class="pbs-help-label">
+							<strong>' . __( 'Some Tips', PAGE_BUILDER_SANDWICH ) . '</strong>
+							<br>&middot; ' . __( '<em>Click</em> on your site content area and start typing', PAGE_BUILDER_SANDWICH ) .
 							'<br>&middot; ' . __( '<em>Click</em> a button on the inspector to apply styling', PAGE_BUILDER_SANDWICH ) .
 							'<br>&middot; ' . __( '<em>Click & hold</em> to apply styles rapildy', PAGE_BUILDER_SANDWICH ) .
 							'<br>&middot; ' . __( '<em>Ctrl+Click</em> to reverse the styling', PAGE_BUILDER_SANDWICH ) .
@@ -386,8 +390,8 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 							'<br>&middot; ' . __( '<em>Quick toolbars</em> show up for some elements', PAGE_BUILDER_SANDWICH ) .
 							'<br>&middot; ' . __( '<em>Ctrl+S</em> to save', PAGE_BUILDER_SANDWICH ) .
 							'<br>&middot; ' . __( '<em>Ctrl+E</em> start Page Builder Sandwich', PAGE_BUILDER_SANDWICH ) .
-							'<span class="pbs-help-button" id="pbs-help-replay-tour">' . __( 'Replay Tour', PAGE_BUILDER_SANDWICH ) . '</span>' .
-							'</span>',
+							'<span class="pbs-help-button" id="pbs-help-replay-tour">' . __( 'Replay Tour', PAGE_BUILDER_SANDWICH ) . '</span>
+							</span>',
 				'href'  => '#',
 				'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-adminbar-right' ),
 			);
@@ -589,7 +593,6 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 					$iframe = substr( $content, $match[0][1], strlen( $match[0][0] ) );
 
-					// $iframe = preg_replace( '/<iframe\s*/', '<iframe data-ce-tag="iframe" ', $iframe );
 					$iframe = "\n\n" . $iframe . "\n\n";
 
 					$content = substr( $content, 0, $match[0][1] ) . $iframe . substr( $content, $match[0][1] + strlen( $match[0][0] ) );
@@ -693,7 +696,6 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			}
 			if ( get_post_meta( $post->ID, 'pbs_style', true ) ) {
 				$style = get_post_meta( $post->ID, 'pbs_style', true );
-				// $style = wp_filter_nohtml_kses( $style );
 				$style = wp_strip_all_tags( $style );
 				$content = '<style id="pbs-style">' . $style . '</style>' . $content;
 			}
@@ -750,35 +752,36 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 		 */
 		public function save_content() {
 			// Check if we have the necessary fields.
-			if ( empty( $_POST['post_id'] ) ||
-				 ( empty( $_POST['post_status'] ) && ! isset( $_POST['main-content'] ) ) ||
-				 empty( $_POST['save_nonce'] ) ) {
+			if ( empty( $_POST['post_id'] ) ||  // Input var: okay.
+				 ( empty( $_POST['post_status'] ) && ! isset( $_POST['main-content'] ) ) ||  // Input var: okay.
+				 empty( $_POST['save_nonce'] ) ) { // Input var: okay.
 				die();
 			}
 
 			// Security check.
-			if ( ! wp_verify_nonce( $_POST['save_nonce'], 'pbs_save' . get_current_user_id() ) ) {
+			if ( ! wp_verify_nonce( sanitize_key( $_POST['save_nonce'] ), 'pbs_save' . get_current_user_id() ) ) { // Input var: okay.
 				die();
 			}
 
 			// Sanitize data.
-			$post_id = intval( $_POST['post_id'] );
+			$post_id = intval( $_POST['post_id'] ); // Input var: okay.
 
 			// Check if we just need to update the status.
 			$post_status = '';
-			if ( ! empty( $_POST['post_status'] ) && ! isset( $_POST['main-content'] ) ) {
+			if ( ! empty( $_POST['post_status'] ) && ! isset( $_POST['main-content'] ) ) { // Input var: okay.
 
-				$post_status = sanitize_text_field( $_POST['post_status'] );
+				$post_status = sanitize_text_field( wp_unslash( $_POST['post_status'] ) ); // Input var: okay.
 
 				// Update the post status.
 				wp_update_post( array( 'ID' => $post_id, 'post_status' => $post_status ) );
-				die( get_permalink( $post_id ) );
 
-			} else if ( ! empty( $_POST['post_status'] ) ) {
-				$post_status = sanitize_text_field( $_POST['post_status'] );
+				die( esc_url( get_permalink( $post_id ) ) );
+
+			} else if ( ! empty( $_POST['post_status'] ) ) { // Input var: okay.
+				$post_status = sanitize_text_field( wp_unslash( $_POST['post_status'] ) ); // Input var: okay.
 			}
 
-			$content = sanitize_post_field( 'post_content', $_POST['main-content'], $post_id, 'db' );
+			$content = sanitize_post_field( 'post_content', wp_unslash( $_POST['main-content'] ), $post_id, 'db' ); // Input var: okay. WPCS: sanitization ok.
 			$content = apply_filters( 'pbs_save_content', $content, $post_id );
 
 			// Save the post.
@@ -796,8 +799,8 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			// Update the post.
 			$post_id = wp_update_post( $post_data );
 
-			if ( ! empty( $_POST['style'] ) ) {
-				$style = sanitize_post_field( 'post_content', $_POST['style'], $post_id, 'db' );
+			if ( ! empty( $_POST['style'] ) ) { // Input var: okay.
+				$style = sanitize_post_field( 'post_content', wp_unslash( $_POST['style'] ), $post_id, 'db' ); // Input var: okay. WPCS: sanitization ok.
 				$style = wp_strip_all_tags( $style );
 				$style = apply_filters( 'pbs_save_style', $style, $post_id );
 				update_post_meta( $post_id, 'pbs_style', $style );
@@ -807,7 +810,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			do_action( 'pbs_saved_content', $content, $post_id );
 
-			die( get_permalink( $post_id ) );
+			die( esc_url( get_permalink( $post_id ) ) );
 		}
 
 
@@ -899,6 +902,8 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			wp_enqueue_script( 'media-editor' );
 
 			wp_enqueue_style( 'wp-color-picker' );
+			wp_enqueue_script( 'jquery-ui-core' );
+			wp_enqueue_script( 'jquery-ui-slider' );
 
 			// Link dialog modal.
 			wp_enqueue_style( 'editor-buttons' );
@@ -943,7 +948,8 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				'theme_name' => str_replace( ' ', '-', strtolower( wp_get_theme()->Name ) ),
 				'save_nonce' => wp_create_nonce( 'pbs_save' . get_current_user_id() ),
 				'shortcode_nonce' => wp_create_nonce( 'pbs_shortcode' ),
-				'shortcodes' => $this->get_all_shortcodes(),
+				'shortcodes' => self::get_all_shortcodes(),
+				'shortcodes_to_hide' => apply_filters( 'pbs_shortcodes_to_hide_in_picker', array() ),
 				'default_icon' => plugins_url( 'page_builder_sandwich/images/shortcode-icon.png', __FILE__ ),
 				'additional_shortcodes' => apply_filters( 'pbs_shortcodes', array() ),
 				'is_admin_bar_showing' => is_admin_bar_showing(),
@@ -968,6 +974,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 		 * @return string The original post content.
 		 */
 		public function gather_ce_tags( $content ) {
+
 			preg_match_all( '/data\-ce\-tag=[\'"]([^\'"]+)[\'"]/', $content, $data_tags, PREG_PATTERN_ORDER );
 
 			if ( empty( $data_tags[1] ) ) {
@@ -991,7 +998,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 		 *
 		 * @return array The array of available shortcodes.
 		 */
-		private function get_all_shortcodes() {
+		public static function get_all_shortcodes() {
 			$shortcodes = array();
 			$ignored_functions = array(
 				'__return_false',
@@ -1001,10 +1008,10 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			global $shortcode_tags;
 			if ( is_array( $shortcode_tags ) ) {
 				foreach ( $shortcode_tags as $base => $function ) {
-					if ( in_array( $function, $ignored_functions ) ) {
+					if ( in_array( $function, $ignored_functions, true ) ) {
 						continue;
 					}
-					if ( in_array( $base, $shortcodes ) ) {
+					if ( in_array( $base, $shortcodes, true ) ) {
 						continue;
 					}
 					$shortcodes[] = $base;

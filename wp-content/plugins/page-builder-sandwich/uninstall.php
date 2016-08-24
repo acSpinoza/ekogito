@@ -35,3 +35,9 @@ delete_option( 'pbs_uploaded_svg' );
 
 // Used by class-stats-tracking.php.
 delete_option( 'pbs_stats_tracking_opted_in' );
+
+// Used by class-shortcode-mapper.php.
+delete_option( 'pbs_shortcode_mappings' );
+delete_option( 'pbs_shortcode_mappings_total' );
+delete_option( 'pbs_shortcode_mapped_plugins_total' );
+delete_option( 'pbs_shortcode_mapped_shortcodes_total' );

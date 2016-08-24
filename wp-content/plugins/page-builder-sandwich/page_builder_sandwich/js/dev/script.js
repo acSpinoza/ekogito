@@ -1738,7 +1738,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
  * Call by using: PBSEditor.shortcodeFrame.open(). Additional arguments may be given.
  */
 
-/* globals PBSEditor, pbsParams, PBSShortcodes */
+/* globals PBSEditor, pbsParams, PBSInspectorOptions */
 
 PBSEditor._ShortcodeFrame = PBSEditor.SearchFrame.extend({
 	className: 'pbs-shortcode-modal',
@@ -1747,26 +1747,49 @@ PBSEditor._ShortcodeFrame = PBSEditor.SearchFrame.extend({
 	events: {
 		'click .media-toolbar-primary button': '_primaryClicked',
 		'keyup [type="search"]': 'searchKeyup',
-		'click [data-shortcode-tag]': 'select'
+		'click [data-shortcode-tag]': 'select',
+		'click .pbs-refresh-mappings': 'refreshShortcodeMappings'
 	},
 	_onOpen: function() {
 		PBSEditor.SearchFrame.prototype._onOpen.apply( this );
 		this.initShortcodeList();
 	},
 	initShortcodeList: function() {
-		var shortcodeArea = this.modal.el.querySelector( '.pbs-search-list' );
+		var shortcodeArea = this.modal.el.querySelector( '.pbs-search-list' ), map;
 		if ( ! shortcodeArea.querySelector( '*:not(.pbs-no-results)' ) ) {
-			var allShortcodes = [], sc;
+			var allShortcodes = [], sc, tag;
 
 			// Gather all shortcodes.
 			for ( var i = 0; i < pbsParams.shortcodes.length; i++ ) {
+				tag = pbsParams.shortcodes[ i ];
+
+				// Allow shortcodes to be hidden from the shortcode picker.
+				if ( typeof pbsParams.shortcodes_to_hide !== 'undefined' && -1 !== pbsParams.shortcodes_to_hide.indexOf( tag ) ) {
+					continue;
+				}
+
 				sc = {
-					'tag': pbsParams.shortcodes[ i ],
-					'name': pbsParams.shortcodes[ i ],
-					'desc': ''
+					'tag': tag,
+					'name': tag.replace( /[\-_]/g, ' ' ),
+					'desc': '',
+					'owner': '',
+					'ownerslug': '',
+					'image': '',
+					'isMapped': false
 				};
-				if ( PBSShortcodes[ pbsParams.shortcodes[ i ] ] ) {
-					var map = PBSShortcodes[ pbsParams.shortcodes[ i ] ];
+				if ( pbsParams.shortcode_mappings[ tag ] ) {
+					map = pbsParams.shortcode_mappings[ tag ];
+					sc.desc = map.description;
+					sc.owner = map.owner;
+					sc.ownerslug = map['owner-slug'];
+					sc.image = 'http://ps.w.org/' + sc.ownerslug + '/assets/icon-128x128.png), url(http://ps.w.org/' + sc.ownerslug + '/assets/icon.svg), url(' + pbsParams.plugin_url + 'page_builder_sandwich/assets/element-icons/shortcode_single.svg',
+					sc.isMapped = true;
+					if ( map.name ) {
+						sc.name = map.name;
+					}
+				}
+				if ( PBSInspectorOptions.Shortcode[ pbsParams.shortcodes[ i ] ] ) {
+					map = PBSInspectorOptions.Shortcode[ pbsParams.shortcodes[ i ] ];
 					if ( map.label ) {
 						sc.name = map.label;
 					}
@@ -1776,7 +1799,15 @@ PBSEditor._ShortcodeFrame = PBSEditor.SearchFrame.extend({
 					if ( map.desc ) {
 						sc.desc = map.desc;
 					}
+					if ( map.owner ) {
+						sc.owner = map.owner;
+					}
+					if ( map.image ) {
+						sc.image = map.image;
+					}
+					sc.isMapped = true;
 				}
+
 				allShortcodes.push( sc );
 			}
 
@@ -1784,11 +1815,14 @@ PBSEditor._ShortcodeFrame = PBSEditor.SearchFrame.extend({
 			allShortcodes.sort( function( a, b ) {
 			    var x = a.name.toLowerCase();
 			    var y = b.name.toLowerCase();
-			    return x < y ? -1 : x > y ? 1 : 0;
+			    var ret = x < y ? -1 : x > y ? 1 : 0;
+				var xMap = a.isMapped;
+				var yMap = b.isMapped;
+				return xMap === yMap ? ret : xMap ? -1 : 1;
 			} );
 
 			// Display.
-			for ( var tag in allShortcodes ) {
+			for ( tag in allShortcodes ) {
 				if ( allShortcodes.hasOwnProperty( tag ) ) {
 					sc = allShortcodes[ tag ];
 
@@ -1802,10 +1836,79 @@ PBSEditor._ShortcodeFrame = PBSEditor.SearchFrame.extend({
 						desc.innerHTML = sc.desc;
 						div.appendChild( desc );
 					}
+					var owner = document.createElement( 'P' );
+					owner.classList.add( 'pbs-shortcode-owner' );
+					owner.innerHTML = sc.owner + ' [' + sc.tag + ']';
+					div.appendChild( owner );
+					if ( sc.isMapped ) {
+						var preview = document.createElement( 'DIV' );
+						preview.classList.add( 'pbs-shortcode-owner-image' );
+						if ( sc.image ) {
+							preview.setAttribute( 'style', 'background-image: url(' + sc.image + ')' );
+						}
+						div.appendChild( preview );
+						div.classList.add( 'pbs-has-owner-image' );
+					}
 					shortcodeArea.appendChild( div );
 				}
 			}
 		}
+	},
+	refreshShortcodeMappings: function(ev) {
+		ev.preventDefault();
+
+		if ( this._isUpdatingShortcodes ) {
+			return;
+		}
+		this._isUpdatingShortcodes = true;
+
+		this.modal.$el.addClass( 'pbs-busy' );
+
+	   	var payload = new FormData();
+	   	payload.append( 'action', 'pbs_update_shortcode_mappings' );
+	   	payload.append( 'nonce', pbsParams.shortcode_nonce );
+
+	   	var xhr = new XMLHttpRequest();
+
+	   	xhr.onload = function() {
+			this.modal.$el.removeClass( 'pbs-busy' );
+	   		if ( xhr.status >= 200 && xhr.status < 400 ) {
+				this._isUpdatingShortcodes = null;
+				var response = JSON.parse( xhr.responseText );
+				if ( response ) {
+
+					// Remove current mappings.
+					for ( var shortcode in pbsParams.shortcode_mappings ) {
+						if ( pbsParams.shortcode_mappings.hasOwnProperty( shortcode ) ) {
+							window.pbsRemoveInspector( shortcode );
+						}
+					}
+
+					// Add the mappings into the correct place.
+					pbsParams.shortcode_mappings = response;
+
+					// Remove all the shortcodes.
+					var shortcodeArea = this.modal.el.querySelector( '.pbs-search-list' );
+					while ( shortcodeArea.firstChild ) {
+						shortcodeArea.removeChild( shortcodeArea.firstChild );
+					}
+
+					// Re-initialize the shortcode list.
+					this.initShortcodeList();
+				}
+	   		}
+	   	}.bind( this );
+
+		// There was a connection error of some sort.
+		xhr.onerror = function() {
+			this.modal.$el.removeClass( 'pbs-busy' );
+			this._isUpdatingShortcodes = null;
+		};
+
+	   	xhr.open( 'POST', pbsParams.ajax_url );
+	   	xhr.send( payload );
+
+		return false;
 	}
 });
 
@@ -2976,6 +3079,11 @@ window.addEventListener( 'DOMContentLoaded', function() {
 		if ( ! editor.focused() ) {
 			return;
 		}
+		if ( ev.target ) {
+			if ( ['INPUT', 'TEXTAREA'].indexOf( ev.target.tagName ) !== -1 ) {
+				return;
+			}
+		}
 
 		if ( ! PBSEditor.isNewStaticLikeElement( editor.focused() ) ) {
 			return;
@@ -3022,7 +3130,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 				parent = sc.parent();
 				setTimeout( function() {
 					parent.children[0].focus();
-				}, 1 );
+				}, 10 );
 			}
 
 		// Delete, focus on the start of the next element.
@@ -3036,7 +3144,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 				parent = sc.parent();
 				setTimeout( function() {
 					parent.children[0].focus();
-				}, 1 );
+				}, 10 );
 			}
 		}
 		if ( ev.which === 8 || ev.which === 46 ) {
@@ -3850,7 +3958,19 @@ ContentEdit.Shortcode = (function(_super) {
 
 	Shortcode.prototype.ajaxUpdate = function( forceUpdate ) {
 
+		clearTimeout( this._ajaxUpdateTimeout );
 
+		this._ajaxUpdateTimeout = setTimeout( function() {
+
+			this._ajaxUpdate( forceUpdate );
+
+		}.bind( this ), 500 );
+
+	};
+
+
+
+	Shortcode.prototype._ajaxUpdate = function( forceUpdate ) {
 
 		// If nothing was changed, don't update.
 
@@ -7088,7 +7208,9 @@ ContentEdit.Map = (function(_super) {
 	};
 
 	Map.prototype.unmount = function() {
-		google.maps.event.clearInstanceListeners( this._domElement.map );
+		if ( typeof google !== 'undefined' ) {
+			google.maps.event.clearInstanceListeners( this._domElement.map );
+		}
 		return Map.__super__.unmount.call( this );
 	};
 
@@ -9346,19 +9468,26 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 	});
 
-	// When something's blurred, clear the inspector
-	ContentEdit.Root.get().bind('blur', function () {
-
+	// When something's blurred, update the inspector
+	ContentEdit.Root.get().bind('blur', function() {
 		setTimeout( function() {
-			// Remember the scroll position.
-			window._inspectorOrigScrollTop = document.querySelector('.ct-toolbox').scrollTop;
+			var editor = ContentTools.EditorApp.get(), root = ContentEdit.Root.get();
+			if ( ! root.focused() ) {
+				editor._toolbox.clearOldGroups();
+				return;
+			}
+			var domElement = null;
+			if ( root.focused()._domElement )  {
+				domElement = root.focused()._domElement;
+			}
 
-			// var editor = ContentTools.EditorApp.get();
-			// editor._toolbox.clearSections();
-		}, 1 );
-
+			if ( domElement ) {
+				window.updateInspector( domElement );
+			} else {
+				editor._toolbox.clearOldGroups();
+			}
+		}, 10 );
 	});
-
 });
 
 
@@ -9415,8 +9544,17 @@ ContentTools.ToolboxUI.prototype.addSectionOptions = function( divGroup, option,
 		model = element.model;
 	}
 
+	// If an option type doesn't match any of the supported types, default back to 'Text'.
+	var matchesAnOptionType = Object.keys( PBSOption ).some( function( name ) {
+		return name.toLowerCase() === option.type.toLowerCase().replace( /_/g, '' );
+	} );
+	if ( ! matchesAnOptionType ) {
+		option.type = 'Text';
+	}
+
+	var type = option.type.toLowerCase().replace( /_/g, '' );
 	for ( var optionName in PBSOption ) {
-		if ( PBSOption.hasOwnProperty( optionName ) && option.type.toLowerCase() === optionName.toLowerCase() ) {
+		if ( PBSOption.hasOwnProperty( optionName ) && type === optionName.toLowerCase() ) {
 
 			var id = optionName.replace( /([a-z])([A-Z])/g, '$1-$2' ).toLowerCase();
 			if ( element.constructor.name ) {
@@ -9424,7 +9562,7 @@ ContentTools.ToolboxUI.prototype.addSectionOptions = function( divGroup, option,
 			}
 			var optionWrapper = document.createElement('DIV');
 			optionWrapper.classList.add( 'ct-tool' );
-			if ( option.type.toLowerCase() !== 'button' ) {
+			if ( type !== 'button' ) {
 				optionWrapper.classList.add( 'pbs-tool-option' );
 			}
 			if ( option['class'] ) {
@@ -9773,8 +9911,8 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 		var matchedPattern = '';
 		label = '';
 		if ( currDomElement ) {
-			for ( var pattern in PBSShortcodes ) {
-				if ( PBSShortcodes.hasOwnProperty( pattern ) ) {
+			for ( var pattern in PBSInspectorOptions ) {
+				if ( PBSInspectorOptions.hasOwnProperty( pattern ) ) {
 					try {
 						if ( window.pbsSelectorMatches( domElement, pattern ) ) {
 							matchedPattern = pattern;
@@ -9786,8 +9924,8 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 		}
 
 		if ( matchedPattern ) {
-			if ( PBSShortcodes[ matchedPattern ].label ) {
-				label = PBSShortcodes[ matchedPattern ].label;
+			if ( PBSInspectorOptions[ matchedPattern ].label ) {
+				label = PBSInspectorOptions[ matchedPattern ].label;
 			}
 			if ( ! label ) {
 				label = matchedPattern;
@@ -9813,8 +9951,8 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 				element: currDomElement
 			});
 
-			for ( i = 0; i < PBSShortcodes[ matchedPattern ].options.length; i++ ) {
-				this.addSectionOptions( group, PBSShortcodes[ matchedPattern ].options[i], currDomElement, currElemModel );
+			for ( i = 0; i < PBSInspectorOptions[ matchedPattern ].options.length; i++ ) {
+				this.addSectionOptions( group, PBSInspectorOptions[ matchedPattern ].options[i], currDomElement, currElemModel );
 			}
 		}
 	}
@@ -9843,7 +9981,7 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 
 
 	// Adjust the order of the inspector. Make sure the row & column are last.
-	var elem;
+	var elem, note;
 	for ( i = 0; i < hierarchy.length; i++ ) {
 		if ( hierarchy[ i ].constructor.name === 'DivRow' ) {
 			elem = hierarchy[ i ];
@@ -9868,7 +10006,7 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 		currElem = hierarchy[ i ];
 
 		var elemType = currElem.constructor.name;
-		var groupClasses;
+		var groupClasses, shortcodeProperties;
 
 		elemType = wp.hooks.applyFilters( 'pbs.inspector.elemtype', elemType, currElem );
 
@@ -9880,16 +10018,29 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 		// Get the title label.
 		if ( elemType === 'Shortcode' ) {
 
-			label = currElem._domElement.getAttribute('data-base');
-			if ( typeof PBSShortcodes[ currElem.sc_base ] !== 'undefined' && typeof PBSShortcodes[ currElem.sc_base ].label !== 'undefined' ) {
-				label = PBSShortcodes[ currElem.sc_base ].label;
+			label = currElem._domElement.getAttribute( 'data-base' );
+		 	label = label.replace( /[-_]/g, ' ' ).replace( /\b[a-z]/g, function( letter ) {
+				return letter.toUpperCase();
+			});
+
+			// If there is an existing shortcode mapping, use that.
+			if ( typeof PBSInspectorOptions.Shortcode[ currElem.sc_base ] === 'undefined' ) {
+				if ( typeof pbsParams.shortcode_mappings !== 'undefined' && typeof pbsParams.shortcode_mappings[ currElem.sc_base ] !== 'undefined' ) {
+					if ( this.createShortcodeMappingOptions ) {
+						this.createShortcodeMappingOptions( currElem.sc_base );
+					}
+				}
 			}
 
-		} else if ( typeof PBSShortcodes[ elemType ] !== 'undefined' && doneTypes.indexOf( elemType ) === -1 ) {
+			if ( typeof PBSInspectorOptions.Shortcode[ currElem.sc_base ] !== 'undefined' && typeof PBSInspectorOptions.Shortcode[ currElem.sc_base ].label !== 'undefined' ) {
+				label = PBSInspectorOptions.Shortcode[ currElem.sc_base ].label;
+			}
+
+		} else if ( typeof PBSInspectorOptions[ elemType ] !== 'undefined' && doneTypes.indexOf( elemType ) === -1 ) {
 
 			label = currElem.typeName();
-			if ( PBSShortcodes[ elemType ].label ) {
-				label = PBSShortcodes[ elemType ].label;
+			if ( PBSInspectorOptions[ elemType ].label ) {
+				label = PBSInspectorOptions[ elemType ].label;
 			}
 
  		} else {
@@ -9920,8 +10071,8 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 		// Create the options.
 		if ( elemType === 'Shortcode' ) {
 
-			var shortcodeBase = currElem.sc_base,
-				shortcodeProperties = PBSShortcodes[ shortcodeBase ];
+			var shortcodeBase = currElem.sc_base;
+			shortcodeProperties = PBSInspectorOptions.Shortcode[ shortcodeBase ];
 
 			if ( typeof shortcodeProperties !== 'undefined' && typeof shortcodeProperties.hidden !== 'undefined' ) {
 				if ( shortcodeProperties.hidden ) {
@@ -9933,6 +10084,18 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 				for ( k = 0; k < shortcodeProperties.options.length; k++ ) {
 					this.addSectionOptions( group, shortcodeProperties.options[ k ], currElem );
 				}
+				if ( shortcodeProperties.desc ) {
+					heading.innerHTML += '<span>' + shortcodeProperties.desc + '</span>';
+				}
+
+				// Add a note if the shortcode doesn't have attributes.
+				if ( ! shortcodeProperties.options.length ) {
+					var note = document.createElement( 'SPAN' );
+					note.innerHTML = pbsParams.labels.no_attributes_available;
+					note.classList.add( 'pbs-shortcode-no-options' );
+					group.appendChild( note );
+				}
+
 			} else {
 				this.addGenericShortcodeOptions( group, currElem );
 				heading.innerHTML += '<span>' + pbsParams.labels.note_options_are_detected + '</span>';
@@ -9944,7 +10107,7 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 			shortcodeNote.innerHTML = pbsParams.labels.note_shortcode_not_appearing;
 			group.appendChild( shortcodeNote );
 
-		} else if ( typeof PBSShortcodes[ elemType ] !== 'undefined' && doneTypes.indexOf( elemType ) === -1 ) {
+		} else if ( typeof PBSInspectorOptions[ elemType ] !== 'undefined' && doneTypes.indexOf( elemType ) === -1 ) {
 
 			// currElemModel = new Backbone.Model({
 			// 	element: currElem
@@ -9958,8 +10121,18 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 				currElemModel.set( 'element', currElem );
 			}
 
-			for ( k = 0; k < PBSShortcodes[ elemType ].options.length; k++ ) {
-				this.addSectionOptions( group, PBSShortcodes[ elemType ].options[ k ], currElem, currElemModel );
+			for ( k = 0; k < PBSInspectorOptions[ elemType ].options.length; k++ ) {
+				this.addSectionOptions( group, PBSInspectorOptions[ elemType ].options[ k ], currElem, currElemModel );
+			}
+
+			// Footer notice for the inspector.
+			if ( typeof PBSInspectorOptions[ elemType ].footer !== 'undefined' ) {
+				if ( Math.random() > 0.5 ) { // Do this only half of the time.
+					note = document.createElement( 'DIV' );
+					note.innerHTML = PBSInspectorOptions[ elemType ].footer;
+					note.classList.add( 'pbs-group-footer' );
+					group.appendChild( note );
+				}
 			}
 
 			wp.hooks.doAction( 'pbs.inspector.add_section', group, label );
@@ -9969,10 +10142,17 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 		}
 	}
 
+	this.clearOldGroups();
+
+	while ( this._newGroups.length ) {
+		this._oldGroups.push( this._newGroups.pop() );
+	}
+
+};
 
 
-
-	for ( i = 0; i < this._oldGroups.length; i++ ) {
+ContentTools.ToolboxUI.prototype.clearOldGroups = function() {
+	for ( var i = 0; i < this._oldGroups.length; i++ ) {
 		var oldGroup = this._oldGroups[ i ];
 		if ( typeof oldGroup.view !== 'undefined' ) {
 			// oldGroup.view.remove();
@@ -10011,10 +10191,6 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 		}.bind(oldGroup), 350);
 	}
 	this._oldGroups = [];
-	while ( this._newGroups.length ) {
-		this._oldGroups.push( this._newGroups.pop() );
-	}
-
 };
 
 ContentTools.ToolboxUI.prototype.clearSections = function() {
@@ -10153,7 +10329,7 @@ window.pbsAddInspector = function( elemName, args ) {// options ) {
 	if ( typeof args !== 'object' ) {
 		return;
 	}
-	var i;
+	var i, container = PBSInspectorOptions;
 
 	// Support multiple element names given.
 	if ( typeof elemName === 'object' ) {
@@ -10163,24 +10339,52 @@ window.pbsAddInspector = function( elemName, args ) {// options ) {
 		return;
 	}
 
-	if ( typeof PBSShortcodes[ elemName ] === 'undefined' ) {
-		PBSShortcodes[ elemName ] = args;
+	if ( typeof args.is_shortcode !== 'undefined' ) {
+		if ( args.is_shortcode ) {
+			container = PBSInspectorOptions.Shortcode;
+		}
+	}
+
+	if ( typeof container[ elemName ] === 'undefined' ) {
+		container[ elemName ] = args;
 		return;
 	}
+
 	for ( var argName in args ) {
 		if ( args.hasOwnProperty( argName ) ) {
 			if ( argName !== 'options' ) {
-				PBSShortcodes[ elemName ][ argName ] = args[ argName ];
+				container[ elemName ][ argName ] = args[ argName ];
 			} else {
 				var options = args[ argName ];
 				for ( i = 0; i < options.length; i++ ) {
-					PBSShortcodes[ elemName ].options.push( options[ i ] );
+					container[ elemName ].options.push( options[ i ] );
 				}
 			}
 		}
 	}
 };
-var PBSShortcodes = {};
+window.pbsRemoveInspector = function( elemName ) {
+	var i, container = PBSInspectorOptions;
+
+	// Support multiple element names given.
+	if ( typeof elemName === 'object' ) {
+		for ( i = 0; i < elemName.length; i++ ) {
+			window.pbsRemoveInspector( elemName[ i ] );
+		}
+		return;
+	}
+
+	if ( typeof PBSInspectorOptions.Shortcode[ elemName ] !== 'undefined' ) {
+		container = PBSInspectorOptions.Shortcode;
+	}
+
+	if ( typeof container[ elemName ] !== 'undefined' ) {
+		delete container[ elemName ];
+	}
+};
+var PBSInspectorOptions = {
+	'Shortcode': {}
+};
 
 	// 'pbs_button': {
 	// 	'name': 'Button',
@@ -10198,7 +10402,7 @@ var PBSShortcodes = {};
 if ( pbsParams.additional_shortcodes ) {
 	for ( var elemName in pbsParams.additional_shortcodes ) {
 		if ( pbsParams.additional_shortcodes.hasOwnProperty( elemName ) ) {
-			PBSShortcodes[ elemName ] = pbsParams.additional_shortcodes[ elemName ];
+			PBSInspectorOptions.Shortcode[ elemName ] = pbsParams.additional_shortcodes[ elemName ];
 		}
 	}
 }
@@ -10370,6 +10574,23 @@ wp.hooks.addAction( 'inspector.group_title.create', function( section ) {
 		}, 1 );
 	}
 } );
+
+
+/**
+ * Prevent pressing the delete button while editing stuff in the inspector
+ * from deleting elements.
+ */
+( function() {
+   var proxied = ContentTools.Tools.Remove.apply;
+   ContentTools.Tools.Remove.apply = function( element, selection, callback ) {
+	   if ( document.activeElement ) {
+		   if ( ['INPUT', 'TEXTAREA'].indexOf( document.activeElement.tagName ) !== -1 ) {
+			   return;
+		   }
+	   }
+	   proxied.call( element, selection, callback );
+   };
+} )();
 
 /* globals ContentEdit, ContentTools, pbsParams */
 
@@ -11076,67 +11297,6 @@ PBSOption.Select = Backbone.View.extend({
 });
 
 
-PBSOption.Checkbox = Backbone.View.extend({
-	template: wp.template( 'pbs-option-checkbox' ),
-
-	events: {
-		'change input' : 'selectChanged',
-		// 'click input' : 'click'
-	},
-
-	initialize: function(options) {
-		this.optionSettings = _.clone( options.optionSettings );
-
-		if ( this.optionSettings.initialize ) {
-			this.optionSettings.initialize( this.model.get('element'), this );
-		}
-
-		this.listenTo( this.model, 'change', this.render );
-		if ( this.optionSettings.value ) {
-			this.model.set( this.optionSettings.id, this.optionSettings.value( this.model.get('element') ) );
-		}
-	},
-
-	render: function() {
-		var data = _.extend( {}, this.model.attributes, this.optionSettings );
-		data.value = '';
-
-		if ( this.optionSettings.value ) {
-			data.value = this.optionSettings.value( this.model.get('element' ) );
-		} else if ( this.optionSettings.id ) {
-			data.value = this.model.get( this.optionSettings.id );
-		}
-
-		// Add the template if it doesn't exist yet.
-    	this.$el.html( this.template( data ) );
-	    return this;
-	},
-
-	selectChanged: function(e) {
-		var value = false;
-		if ( this.optionSettings.unchecked ) {
-			value = this.optionSettings.unchecked;
-		}
-		if ( e.target.checked ) {
-			value = true;
-			if ( this.optionSettings.checked ) {
-				value = this.optionSettings.checked;
-			}
-		}
-		if ( this.optionSettings.change ) {
-			this.optionSettings.change( this.model.get('element'), value );
-		}
-		this.model.set( this.optionSettings.id, value );
-	},
-
-	click: function(e) {
-		if ( this.optionSettings.click ) {
-			this.optionSettings.click( this.model.get('element'), e.target.value );
-		}
-	}
-});
-
-
 PBSOption.Text = Backbone.View.extend({
 	template: wp.template( 'pbs-option-text' ),
 
@@ -11204,9 +11364,6 @@ PBSOption.Textarea = PBSOption.Text.extend({
 		'click textarea' : 'click'
 	}
 } );
-
-PBSOption.Number = PBSOption.Text.extend({});
-
 
 PBSOption.MarginsAndPaddings = Backbone.View.extend({
 	template: wp.template( 'pbs-option-margins-and-paddings' ),
@@ -11477,6 +11634,8 @@ window.pbsAddInspector( 'Icon', {
 
 	'label': 'Icon',
 
+	'footer': pbsParams.labels.icon_lite_footer, // LITE-ONLY
+
 	'options': [
 
 		{
@@ -11651,6 +11810,7 @@ window.pbsAddInspector( 'Icon', {
 /* globals pbsParams */
 
 window.pbsAddInspector('pbs_widget', {
+	'is_shortcode': true,
 	'label': pbsParams.labels.widget,
 	'desc': pbsParams.labels.widget_inspector_desc,
 	'options': [
@@ -11659,186 +11819,187 @@ window.pbsAddInspector('pbs_widget', {
 		}
 	]
 });
-
-
-window.pbsAddInspector('divider_advanced', {
-	'label': 'Champion - Advanced Divider Line',
-	'desc': 'A more customizable divider.',
-	'options': [
-		{
-			'name': 'Color',
-			'type': 'color',
-			'id': 'color',
-			'desc': 'The divider&apos;s color',
-			'default': ''
-		},
-		{
-			'name': 'Top Padding',
-			'type': 'text',
-			'id': 'paddingtop',
-			'desc': 'in px',
-			'default': '20'
-		},
-		{
-			'name': 'Bottom Padding',
-			'type': 'text',
-			'id': 'paddingbottom',
-			'desc': 'in px',
-			'default': 'false'
-		},
-		{
-			'name': 'Thickness',
-			'type': 'text',
-			'id': 'thickness',
-			'desc': 'in px',
-			'default': 'false'
-		},
-		{
-			'name': 'Width',
-			'type': 'text',
-			'id': 'width',
-			'desc': 'add units, e.g. px or %',
-			'default': 'false'
-		},
-		{
-			'name': 'Go to top link',
-			'type': 'checkbox',
-			'id': 'top',
-			'checked': 'true',
-			'unchecked': 'false',
-			'default': 'false'
-		}
-	]
-});
-
-window.pbsAddInspector('divider_arrow', {
-	'label': 'Champion - Divider Arrow',
-	'desc': 'A customizable divider with arrows.',
-	'options': [
-		{
-			'name': 'Color',
-			'type': 'color',
-			'id': 'color',
-			'desc': 'The divider&apos;s color',
-			'group': 'Colors',
-			'default': ''
-		},
-		{
-			'name': 'Background Color',
-			'type': 'color',
-			'id': 'bgcolor',
-			'desc': 'The divider&apos;s background color',
-			'group': 'Colors',
-			'default': ''
-		},
-		{
-			'name': 'Arrow Width Left',
-			'type': 'text',
-			'id': 'widthleft',
-			'desc': 'in px',
-			'group': 'Arrow',
-			'default': ''
-		},
-		{
-			'name': 'Arrow Width Right',
-			'type': 'text',
-			'id': 'widthright',
-			'desc': 'in px',
-			'group': 'Arrow',
-			'default': ''
-		},
-		{
-			'name': 'Arrow Height',
-			'type': 'text',
-			'id': 'height',
-			'desc': 'in px',
-			'group': 'Arrow',
-			'default': '30'
-		},
-		{
-			'name': 'Arrow Horizontal Position',
-			'type': 'text',
-			'id': 'horizontal',
-			'desc': 'add units, e.g. px or %',
-			'group': 'Arrow',
-			'default': ''
-		},
-		{
-			'name': 'Arrow Offset',
-			'type': 'text',
-			'id': 'offset',
-			'desc': 'in px',
-			'group': 'Arrow',
-			'default': ''
-		},
-		{
-			'name': 'Arrow Type',
-			'type': 'select',
-			'id': 'arrow',
-			'options': {
-				'down': 'Down Arrow',
-				'up': 'Up Arrow'
-			},
-			'desc': 'The direction of the arrow',
-			'group': 'Arrow',
-			'default': 'down'
-		},
-		{
-			'name': 'Divider Line Thickness',
-			'type': 'text',
-			'id': 'thickness',
-			'desc': 'in px',
-			'group': 'Line',
-			'default': ''
-		},
-		{
-			'name': 'Divider Line Color',
-			'type': 'color',
-			'id': 'linecolor',
-			'desc': '',
-			'group': 'Line',
-			'default': '',
-			'depends': [
-				{
-					'id': 'thickness',
-					'value': '__not_empty'
-				}
-			]
-		},
-		{
-			'name': 'Optional Class',
-			'type': 'text',
-			'id': 'class',
-			'desc': '',
-			'group': 'Advanced',
-			'default': ''
-		},
-		{
-			'name': 'Visible Screen Size',
-			'type': 'select',
-			'id': 'visible',
-			'options': {
-				'all': 'All',
-				'320': '0-320',
-				'480': '0-480',
-				'568': '0-568',
-				'768': '0-768',
-				'980': '0-980',
-				'-480': '480-all',
-				'-568': '568-all',
-				'-768': '768-all',
-				'-980': '980-all'
-			},
-			'desc': '',
-			'group': 'Advanced',
-			'default': 'all'
-		}
-	]
-});
+//
+//
+// window.pbsAddInspector('divider_advanced', {
+// 	'label': 'Champion - Advanced Divider Line',
+// 	'desc': 'A more customizable divider.',
+// 	'options': [
+// 		{
+// 			'name': 'Color',
+// 			'type': 'color',
+// 			'id': 'color',
+// 			'desc': 'The divider&apos;s color',
+// 			'default': ''
+// 		},
+// 		{
+// 			'name': 'Top Padding',
+// 			'type': 'text',
+// 			'id': 'paddingtop',
+// 			'desc': 'in px',
+// 			'default': '20'
+// 		},
+// 		{
+// 			'name': 'Bottom Padding',
+// 			'type': 'text',
+// 			'id': 'paddingbottom',
+// 			'desc': 'in px',
+// 			'default': 'false'
+// 		},
+// 		{
+// 			'name': 'Thickness',
+// 			'type': 'text',
+// 			'id': 'thickness',
+// 			'desc': 'in px',
+// 			'default': 'false'
+// 		},
+// 		{
+// 			'name': 'Width',
+// 			'type': 'text',
+// 			'id': 'width',
+// 			'desc': 'add units, e.g. px or %',
+// 			'default': 'false'
+// 		},
+// 		{
+// 			'name': 'Go to top link',
+// 			'type': 'checkbox',
+// 			'id': 'top',
+// 			'checked': 'true',
+// 			'unchecked': 'false',
+// 			'default': 'false'
+// 		}
+// 	]
+// });
+//
+// window.pbsAddInspector('divider_arrow', {
+// 	'label': 'Champion - Divider Arrow',
+// 	'desc': 'A customizable divider with arrows.',
+// 	'options': [
+// 		{
+// 			'name': 'Color',
+// 			'type': 'color',
+// 			'id': 'color',
+// 			'desc': 'The divider&apos;s color',
+// 			'group': 'Colors',
+// 			'default': ''
+// 		},
+// 		{
+// 			'name': 'Background Color',
+// 			'type': 'color',
+// 			'id': 'bgcolor',
+// 			'desc': 'The divider&apos;s background color',
+// 			'group': 'Colors',
+// 			'default': ''
+// 		},
+// 		{
+// 			'name': 'Arrow Width Left',
+// 			'type': 'text',
+// 			'id': 'widthleft',
+// 			'desc': 'in px',
+// 			'group': 'Arrow',
+// 			'default': ''
+// 		},
+// 		{
+// 			'name': 'Arrow Width Right',
+// 			'type': 'text',
+// 			'id': 'widthright',
+// 			'desc': 'in px',
+// 			'group': 'Arrow',
+// 			'default': ''
+// 		},
+// 		{
+// 			'name': 'Arrow Height',
+// 			'type': 'text',
+// 			'id': 'height',
+// 			'desc': 'in px',
+// 			'group': 'Arrow',
+// 			'default': '30'
+// 		},
+// 		{
+// 			'name': 'Arrow Horizontal Position',
+// 			'type': 'text',
+// 			'id': 'horizontal',
+// 			'desc': 'add units, e.g. px or %',
+// 			'group': 'Arrow',
+// 			'default': ''
+// 		},
+// 		{
+// 			'name': 'Arrow Offset',
+// 			'type': 'text',
+// 			'id': 'offset',
+// 			'desc': 'in px',
+// 			'group': 'Arrow',
+// 			'default': ''
+// 		},
+// 		{
+// 			'name': 'Arrow Type',
+// 			'type': 'select',
+// 			'id': 'arrow',
+// 			'options': {
+// 				'down': 'Down Arrow',
+// 				'up': 'Up Arrow'
+// 			},
+// 			'desc': 'The direction of the arrow',
+// 			'group': 'Arrow',
+// 			'default': 'down'
+// 		},
+// 		{
+// 			'name': 'Divider Line Thickness',
+// 			'type': 'text',
+// 			'id': 'thickness',
+// 			'desc': 'in px',
+// 			'group': 'Line',
+// 			'default': ''
+// 		},
+// 		{
+// 			'name': 'Divider Line Color',
+// 			'type': 'color',
+// 			'id': 'linecolor',
+// 			'desc': '',
+// 			'group': 'Line',
+// 			'default': '',
+// 			'depends': [
+// 				{
+// 					'id': 'thickness',
+// 					'value': '__not_empty'
+// 				}
+// 			]
+// 		},
+// 		{
+// 			'name': 'Optional Class',
+// 			'type': 'text',
+// 			'id': 'class',
+// 			'desc': '',
+// 			'group': 'Advanced',
+// 			'default': ''
+// 		},
+// 		{
+// 			'name': 'Visible Screen Size',
+// 			'type': 'select',
+// 			'id': 'visible',
+// 			'options': {
+// 				'all': 'All',
+// 				'320': '0-320',
+// 				'480': '0-480',
+// 				'568': '0-568',
+// 				'768': '0-768',
+// 				'980': '0-980',
+// 				'-480': '480-all',
+// 				'-568': '568-all',
+// 				'-768': '768-all',
+// 				'-980': '980-all'
+// 			},
+// 			'desc': '',
+// 			'group': 'Advanced',
+// 			'default': 'all'
+// 		}
+// 	]
+// });
 
 /* globals pbsParams */
 
 window.pbsAddInspector('pbs_sidebar', {
+	'is_shortcode': true,
 	'label': pbsParams.labels.sidebar,
 	'desc': pbsParams.labels.sidebar_inspector_desc,
 	'options': [
@@ -14400,10 +14561,114 @@ window.addEventListener( 'DOMContentLoaded', function() {
 } );
 
 
+/* globals pbsParams, ContentTools */
+
+ContentTools.ToolboxUI.prototype.createShortcodeMappingOptions = function( shortcodeTag ) {
+
+	var map = pbsParams.shortcode_mappings[ shortcodeTag ];
+
+	var name = map.name;
+	if ( ! name ) {
+		name = shortcodeTag;
+	}
+	name = name.replace( /[-_]/g, ' ' ).replace( /\b[a-z]/g, function( letter ) {
+		return letter.toUpperCase();
+	});
+
+	// Create the attribute objects.
+	var i, opts, value, label, attributes = [], typesDone = [];
+	for ( var attribute in map.attributes ) {
+		var options = map.attributes[ attribute ];
+		options.desc = options.description || '';
+		options.id = options.attribute;
+
+		// This is used to display get-the-premium version messages in sc map options.
+		options.type_orig = options.type;
+		options.first_of_type = typesDone.indexOf( options.type ) === -1;
+		typesDone.push( options.type );
+
+		// Base the name of the attribute on the attribute itself if not available.
+		if ( typeof options.name === 'undefined' || ! options.name ) {
+			options.name = options.attribute;
+			options.name = options.name.replace( /[-_]/g, ' ' ).replace( /\b[a-z]/g, function( letter ) {
+				return letter.toUpperCase();
+			});
+		}
+
+		// Lite version doesn't have a color option, but has one defined, force it.
+		if ( pbsParams.is_lite ) {
+			if ( 'color' === options.type ) {
+				options.type = 'text';
+			} else if ( 'dropdown_post' === options.type ) {
+				options.type = 'text';
+			} else if ( 'dropdown_post_type' === options.type ) {
+				options.type = 'text';
+			}
+		}
+
+		if ( 'boolean' === options.type ) {
+			options.type = 'checkbox';
+			options.checked = options.extra_boolean_checked || 'true';
+			options.unchecked = options.extra_boolean_unchecked || 'false';
+		} else if ( 'number' === options.type ) {
+			options.min = options.extra_num_min || 0;
+			options.max = options.extra_num_max || 1000;
+			options.step = options.extra_num_step || 1;
+		} else if ( 'multicheck' === options.type ) {
+			options.options = {};
+			opts = options.extra_dropdown.split( /\n/ ) || {};
+			for ( i = 0; i < opts.length; i++ ) {
+				value = opts[ i ].substr( 0, opts[ i ].indexOf( ',' ) );
+				label = opts[ i ].substr( opts[ i ].indexOf( ',' ) + 1 );
+				options.options[ value ] = label;
+			}
+		} else if ( 'multicheck_post_type' === options.type ) {
+			options.type = 'multicheck';
+			options.options = pbsParams.post_types;
+		} else if ( 'dropdown' === options.type ) {
+			options.type = 'select';
+			options.options = {
+				'': '— ' + pbsParams.labels.select_one + ' —'
+			};
+			opts = options.extra_dropdown.split( /\n/ ) || {};
+			for ( i = 0; i < opts.length; i++ ) {
+				value = opts[ i ].substr( 0, opts[ i ].indexOf( ',' ) );
+				label = opts[ i ].substr( opts[ i ].indexOf( ',' ) + 1 );
+				options.options[ value ] = label;
+			}
+		} else if ( 'dropdown_post_type' === options.type ) {
+			options.type = 'select';
+			options.options = {
+				'': '— ' + pbsParams.labels.select_a_post_type + ' —'
+			};
+			for ( i in pbsParams.post_types ) {
+				options.options[ i ] = pbsParams.post_types[ i ];
+			}
+		} else if ( 'dropdown_post' === options.type ) {
+			options.type = 'select_post';
+			options.post_type = options.extra || 'post';
+		} else if ( 'content' === options.type ) {
+			options.type = 'textarea';
+		}
+
+		attributes.push( options );
+	}
+
+	// Add it in the inspector
+	window.pbsAddInspector( shortcodeTag, {
+		'is_shortcode': true,
+		'label': name,
+		'desc': map.description || '',
+		'options': attributes
+	});
+
+};
+
 /* globals google, pbsParams, PBSEditor */
 
  window.pbsAddInspector( 'Map', {
  	'label': pbsParams.labels.map,
+	'footer': pbsParams.labels.map_lite_footer, // LITE-ONLY
  	'options': [
 		{
 			'name': pbsParams.labels.hide_map_controls,
@@ -14535,6 +14800,7 @@ tab:
 
 window.pbsAddInspector( 'Tabs', {
 	'label': pbsParams.labels.tabs,
+	'footer': pbsParams.labels.tabs_lite_footer, // LITE-ONLY
 	'options': [
 		{
 			'name': pbsParams.labels.add_tab,
@@ -15774,7 +16040,7 @@ ContentTools.Tools.AddElementList = (function(_super) {
 	};
 })();
 
-/* globals ContentTools, ContentEdit, PBSShortcodes, __extends, PBSEditor, pbsParams */
+/* globals ContentTools, ContentEdit, PBSInspectorOptions, __extends, PBSEditor, pbsParams */
 
 ContentTools.Tools.Shortcode = (function(_super) {
 	__extends(Shortcode, _super);
@@ -15814,17 +16080,28 @@ ContentTools.Tools.Shortcode = (function(_super) {
 				var base = view.selected.getAttribute( 'data-shortcode-tag' );
 				var shortcodeRaw = this.createInsertedShortcode( base );
 				var shortcode = wp.shortcode.next( base, shortcodeRaw, 0 );
+				var isMapped = pbsParams.shortcode_mappings[ base ];
+				var elem;
 
-				// Insert the RAW shortcode.
-				var elem = new ContentEdit.Text( 'p', {}, shortcode.shortcode.string() );
+				// Insert the RAW shortcode, insert & render the shortcode if it's mapped.
+				if ( isMapped ) {
+					elem = ContentEdit.Shortcode.createShortcode( shortcode );
+				} else {
+					elem = new ContentEdit.Text( 'p', {}, shortcode.shortcode.string() );
+				}
 				var index = elemFocused.parent().children.indexOf( elemFocused );
 				elemFocused.parent().attach( elem, index + 1 );
 
+				if ( isMapped ) {
+					elem.ajaxUpdate( true );
+				} else {
+					elem.origShortcode = '';
+					elem.origInnerHTML = '';
+					elem.isShortcodeEditing = true;
+				}
+
 				elem.focus();
 
-				elem.origShortcode = '';
-				elem.origInnerHTML = '';
-				elem.isShortcodeEditing = true;
 			}.bind( this )
 		});
 		return callback( true );
@@ -15840,12 +16117,26 @@ ContentTools.Tools.Shortcode = (function(_super) {
 			attrs: {}
 		};
 
+		// If there is an existing shortcode mapping, use that.
+		if ( typeof PBSInspectorOptions.Shortcode[ base ] === 'undefined' ) {
+			if ( typeof pbsParams.shortcode_mappings !== 'undefined' && typeof pbsParams.shortcode_mappings[ base ] !== 'undefined' ) {
+				var editor = ContentTools.EditorApp.get();
+				if ( editor._toolbox.createShortcodeMappingOptions ) {
+					editor._toolbox.createShortcodeMappingOptions( base );
+				}
+			}
+		}
+
 		// Include shortcode API data if it exists
-		if ( PBSShortcodes[ base ] && PBSShortcodes[ base ].options ) {
-			for ( var i = 0; i < PBSShortcodes[ base ].options.length; i++ ) {
-				var option = PBSShortcodes[ base ].options[ i ];
-				if ( option.id && option['default'] ) {
-					scData.attrs[ option.id ] = option['default'];
+		if ( PBSInspectorOptions.Shortcode[ base ] && PBSInspectorOptions.Shortcode[ base ].options ) {
+			for ( var i = 0; i < PBSInspectorOptions.Shortcode[ base ].options.length; i++ ) {
+				var option = PBSInspectorOptions.Shortcode[ base ].options[ i ];
+				if ( option.id ) {
+					if ( option.id === 'content' ) {
+						scData.content = option['default'];
+					} else {
+						scData.attrs[ option.id ] = option['default'];
+					}
 				}
 			}
 		}
@@ -17956,8 +18247,6 @@ ContentTools.Tools.Tabs = ( function( _super ) {
 
 	Tabs.buttonName = pbsParams.labels.tabs;
 
-	Tabs.premium = true;
-
 	Tabs.apply = function(element, selection, callback) {
 
 		var hashes = [];
@@ -19204,7 +19493,7 @@ wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
 } );
 
 
-/* globals pbsParams, PBSShortcodes */
+/* globals pbsParams, PBSInspectorOptions */
 
 wp.hooks.addFilter( 'pbs.has_toolbar_selectors', function( selector ) {
 	selector.push( '[data-shortcode]' );
@@ -19230,9 +19519,9 @@ wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
 	o.innerHTML = wp.hooks.applyFilters( 'pbs.toolbar.shortcode.label', target.getAttribute('data-base') );
 
 	// Use the label of the shortcode if it is provided.
-	if ( PBSShortcodes[ target.getAttribute('data-base') ] ) {
-		if ( PBSShortcodes[ target.getAttribute('data-base') ].label ) {
-			o.innerHTML = wp.hooks.applyFilters( 'pbs.toolbar.shortcode.label', PBSShortcodes[ target.getAttribute('data-base') ].label );
+	if ( PBSInspectorOptions.Shortcode[ target.getAttribute('data-base') ] ) {
+		if ( PBSInspectorOptions.Shortcode[ target.getAttribute('data-base') ].label ) {
+			o.innerHTML = wp.hooks.applyFilters( 'pbs.toolbar.shortcode.label', PBSInspectorOptions.Shortcode[ target.getAttribute('data-base') ].label );
 		}
 	}
 
@@ -19310,8 +19599,15 @@ wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
 	if ( target.getAttribute( 'data-ce-tag' ) !== 'map' ) {
 		return tools;
 	}
-	
+
 	var o = document.createElement('DIV');
+	o.classList.add('pbs-tool-label');
+	o.innerHTML = pbsParams.labels.map;
+	o.addEventListener('click', function() {
+	});
+	tools.push( o );
+
+	o = document.createElement('DIV');
 	o.classList.add( 'pbs-tool' );
 	o.classList.add( 'pbs-image-remove' );
 	o.setAttribute( 'data-tooltip', pbsParams.labels.remove );
@@ -19353,7 +19649,7 @@ ContentTools.Tools.GetPremium = (function(_super) {
 			this._domElement.classList.remove( 'ct-tool' );
 			this._domElement.classList.add( 'pbs-get-more-features' );
 			this._domElement.classList.add( 'pbs-get-more-features-dark' );
-			this._domElement.innerHTML = '<a href="https://pagebuildersandwich.com/?utm_source=lite-plugin&utm_medium=inspector-top&utm_campaign=Page%20Builder%20Sandwich" target="_blank">' + pbsParams.labels.get_the_premium_plugin + '</a>';
+			this._domElement.innerHTML = '<a href="https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=inspector-top&utm_campaign=Page%20Builder%20Sandwich" target="_blank">' + pbsParams.labels.get_the_premium_plugin + '</a>';
 		}
 
 		return ret;
@@ -19383,7 +19679,7 @@ ContentTools.Tools.GetPremium = (function(_super) {
  */
 document.addEventListener( 'DOMContentLoaded', function() {
 	document.querySelector( '#wp-admin-bar-pbs_go_premium' ).addEventListener( 'click', function() {
-		var win = window.open( 'https://pagebuildersandwich.com/?utm_source=lite-plugin&utm_medium=adminbar&utm_campaign=Page%20Builder%20Sandwich', '_blank');
+		var win = window.open( 'https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=adminbar&utm_campaign=Page%20Builder%20Sandwich', '_blank');
   		win.focus();
 	});
 });

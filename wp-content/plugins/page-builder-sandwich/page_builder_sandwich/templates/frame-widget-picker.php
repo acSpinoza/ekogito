@@ -16,7 +16,7 @@
 	<div class="media-frame-content pbs-search-list-frame">
 
 		<div class="pbs-search-list">
-			<div class="pbs-no-results"><?php _e( 'No matches found', PAGE_BUILDER_SANDWICH ) ?></div>
+			<div class="pbs-no-results"><?php esc_html_e( 'No matches found', PAGE_BUILDER_SANDWICH ) ?></div>
 			<?php
 			$widgets = PBSElementWidget::gather_all_widgets();
 			foreach ( $widgets as $widget_slug => $widget_info ) {
@@ -32,7 +32,7 @@
 		<div class="media-toolbar">
 			<div class="media-toolbar-secondary">
 				<p>
-					<?php _e( 'Some widgets that use specialized scripts and modal forms may not work correctly. For those, please use the sidebar element instead.', PAGE_BUILDER_SANDWICH ) ?>
+					<?php esc_html_e( 'Some widgets that use specialized scripts and modal forms may not work correctly. For those, please use the sidebar element instead.', PAGE_BUILDER_SANDWICH ) ?>
 				</p>
 			</div>
 			<div class="media-toolbar-primary search-form">
