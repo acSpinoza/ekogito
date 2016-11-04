@@ -9,7 +9,7 @@
 Plugin Name: Page Builder Sandwich Lite
 Description: The easiest way to build your website without any code. A true drag & drop page builder for WordPress.
 Author: Gambit Technologies
-Version: 2.18
+Version: 3.1
 Author URI: http://gambit.ph
 Plugin URI: http://pagebuildersandwich.com
 Text Domain: page-builder-sandwich
@@ -26,12 +26,12 @@ if ( ! defined( 'ABSPATH' ) ) { exit; // Exit if accessed directly.
  * show an error since multiple plugins will cause errors.
  */
 if ( defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) ) {
-	trigger_error( 'Seems like you have the Lite version of Page Builder Sandwich activated. Please deactivate it first then try again.',E_USER_ERROR );
+	trigger_error( 'Seems like you have the Lite version of Page Builder Sandwich activated. Please deactivate it first then try again.', E_USER_ERROR );
 	return;
 }
 
 // Identifies the current plugin version.
-defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '2.18' );
+defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '3.1' );
 
 // The slug used for translations & other identifiers.
 defined( 'PAGE_BUILDER_SANDWICH' ) or define( 'PAGE_BUILDER_SANDWICH', 'page-builder-sandwich' );
@@ -48,6 +48,23 @@ define( 'PBS_IS_PRO', false );
 define( 'PBS_EDD_SL_STORE_URL', 'http://pagebuildersandwich.com/?edd=nocache' );
 define( 'PBS_EDD_SL_ITEM_NAME', 'Page Builder Sandwich' );
 
+if ( ! function_exists( 'pbs_is_dev' ) ) {
+	/**
+	 * Returns true if we are in development mode and not in a built copy.
+	 *
+	 * @since 2.18
+	 *
+	 * @return boolean True if we are developing.
+	 */
+	function pbs_is_dev() {
+		if ( defined( 'WP_DEBUG' ) ) {
+			if ( WP_DEBUG ) {
+				return file_exists( trailingslashit( plugin_dir_path( __FILE__ ) ) . '_design-element-cleanup.php' );
+			}
+		}
+		return false;
+	}
+}
 
 // This is the main plugin functionality.
 require_once( 'class-compatibility.php' );
@@ -68,6 +85,8 @@ require_once( 'class-translations.php' );
 require_once( 'class-shortcode-mapper.php' );
 require_once( 'class-shortcode-mapper-3rd-party.php' );
 require_once( 'class-inspector.php' );
+require_once( 'class-frame-admin.php' );
+require_once( 'class-heartbeat.php' );
 if ( ! PBS_IS_LITE && ! class_exists( 'EDD_SL_Plugin_Updater' ) ) {
 	include( 'page_builder_sandwich/inc/EDD_SL_Plugin_Updater.php' );
 }
@@ -111,6 +130,10 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 
 			// Put a notice on how to edit using PBS.
 			add_action( 'admin_notices', array( $this, 'plugin_activation_notice' ) );
+
+			// Add edit with PBS links to posts & pages.
+			add_filter( 'post_row_actions', array( $this, 'add_pbs_edit_link' ), 10, 2 );
+			add_filter( 'page_row_actions', array( $this, 'add_pbs_edit_link' ), 10, 2 );
 
 			// Update check.
 			$this->check_update();
@@ -270,24 +293,46 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 				}
 			}
 		}
+
+
+		/**
+		 * Adds "Edit with PBS" links to posts, pages and CPTs.
+		 * Will only add a link to viewable post types.
+		 *
+		 * @since 3.1
+		 *
+		 * @param array   $actions The list of links for this post.
+		 * @param WP_Post $post The current post.
+		 *
+		 * @return array The list of links to display.
+		 */
+		public function add_pbs_edit_link( $actions, $post ) {
+			$post_type_object = get_post_type_object( $post->post_type );
+			$can_edit_post = current_user_can( 'edit_post', $post->ID );
+
+			if ( is_post_type_viewable( $post_type_object ) ) {
+				if ( in_array( $post->post_status, array( 'pending', 'draft', 'future' ), true ) ) {
+					if ( $can_edit_post ) {
+						$actions['edit_pbs'] = sprintf( '<a href="%s" title="%s" onclick="localStorage.setItem( \'pbs-open-%d\', \'1\' )">%s</a>',
+							esc_url( get_preview_post_link( $post ) ),
+							esc_attr__( 'Edit with Page Builder Sandwich', PAGE_BUILDER_SANDWICH ),
+							absint( $post->ID ),
+							esc_html__( 'Edit with Page Builder Sandwich', PAGE_BUILDER_SANDWICH )
+						);
+					}
+				} elseif ( 'trash' !== $post->post_status ) {
+					$actions['edit_pbs'] = sprintf( '<a href="%s" title="%s" onclick="localStorage.setItem( \'pbs-open-%d\', \'1\' )">%s</a>',
+						esc_url( get_permalink( $post->ID ) ),
+						esc_attr__( 'Edit with Page Builder Sandwich', PAGE_BUILDER_SANDWICH ),
+						absint( $post->ID ),
+						esc_html__( 'Edit with Page Builder Sandwich', PAGE_BUILDER_SANDWICH )
+					);
+				}
+			}
+
+			return $actions;
+		}
 	}
 
 	new PageBuilderSandwichPlugin();
-}
-
-
-/**
- * Returns true if we are in development mode and not in a built copy.
- *
- * @since 2.18
- *
- * @return boolean True if we are developing.
- */
-function pbs_is_dev() {
-	if ( defined( 'WP_DEBUG' ) ) {
-		if ( WP_DEBUG ) {
-			return file_exists( trailingslashit( plugin_dir_path( __FILE__ ) ) . '_design-element-cleanup.php' );
-		}
-	}
-	return false;
 }

@@ -30,9 +30,9 @@ if ( ! class_exists( 'PBSIntro' ) ) {
 		 * @return array The modified localization array.
 		 */
 		public function localize_scripts( $args ) {
-			$args['do_intro'] = get_option( 'pbs_first_load_intro' ) === false;
+			$args['do_intro'] = get_option( 'pbs_first_load_intro_v3' ) === false;
 
-			update_option( 'pbs_first_load_intro', 'done' );
+			update_option( 'pbs_first_load_intro_v3', 'done' );
 			return $args;
 		}
 	}

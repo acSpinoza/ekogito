@@ -92,7 +92,7 @@ class MC4WP_API_v3_Client {
 
         // don't bother if no API key was given.
         if( empty( $this->api_key ) ) {
-            throw new MC4WP_API_Exception( "Missing API key.", 001 );
+            throw new MC4WP_API_Exception( "Missing API key", 001 );
         }
 
         $url = $this->api_url . ltrim( $resource, '/' );
@@ -150,7 +150,7 @@ class MC4WP_API_v3_Client {
     private function parse_response( $response ) {
 
         if( $response instanceof WP_Error ) {
-            throw new MC4WP_API_Exception( 'Error connecting to MailChimp. ' . $response->get_error_message(), (int) $response->get_error_code() );
+            throw new MC4WP_API_Connection_Exception( $response->get_error_message(), (int) $response->get_error_code() );
         }
 
         // decode response body
@@ -176,22 +176,6 @@ class MC4WP_API_v3_Client {
         if( ! is_null( $data ) ) {
             return $data;
         }
-
-        // TODO: Move this to user land
-//		if( $code !== 200 ) {
-//			$message = sprintf( 'The MailChimp API server returned the following response: <em>%s %s</em>.', $code, $message );
-//
-//			// check for Akamai firewall response
-//			if( $code === 403 ) {
-//				preg_match('/Reference (.*)/i', $body, $matches );
-//
-//				if( ! empty( $matches[1] ) ) {
-//					$message .= '</strong><br /><br />' . sprintf( 'This usually means that your server is blacklisted by MailChimp\'s firewall. Please contact MailChimp support with the following reference number: %s </strong>', $matches[1] );
-//				}
-//			}
-//
-//
-//		}
 
         // unable to decode response
         throw new MC4WP_API_Exception( $message, $code, $response );

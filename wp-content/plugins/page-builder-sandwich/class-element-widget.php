@@ -86,7 +86,6 @@ if ( ! class_exists( 'PBSElementWidget' ) ) {
 		public function add_widget_list( $params ) {
 			$params['widget_list'] = self::gather_all_widgets();
 			$params['widget_list_hash'] = md5( serialize( self::gather_all_widgets() ) );
-			$params['widget_nonce'] = wp_create_nonce( 'pbs_widget_templates' );
 			return $params;
 		}
 
@@ -106,7 +105,7 @@ if ( ! class_exists( 'PBSElementWidget' ) ) {
 				die();
 			}
 			$nonce = sanitize_key( $_POST['nonce'] ); // Input var okay.
-			if ( ! wp_verify_nonce( $nonce, 'pbs_widget_templates' ) ) {
+			if ( ! wp_verify_nonce( $nonce, 'pbs' ) ) {
 				die();
 			}
 

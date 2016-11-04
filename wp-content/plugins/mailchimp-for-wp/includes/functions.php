@@ -98,8 +98,8 @@ function mc4wp_get_api() {
 function mc4wp_get_debug_log() {
 
 	// get default log file location
-	$upload_dir = wp_upload_dir();
-	$file = trailingslashit( $upload_dir['basedir'] ) . 'mc4wp-debug.log';
+	$upload_dir = wp_upload_dir( null, false );
+	$file = trailingslashit( $upload_dir['basedir'] ) . 'mc4wp-debug-log.php';
 
 	/**
 	 * Filters the log file to write to.
@@ -148,10 +148,9 @@ function mc4wp_get_current_url() {
 }
 
 /**
- * Sanitizes all values in a mixed variable.
+ * Strips all HTML tags from all values in a mixed variable, then trims the result.
  *
  * @access public
- *
  * @param mixed $value
  *
  * @return mixed
@@ -159,7 +158,7 @@ function mc4wp_get_current_url() {
 function mc4wp_sanitize_deep( $value ) {
 
 	if ( is_scalar( $value ) ) {
-		$value = sanitize_text_field( $value );
+		$value = trim( strip_tags( $value ) );
 	} elseif( is_array( $value ) ) {
 		$value = array_map( 'mc4wp_sanitize_deep', $value );
 	} elseif ( is_object($value) ) {
@@ -180,7 +179,7 @@ function mc4wp_sanitize_deep( $value ) {
  * @param array $data
  * @return array
  */
-function __mc4wp_update_groupings_data( $data = array() ) {
+function _mc4wp_update_groupings_data( $data = array() ) {
 
     // data still has old "GROUPINGS" key?
 	if( empty( $data['GROUPINGS'] ) ) {
@@ -316,7 +315,7 @@ function mc4wp_get_email_type() {
  * @ignore
  * @return bool
  */
-function __mc4wp_use_sslverify() {
+function _mc4wp_use_sslverify() {
 
 	// Disable for all transports other than CURL
 	if( ! function_exists( 'curl_version' ) ) {
@@ -345,10 +344,39 @@ function __mc4wp_use_sslverify() {
  * @return string
  */
 function mc4wp_obfuscate_string( $string ) {
-
 	$length = strlen( $string );
 	$obfuscated_length = ceil( $length / 2 );
-
 	$string = str_repeat( '*', $obfuscated_length ) . substr( $string, $obfuscated_length );
 	return $string;
+}
+
+/**
+ * @internal
+ * @ignore
+ */
+function _mc4wp_obfuscate_email_addresses_callback( $m ) {
+    $one = $m[1] . str_repeat( '*', strlen( $m[2] ) );
+    $two = $m[3] . str_repeat( '*', strlen( $m[4] ) );
+    $three = $m[5];
+    return sprintf( '%s@%s.%s', $one, $two, $three );
+}
+
+/**
+ * Obfuscates email addresses in a string.
+ *
+ * @param $string String possibly containing email address
+ * @return string
+ */
+function mc4wp_obfuscate_email_addresses( $string ) {
+    return preg_replace_callback( '/([\w\.]{1,4})([\w\.]*)\@(\w{1,2})(\w*)\.(\w+)/', '_mc4wp_obfuscate_email_addresses_callback', $string );
+}
+
+/**
+ * Refreshes MailChimp lists. This can take a while if the connected MailChimp account has many lists.
+ *
+ * @return void
+ */
+function mc4wp_refresh_mailchimp_lists() {
+    $mailchimp = new MC4WP_MailChimp();
+    $mailchimp->fetch_lists();
 }

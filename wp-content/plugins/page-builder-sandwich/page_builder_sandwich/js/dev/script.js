@@ -167,10 +167,23 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	}
 
 	// Auto-start PBS if the localStorage key is set.
+	var starterInterval;
 	if ( localStorage ) {
 		if ( localStorage.getItem( 'pbs-open-' + pbsParams.post_id ) ) {
 			localStorage.removeItem( 'pbs-open-' + pbsParams.post_id );
-			var starterInterval = setInterval( function() {
+			starterInterval = setInterval( function() {
+				if ( document.querySelector( '.ct-widget--active' ) ) {
+					document.querySelector('.ct-ignition__button--edit').dispatchEvent( new CustomEvent( 'click' ) );
+					clearInterval( starterInterval );
+				}
+			}, 200);
+		}
+	}
+
+	// Auto-start PBS if there is a hash.
+	if ( window.location.hash ) {
+		if ( window.location.hash.indexOf( '#pbs-edit' ) === 0 ) {
+			starterInterval = setInterval( function() {
 				if ( document.querySelector( '.ct-widget--active' ) ) {
 					document.querySelector('.ct-ignition__button--edit').dispatchEvent( new CustomEvent( 'click' ) );
 					clearInterval( starterInterval );
@@ -199,8 +212,8 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			}
 		} else if ( ev.target.getAttribute( 'id' ) === 'pbs-help-docs' ) {
 			window.open( 'http://docs.pagebuildersandwich.com/', '_blank' );
-		} else if ( ev.target.getAttribute( 'id' ) === 'pbs-help-replay-tour' ) {
-			window.pbsPlayTour();
+		// } else if ( ev.target.getAttribute( 'id' ) === 'pbs-help-replay-tour' ) {
+			// window.pbsPlayTour();
 		}
 	});
 
@@ -289,7 +302,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	        }
 	    }
 		payload.append( 'action', 'gambit_builder_save_content' );
-		payload.append( 'save_nonce', pbsParams.save_nonce );
+		payload.append( 'save_nonce', pbsParams.nonce );
 		payload.append( 'post_id', pbsParams.post_id );
 
 		// Change the post status.
@@ -376,19 +389,19 @@ window.addEventListener( 'DOMContentLoaded', function() {
 		this.domRegions()[0].classList.add('pbs-editing');
 
 		// Disable highlighting
-	    document.removeEventListener('keydown', this._handleHighlightOn);
-	    document.removeEventListener('keyup', this._handleHighlightOff);
+		this._handleHighlightOn = function() {};
+		this._handleHighlightOff = function() {};
 
 		// Trigger a resize event when transitioning with the inspector.
-		window._pbsBodyTransitionIntervalNum = 0;
-		clearInterval( window._pbsBodyTransitionInterval );
-		window._pbsBodyTransitionInterval = setInterval(function() {
-			window._pbsBodyTransitionIntervalNum++;
-			window.dispatchEvent( new CustomEvent( 'resize' ) );
-			if ( window._pbsBodyTransitionIntervalNum >= 30 ) {
-				clearInterval( window._pbsBodyTransitionInterval );
-			}
-		}, 16);
+		// window._pbsBodyTransitionIntervalNum = 0;
+		// clearInterval( window._pbsBodyTransitionInterval );
+		// window._pbsBodyTransitionInterval = setInterval(function() {
+		// 	window._pbsBodyTransitionIntervalNum++;
+		// 	window.dispatchEvent( new CustomEvent( 'resize' ) );
+		// 	if ( window._pbsBodyTransitionIntervalNum >= 30 ) {
+		// 		clearInterval( window._pbsBodyTransitionInterval );
+		// 	}
+		// }, 16);
 
 		// Add outline highlight listeners.
 		document.addEventListener('keydown', showColumnOutlines);
@@ -417,6 +430,44 @@ window.addEventListener( 'DOMContentLoaded', function() {
 		document.removeEventListener('keyup', hideColumnOutlines);
 	});
 
+	ContentEdit.Root.get().bind( 'focus', function( element ) {
+		document.body.setAttribute( 'data-pbs-focused', element.constructor.name );
+	} );
+
+	ContentEdit.Root.get().bind( 'blur', function() {
+		document.body.removeAttribute( 'data-pbs-focused' );
+	} );
+
+
+	/**
+	 * Add a special class to ignore all pointer events of all elements
+	 * before our content editor. So that we can do stuff above the fold
+	 * without headings/menus getting in our way.
+	 */
+	editor.bind('start', function() {
+		var element = document.querySelector( '.pbs-main-wrapper' );
+
+		while ( element && element.tagName !== 'body' ) {
+			var curElement = element;
+			while ( curElement.previousSibling ) {
+				if ( curElement.previousSibling.classList ) {
+					curElement.previousSibling.classList.add( 'pbs-ignore-while-editing' );
+				}
+				curElement = curElement.previousSibling;
+		    }
+			element = element.parentNode;
+		}
+	} );
+
+	// Remove the ignore all pointer-events class when done.
+	editor.bind( 'stop', function() {
+		var elements = document.querySelectorAll( '.pbs-ignore-while-editing' );
+		if ( elements ) {
+			Array.prototype.forEach.call( elements, function( el ) {
+				el.classList.remove( 'pbs-ignore-while-editing' );
+			});
+		}
+	} );
 
 	// Before clicking the save button, make all our manual modifications permanent.
 	document.body.addEventListener('mousedown', function(e) {
@@ -449,7 +500,8 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			// Check the location of the click then select the topmost or bottommost element.
 			var elem;
 			var isTop = true;
-			if ( e.pageY > window.scrollY + rect.top + rect.height / 2 ) {
+			var scrollY = window.scrollY || window.pageYOffset;
+			if ( e.pageY > scrollY + rect.top + rect.height / 2 ) {
 				isTop = false;
 				elem = mainRegion.children[ mainRegion.children.length - 1 ];
 			} else {
@@ -580,7 +632,7 @@ var __bind = function(fn, me){
 
 
 // Use this syntax to include other Javascript files, included files must start with "_"
-/* globals ContentTools, ContentEdit, HTMLString */
+/* globals ContentTools, ContentEdit, HTMLString, ContentSelect */
 
 /**
  * We need to perform some functions with ContentTools that shouldn't necessarily be part
@@ -591,6 +643,9 @@ window.PBSEditor = {};
 
 
 window.PBSEditor.getToolUI = function( name ) {
+	if ( ContentTools.EditorApp.get()._toolboxBar._toolUIs[ name ] ) {
+		return ContentTools.EditorApp.get()._toolboxBar._toolUIs[ name ];
+	}
 	return ContentTools.EditorApp.get()._toolbox._toolUIs[ name ];
 };
 
@@ -604,6 +659,10 @@ ContentEdit.Root.get().bind('mount', function (element) {
 });
 
 
+/**
+ * Remove the yellow highlight in CT that highlights the whole editing area.
+ */
+ContentTools.EditorApp.get().highlightRegions = function() {};
 
 
 /**
@@ -1000,6 +1059,49 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	};
 } )();
 
+
+/**
+ * When the return key is pressed at the beginning of a paragraph (with contents),
+ * create a new paragraph before it.
+ */
+( function() {
+	var proxied = ContentEdit.Text.prototype._keyReturn;
+	ContentEdit.Text.prototype._keyReturn = function( ev ) {
+		var element, selection, tail, tip;
+		ev.preventDefault();
+		if ( this.content.isWhitespace() ) {
+			return proxied.call( this, ev );
+		}
+		ContentSelect.Range.query( this._domElement );
+		selection = ContentSelect.Range.query( this._domElement );
+		tip = this.content.substring( 0, selection.get()[0] );
+		tail = this.content.substring( selection.get()[1] );
+		if ( ! ev.shiftKey && ! tip.length() ) {
+			element = new ContentEdit.Text( 'p', {}, '' );
+			this.parent().attach( element, this.parent().children.indexOf( this ) );
+			element.focus();
+			return;
+		}
+		return proxied.call( this, ev );
+	};
+} )();
+
+
+/**
+ * Disallow links to work when editing.
+ */
+window.addEventListener( 'DOMContentLoaded', function() {
+	document.body.addEventListener( 'click', function( ev ) {
+		if ( window.PBSEditor.isEditing() ) {
+			if ( ev.target.tagName === 'A') {
+				if ( window.pbsSelectorMatches( ev.target, '.pbs-main-wrapper *' ) ) {
+					ev.preventDefault();
+				}
+			}
+		}
+	} );
+} );
+
 /* globals ContentEdit */
 
 /**
@@ -1092,8 +1194,12 @@ ContentEdit.Element.prototype.attr = function(name, value) {
 	}
 
 	this._attributes[name] = value;
-	if (this.isMounted() && name.toLowerCase() !== 'class') {
-		this._domElement.setAttribute(name, value);
+	if (this.isMounted() && name.toLowerCase() !== 'class' ) {
+		if ( value !== '' ) {
+			this._domElement.setAttribute(name, value);
+		} else {
+			this._domElement.removeAttribute( name );
+		}
 	}
 
 	// Do the debounce taint.
@@ -1199,7 +1305,7 @@ ContentTools.IgnitionUI.prototype.mount = function() {
 
 	// The scroll changes when you click edit, don't change the scroll position.
 	this._domEdit.addEventListener('mousedown', function() {
-		this.prevScrollY = window.scrollY;
+		this.prevScrollY = window.scrollY || window.pageYOffset;
 	});
 	this._domEdit.addEventListener('click', function() {
 		window.scrollTo( 0, this.prevScrollY );
@@ -1388,25 +1494,30 @@ PBSEditor.Frame = wp.media.view.Frame.extend({
 			}, this ) );
 		}
 	},
-	
+
 	open: function( args ) {
 		if ( ! args ) {
 			args = {};
 		}
+
+		// Combine the default options and the arguments given.
+		this.options = _.defaults( args, this.options );
+
 		if ( args.content ) {
 			this.modal.content( args.content( this ) );
 		}
-		this.successCallback = args.successCallback ? args.successCallback : null;
-		this.openCallback = args.openCallback ? args.openCallback : null;
-		this.closeCallback = args.closeCallback ? args.closeCallback : null;
 		this.modal.open();
 		this.modal.el.children[0].classList.add( 'pbs-modal-frame' );
 		if ( this.className ) {
 			this.modal.el.children[0].classList.add( this.className );
 		}
 
-		this.modal.el.querySelector( '.media-frame-title h1' ).textContent = args.title ? args.title : this.options.title;
-		this.modal.el.querySelector( '.media-toolbar-primary button' ).textContent = args.button ? args.button : this.options.button;
+		if ( this.modal.el.querySelector( '.media-frame-title h1' ) ) {
+			this.modal.el.querySelector( '.media-frame-title h1' ).textContent = this.options.title;
+		}
+		if ( this.modal.el.querySelector( '.media-toolbar-primary button' ) ) {
+			this.modal.el.querySelector( '.media-toolbar-primary button' ).textContent = this.options.button;
+		}
 
 		this.modal.el.children[0].classList.add( 'pbs-frame-hide' );
 		setTimeout( function() {
@@ -1420,22 +1531,22 @@ PBSEditor.Frame = wp.media.view.Frame.extend({
 
 	_primaryClicked: function() {
 		this.modal.close();
-		if ( this.successCallback ) {
-			this.successCallback( this );
+		if ( this.options.successCallback ) {
+			this.options.successCallback( this );
 		}
 		// Do stuff when the submit button is clicked.
 	},
 
 	_onOpen: function() {
-		if ( this.openCallback ) {
-			this.openCallback( this );
+		if ( this.options.openCallback ) {
+			this.options.openCallback( this );
 		}
 		// Do stuff when modal opens.
 	},
 
 	_onClose: function() {
-		if ( this.closeCallback ) {
-			this.closeCallback( this );
+		if ( this.options.closeCallback ) {
+			this.options.closeCallback( this );
 		}
 		// Do stuff when modal closes.
 	}
@@ -1611,7 +1722,7 @@ PBSEditor._IconFrame = PBSEditor.Frame.extend({
 				this.displayNoResults();
 			}
 		}.bind( this );
-		request.send( 'action=pbs_icon_search&nonce=' + pbsParams.icon_nonce + '&s=' + keyword );
+		request.send( 'action=pbs_icon_search&nonce=' + pbsParams.nonce + '&s=' + keyword );
 	},
 	displayNoResults: function() {
 		this.modal.el.querySelector( '.pbs-no-results' ).style.display = 'flex';
@@ -1866,7 +1977,7 @@ PBSEditor._ShortcodeFrame = PBSEditor.SearchFrame.extend({
 
 	   	var payload = new FormData();
 	   	payload.append( 'action', 'pbs_update_shortcode_mappings' );
-	   	payload.append( 'nonce', pbsParams.shortcode_nonce );
+	   	payload.append( 'nonce', pbsParams.nonce );
 
 	   	var xhr = new XMLHttpRequest();
 
@@ -1889,9 +2000,12 @@ PBSEditor._ShortcodeFrame = PBSEditor.SearchFrame.extend({
 
 					// Remove all the shortcodes.
 					var shortcodeArea = this.modal.el.querySelector( '.pbs-search-list' );
+					var noResults = shortcodeArea.querySelector( '.pbs-no-results' );
+					noResults.parentNode.removeChild( noResults );
 					while ( shortcodeArea.firstChild ) {
 						shortcodeArea.removeChild( shortcodeArea.firstChild );
 					}
+					shortcodeArea.appendChild( noResults );
 
 					// Re-initialize the shortcode list.
 					this.initShortcodeList();
@@ -2086,6 +2200,51 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	PBSEditor.htmlFrame = new PBSEditor._HtmlFrame();
 });
 
+/**
+ * The admin settings modal popup.
+ *
+ * Call by using: PBSEditor.adminFrame.open(). Additional arguments may be given.
+ */
+
+/* globals PBSEditor */
+
+PBSEditor._AdminFrame = PBSEditor.Frame.extend({
+	className: 'pbs-admin-modal',
+	template:  wp.template( 'pbs-admin-frame' ),
+
+	events: {},
+
+	_onOpen: function() {
+		PBSEditor.Frame.prototype._onOpen.apply( this );
+
+		// Set a session storage value so we can know (from the admin-side)
+		// that we are inside a pbs iframe.
+		sessionStorage.setItem( 'pbs_in_admin_iframe', 1 );
+
+		setTimeout( function() {
+			this.modal.el.classList.add( 'pbs-busy' );
+			var iframe = this.modal.el.querySelector( 'iframe' );
+			iframe.onload = function() {
+				this.modal.el.classList.remove( 'pbs-busy' );
+			}.bind( this );
+			iframe.setAttribute( 'src', this.options.url );
+		}.bind( this ), 1 );
+	},
+	_onClose: function() {
+
+		// Reset the session storage value for the pbs iframe.
+		sessionStorage.removeItem( 'pbs_in_admin_iframe' );
+
+		this.modal.el.querySelector( 'iframe' ).setAttribute( 'src', '' );
+
+		PBSEditor.Frame.prototype._onClose.apply( this );
+	}
+});
+
+window.addEventListener( 'DOMContentLoaded', function() {
+	PBSEditor.adminFrame = new PBSEditor._AdminFrame();
+});
+
 /* globals ContentTools, ContentEdit, PBSEditor */
 
 PBSEditor.Overlays = [];
@@ -2093,6 +2252,7 @@ PBSEditor.Overlays = [];
 PBSEditor.Overlay = (function() {
 
 	function Overlay() {
+		this.showOnTaint = true;
 		this._domElement = null;
 		this._active = false;
 		this._shown = false;
@@ -2101,7 +2261,7 @@ PBSEditor.Overlay = (function() {
 
 		PBSEditor.Overlays.push( this );
 
-		ContentEdit.Root.get().bind('over', function( element ) {
+		wp.hooks.addAction( 'pbs.element.over', function( element ) {
 
 			// Don't show overlays when dragging.
 			if ( ContentEdit.Root.get().dragging() ) {
@@ -2117,12 +2277,26 @@ PBSEditor.Overlay = (function() {
 				this._shown = false;
 			}.bind(this), 10 );
 
-			if ( this.canApply( element ) ) {
+			// Check the element stack if this element canApply, or if not,
+			// if any of its parent are.
+			var couldApply = this.canApply( element );
+			while ( element !== null && element.constructor.name !== 'Region' && ! couldApply ) {
+				element = element.parent();
+				couldApply = this.canApply( element );
+			}
+
+			if ( couldApply ) {
 				this.element = this.applyTo( element );
 				this._shown = true;
 				this._show( this.element );
 			}
-		}.bind(this) );
+		}.bind( this ) );
+
+		ContentEdit.Root.get().bind( 'unmount', function( element ) {
+			if ( element === this.element ) {
+				this._hide();
+			}
+		}.bind( this ) );
 
 		ContentEdit.Root.get().bind('drag', function() {
 			this._hide();
@@ -2144,12 +2318,12 @@ PBSEditor.Overlay = (function() {
 		}.bind(this));
 
 		ContentEdit.Root.get().bind('taint', function( element ) {
-			if ( this.element === element ) {
+			if ( this.showOnTaint && this.element === element ) {
 				this._show( element );
 			}
 		}.bind(this) );
 		ContentEdit.Root.get().bind('debounced_taint', function( element ) {
-			if ( this.element === element ) {
+			if ( this.showOnTaint && this.element === element ) {
 				this._show( element );
 			}
 		}.bind(this) );
@@ -2217,8 +2391,8 @@ PBSEditor.Overlay = (function() {
 		this._domElement.classList.add( 'pbs-active' );
 		document.body.classList.add( 'pbs-overlay-is-active' );
 		document.body.classList.add( 'pbs-overlay-' + this.constructor.name.toLowerCase() );
-		this.onClick();
-		this.onMoveStart();
+		this.onClick( ev );
+		this.onMoveStart( ev );
 	};
 
 	Overlay.prototype._mousemove = function(ev) {
@@ -2232,7 +2406,7 @@ PBSEditor.Overlay = (function() {
 		ev.preventDefault();
 		ev.stopPropagation();
 
-		this.onMove();
+		this.onMove( ev );
 
 		// Update the other overlays.
 		Overlay.hideOtherOverlays( this );
@@ -2254,11 +2428,11 @@ PBSEditor.Overlay = (function() {
 		document.body.classList.remove( 'pbs-overlay-active-' + this.constructor.name.toLowerCase() );
 	};
 
-	Overlay.prototype._mouseenter = function() {
+	Overlay.prototype._mouseenter = function( ev ) {
 		this._domElement.classList.add( 'pbs-over' );
 		document.body.classList.add( 'pbs-overlay-hovered' );
 		document.body.classList.add( 'pbs-overlay-hovered-' + this.constructor.name.toLowerCase() );
-		this.onEnter();
+		this.onEnter( ev );
 	};
 
 	Overlay.prototype._mouseleave = function() {
@@ -2270,21 +2444,30 @@ PBSEditor.Overlay = (function() {
 
 	Overlay.prototype._show = function( element ) {
 		var root = ContentEdit.Root.get();
-		if ( element._domElement && ! root.dragging() ) {
-			this._domElement.style.display = 'flex';
+		// if ( element._domElement && ! root.dragging() ) {
+		if ( ! root.dragging() ) {
+			this._domElement.style.display = 'block';
 			this.show( element );
+
+			// clearInterval( this._showInterval );
+			// this._showInterval = setInterval( function( element ) {
+				// this.show( element );
+			// }.bind( this, element ), 16 );
 		}
 	};
 
 	Overlay.prototype._hide = function() {
-		this._domElement.style.display = 'none';
+		// clearInterval( this._showInterval );
+		if ( this._domElement ) {
+			this._domElement.style.display = 'none';
+		}
 		this.hide();
 	};
 
 	Overlay.active = false;
 	Overlay.prevOverElement = null;
 
-	Overlay.prototype.canApply = function( element ) {
+	Overlay.prototype.canApply = function() {
 		return ! Overlay.active;
 	};
 
@@ -2320,6 +2503,7 @@ PBSEditor.Overlay = (function() {
 		if ( PBSEditor.Overlay.active ) {
 			return;
 		}
+		ContentEdit.Root.get().trigger( 'mousemove', this );
 		return proxied.call( this, ev );
 	};
 })();
@@ -2351,629 +2535,3167 @@ PBSEditor.Overlay = (function() {
 	};
 })();
 
-/* globals PBSEditor, __extends */
 
-PBSEditor.MarginBottom = (function(_super) {
-	__extends(MarginBottom, _super);
 
-	function MarginBottom() {
-		MarginBottom.__super__.constructor.call(this);
+/**
+ * Instead of using CT's mouse events, just create out own one.
+ */
+( function() {
+	var pbsOverElement = _.debounce( function( target ) {
+		if ( ! target._ceElement ) {
+			return;
+		}
+		if ( PBSEditor.Overlay.active ) {
+			return;
+		}
+		wp.hooks.doAction( 'pbs.element.over', target._ceElement );
+	}, 5 );
+	var mouseListener = function( ev ) {
+		pbsOverElement( ev.target );
+	};
+	ContentTools.EditorApp.get().bind( 'start', function () {
+		window.addEventListener( 'mousemove', mouseListener );
+		window.addEventListener( 'mouseover', mouseListener );
+	} );
+	ContentTools.EditorApp.get().bind( 'stop', function () {
+		window.removeEventListener( 'mousemove', mouseListener );
+		window.removeEventListener( 'mouseover', mouseListener );
+	} );
+} )();
 
-		this.supportedElements = [ 'Text', 'PreText', 'Image', 'Html', 'Icon', 'Map' ];
+/* globals ContentTools, ContentEdit, PBSEditor, __extends */
+
+PBSEditor.OverlayControls = ( function( _super ) {
+	__extends( OverlayControls, _super );
+
+	function OverlayControls( controls ) {
+		OverlayControls.__super__.constructor.call(this);
+		this.showOnTaint = false;
+
+		if ( typeof controls === 'undefined' ) {
+			controls = [];
+		}
+		this.controls = controls;
+		// [
+			// {
+				// name: 'margin-top',
+				// onClick: function( overlay, element ) {},
+				// refresh: function( overlay, element, styles, rect ) {},
+				// onMoveStart: function( overlay, element, styles ) {},
+				// onMove: function( overlay, element, deltaX, deltaY ) {}
+			// }
+		// ];
+
+		ContentEdit.Root.get().bind( 'taint', function() {
+			this.updatePosition( this.element );
+		}.bind( this ) );
+		ContentEdit.Root.get().bind( 'focus', function() {
+			this._hide();
+		}.bind( this ) );
+		document.addEventListener( 'mousedown', function( ev ) {
+			var focused = ContentEdit.Root.get().focused();
+			if ( focused ) {
+				if ( focused._domElement === ev.target ) {
+					this._hide();
+				}
+			}
+		}.bind( this ) );
+		ContentEdit.Root.get().bind( 'focus', function() {
+			this._hide();
+		}.bind( this ) );
+		document.addEventListener( 'keydown', function( ev ) {
+			if ( [ 40, 37, 39, 38, 9, 8, 46, 13, 16, 91, 18 ].indexOf( ev.keyCode ) === -1 ) {
+				this._hide();
+			}
+		}.bind( this ) );
+		window.addEventListener( 'resize', function() {
+			this._hide();
+		}.bind( this ) );
 	}
 
-	MarginBottom.prototype.createElement = function() {
+	OverlayControls.prototype.createElement = function() {
 		var element = document.createElement( 'DIV' );
-		var label = document.createElement( 'DIV' );
-		element.appendChild( label );
+
+		if ( ! this.controls.length ) {
+			return element;
+		}
+
+		var wrapper = document.createElement( 'DIV' );
+		wrapper.classList.add( 'pbs-overlay-wrapper' );
+		element.appendChild( wrapper );
+
+		for ( var i = 0; i < this.controls.length; i++ ) {
+			var control = document.createElement( 'DIV' );
+			control.classList.add( 'pbs-overlay-' + this.controls[ i ].name );
+			control.control = this.controls[ i ];
+			this.controls[ i ]._domElement = control;
+			control.addEventListener( 'mouseenter', function( overlay ) {
+				overlay._domElement.classList.add( 'pbs-over-' + this.control.name );
+				this.control._domElement.classList.add( 'pbs-control-over' );
+			}.bind( control, this ) );
+			control.addEventListener( 'mouseleave', function( overlay ) {
+				overlay._domElement.classList.add( 'pbs-over-' + this.control.name );
+				this.control._domElement.classList.remove( 'pbs-control-over' );
+			}.bind( control, this ) );
+			wrapper.appendChild( control );
+		}
+
+		this._locationDragging = null;
 		return element;
 	};
 
-	MarginBottom.prototype.canApply = function( element ) {
-		if ( ! MarginBottom.__super__.canApply.call(this, element) ) {
+	OverlayControls.prototype.canApply = function( element ) {
+		if ( ! OverlayControls.__super__.canApply.call(this, element) ) {
 			return false;
 		}
 		if ( ! element ) {
 			element = this.element;
 		}
-		if ( ! wp.hooks.applyFilters( 'pbs.overlay.margin_bottom.can_apply', true, element ) ) {
-			return false;
-		}
-		return this.supportedElements.indexOf( element.constructor.name ) !== -1;
+		return true;
 	};
 
-	MarginBottom.prototype.show = function( element ) {
-		var styles = getComputedStyle( element._domElement );
-		var rect = element._domElement.getBoundingClientRect();
+	OverlayControls.prototype.updatePosition = function( element ) {
 
-		this._domElement.style.top = ( rect.bottom + window.scrollY ) + 'px';
-		this._domElement.style.height = styles.marginBottom;
-		this._domElement.style.left = ( rect.left + 30 ) + 'px';
-		this._domElement.style.width = ( rect.right - rect.left ) + 'px';
-
-		this._domElement.firstChild.innerHTML = styles.marginBottom;
-	};
-
-	MarginBottom.prototype.onMoveStart = function() {
-		var styles = getComputedStyle( this.element._domElement );
-		this.initialValue = parseInt( styles.marginBottom, 10 );
-	};
-
-	MarginBottom.prototype.onMove = function() {
-		var margin = this.deltaY + this.initialValue;
-		if ( margin < 0 ) {
-			margin = 0;
-		}
-		if ( window.PBSEditor.isShiftDown ) {
-			var remainder = margin % 10;
-			margin -= remainder;
-		}
-		this.element.style( 'margin-bottom', margin + 'px' );
-		this._domElement.style.height = margin + 'px';
-		this._domElement.firstChild.innerHTML = this._domElement.style.height;
-	};
-
-	MarginBottom.prototype.onClick = function() {
-		if ( window.PBSEditor.isShiftDown && window.PBSEditor.isCtrlDown ) {
-			this.element.style( 'margin-bottom', '' );
-			this.onMoveStart();
-			this._domElement.style.height = this.initialValue;
-			this._domElement.firstChild.innerHTML = this._domElement.style.height;
+		// This can be called when the element was deleted.
+		if ( ! element || ! element._domElement ) {
 			return;
 		}
+
+		var styles = getComputedStyle( element._domElement );
+		var rect = element._domElement.getBoundingClientRect();
+		var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
+		var toolbarHeight = parseInt( toolbar.height, 10 );
+		var scrollY = window.scrollY || window.pageYOffset;
+
+		this._domElement.style.top = ( rect.top + scrollY - toolbarHeight ) + 'px';
+		this._domElement.style.height = rect.height + 'px';
+		this._domElement.style.left = ( rect.left ) + 'px';
+		this._domElement.style.width = ( rect.width ) + 'px';
+
+		for ( var i = 0; i < this.controls.length; i++ ) {
+			if ( this.controls[ i ].refresh ) {
+				this.controls[ i ].refresh( this, element, styles, rect );
+			}
+		}
 	};
 
-	return MarginBottom;
+	OverlayControls.prototype._hide = function() {
+		if ( this._domElement && this._domElement.getAttribute( 'class' ).indexOf( 'pbs-active-' ) !== -1 ) {
+			return;
+		}
+		return OverlayControls.__super__._hide.call( this );
+	};
 
-})(PBSEditor.Overlay);
+	OverlayControls.prototype.hide = function() {
+		if ( ! this._domElement ) {
+			return;
+		}
 
+		this._domElement.classList.remove( 'pbs-overlay-show' );
 
+		clearInterval( this._updatePositionTimeout );
 
+		for ( var i = 0; i < this.controls.length; i++ ) {
+			this._domElement.classList.remove( 'pbs-active-' + this.controls[ i ].name );
+		}
+	};
 
-PBSEditor.MarginTop = (function(_super) {
-	__extends(MarginTop, _super);
+	OverlayControls.prototype.show = function( element ) {
 
-	function MarginTop() {
-		MarginTop.__super__.constructor.call(this);
+		if ( this._domElement.classList.contains( 'pbs-overlay-show' ) ) {
+			if ( this._prevElement ) {
+				if ( this._prevElement === element ) {
+					return;
+				}
+			}
+			this._prevElement = element;
+		}
 
-		this.supportedElements = [ 'Text', 'PreText', 'Image', 'Html', 'Icon', 'Map' ];
-	}
+		this.updatePosition( element );
 
-	MarginTop.prototype.createElement = function() {
-		var element = document.createElement( 'DIV' );
-		var label = document.createElement( 'DIV' );
-		element.appendChild( label );
+		clearInterval( this._updatePositionTimeout );
+		this._updatePositionTimeout = setInterval( function() {
+			this.updatePosition( this.element );
+		}.bind( this ), 60 );
+
+		this._domElement.classList.add( 'pbs-overlay-show' );
+
+		for ( var i = 0; i < this.controls.length; i++ ) {
+			this._domElement.classList.remove( 'pbs-active-' + this.controls[ i ].name );
+			this._domElement.classList.remove( 'pbs-over-' + this.controls[ i ].name );
+			this.controls[ i ]._domElement.classList.remove( 'pbs-control-active' );
+			this.controls[ i ]._domElement.classList.remove( 'pbs-control-over' );
+		}
+	};
+
+	OverlayControls.prototype.onMoveStart = function( ev ) {
+		var styles = getComputedStyle( this.element._domElement );
+		var rect = this.element._domElement.getBoundingClientRect();
+
+		for ( var i = 0; i < this.controls.length; i++ ) {
+			if ( this._locationDragging === this.controls[ i ].name ) {
+				if ( this.controls[ i ].onMoveStart ) {
+					this.controls[ i ].onMoveStart( this, this.element, styles, rect, ev );
+				}
+			}
+		}
+	};
+
+	OverlayControls.prototype.onMove = function( ev ) {
+		for ( var i = 0; i < this.controls.length; i++ ) {
+			if ( this._locationDragging === this.controls[ i ].name ) {
+				if ( this.controls[ i ].onMove ) {
+					this.controls[ i ].onMove( this, this.element, this.deltaX, this.deltaY, ev );
+				}
+				break;
+			}
+		}
+
+		// Update the position of the overlay.
+		this.updatePosition( this.element );
+	};
+
+	OverlayControls.prototype.onClick = function( ev ) {
+		this._locationDragging = null;
+
+		for ( var i = 0; i < this.controls.length; i++ ) {
+			this._domElement.classList.remove( 'pbs-active-' + this.controls[ i ].name );
+
+			if ( this.controls[ i ].onClick ) {
+				this.controls[ i ].onClick( this, this.element );
+			}
+		}
+
+		for ( i = 0; i < this.controls.length; i++ ) {
+			if ( ev.target === this.controls[ i ]._domElement ) {
+				this._locationDragging = this.controls[ i ].name;
+				this._domElement.classList.add( 'pbs-active-' + this.controls[ i ].name );
+				this._domElement.classList.add( 'pbs-active' );
+				this.controls[ i ]._domElement.classList.add( 'pbs-control-active' );
+				break;
+			}
+		}
+
+		this.updatePosition( this.element );
+
+	};
+
+	OverlayControls.prototype._mouseup = function( ev ) {
+		var ret = OverlayControls.__super__._mouseup.call( this, ev );
+
+		for ( var i = 0; i < this.controls.length; i++ ) {
+			this._domElement.classList.remove( 'pbs-active-' + this.controls[ i ].name );
+			this.controls[ i ]._domElement.classList.remove( 'pbs-control-active' );
+
+			if ( this._locationDragging === this.controls[ i ].name ) {
+				if ( this.controls[ i ].onMoveStop ) {
+					this.controls[ i ].onMoveStop( this, this.element, ev );
+				}
+			}
+		}
+
+		this._locationDragging = null;
+
+		return ret;
+	};
+
+	OverlayControls.prototype.applyTo = function( element ) {
+
+		// Since this is run on EVERY element that's on the "over stack",
+		// only show this on the first ROW encountered.
+		if ( this._alreadyShown2 ) {
+			return this.element;
+		}
+		this._alreadyShown2 = true;
+		setTimeout( function() {
+			this._alreadyShown2 = false;
+		}.bind( this ) );
+
 		return element;
 	};
 
-	MarginTop.prototype.canApply = function( element ) {
-		if ( ! MarginTop.__super__.canApply.call(this, element) ) {
-			return false;
-		}
-		if ( ! element ) {
-			element = this.element;
-		}
-		if ( ! wp.hooks.applyFilters( 'pbs.overlay.margin_top.can_apply', true, element ) ) {
-			return false;
-		}
-		return this.supportedElements.indexOf( element.constructor.name ) !== -1;
-	};
-
-	MarginTop.prototype.show = function( element ) {
-		var styles = getComputedStyle( element._domElement );
-		var rect = element._domElement.getBoundingClientRect();
-
-		this._domElement.style.top = ( rect.top + window.scrollY - parseInt( styles.marginTop, 10 ) ) + 'px';
-		this._domElement.style.height = styles.marginTop;
-		this._domElement.style.left = ( rect.left + 30 ) + 'px';
-		this._domElement.style.width = ( rect.right - rect.left ) + 'px';
-
-		this._domElement.firstChild.innerHTML = styles.marginTop;
-	};
-
-	MarginTop.prototype.onMoveStart = function() {
-		var styles = getComputedStyle( this.element._domElement );
-		this.initialValue = parseInt( styles.marginTop, 10 );
-	};
-
-	MarginTop.prototype.onMove = function() {
-		var margin = this.deltaY + this.initialValue;
-		if ( margin < 0 ) {
-			margin = 0;
-		}
-		if ( window.PBSEditor.isShiftDown ) {
-			var remainder = margin % 10;
-			margin -= remainder;
-		}
-		this.element.style( 'margin-top', margin + 'px' );
-		this._domElement.style.height = margin + 'px';
-		this._domElement.firstChild.innerHTML = this._domElement.style.height;
-	};
-
-	MarginTop.prototype.onClick = function() {
-		if ( window.PBSEditor.isShiftDown && window.PBSEditor.isCtrlDown ) {
-			this.element.style( 'margin-top', '' );
-			this.onMoveStart();
-			this._domElement.style.height = this.initialValue;
-			this._domElement.firstChild.innerHTML = this._domElement.style.height;
-			return;
-		}
-	};
-
-	return MarginTop;
-
-})(PBSEditor.Overlay);
-
-/* globals PBSEditor, __extends */
-
-/**
- * Margin Top & Bottom for containers.
- */
-
-PBSEditor.MarginBottomContainer = ( function( _super ) {
-	__extends( MarginBottomContainer, _super );
-
-	function MarginBottomContainer() {
-		MarginBottomContainer.__super__.constructor.call( this );
-
-		this._classname = 'pbs-overlay-marginbottom';
-		this.supportedElements = [ 'Tabs', 'DivRow', 'Carousel' ];
-	}
-
-	MarginBottomContainer.prototype.getSupportedElement = function( element ) {
-		var iterElem = element, lastMatchedElement = element;
-		while ( iterElem.constructor.name !== 'Region' ) {
-			if ( this.supportedElements.indexOf( iterElem.constructor.name ) !== -1 ) {
-				lastMatchedElement = iterElem;
-			}
-			iterElem = iterElem.parent();
-		}
-		return lastMatchedElement;
-	};
-
-	MarginBottomContainer.prototype.applyTo = function( element ) {
-		return this.getSupportedElement( element );
-	};
-
-	MarginBottomContainer.prototype.canApply = function( element ) {
-		if ( ! element ) {
-			element = this.element;
-		}
-		element = this.getSupportedElement( element );
-		if ( ! wp.hooks.applyFilters( 'pbs.overlay.margin_bottom_container.can_apply', true, element ) ) {
-			return false;
-		}
-		if ( this.supportedElements.indexOf( element.constructor.name ) !== -1 ) {
-			return true;
-		}
-		return false;
-	};
-
-	return MarginBottomContainer;
-
-} )( PBSEditor.MarginBottom );
-
-
-PBSEditor.MarginTopContainer = ( function( _super ) {
-	__extends( MarginTopContainer, _super );
-
-	function MarginTopContainer() {
-		MarginTopContainer.__super__.constructor.call( this );
-
-		this._classname = 'pbs-overlay-margintop';
-		this.supportedElements = [ 'Tabs', 'DivRow', 'Carousel' ];
-	}
-
-	MarginTopContainer.prototype.getSupportedElement = function( element ) {
-		var iterElem = element, lastMatchedElement = element;
-		while ( iterElem.constructor.name !== 'Region' ) {
-			if ( this.supportedElements.indexOf( iterElem.constructor.name ) !== -1 ) {
-				lastMatchedElement = iterElem;
-			}
-			iterElem = iterElem.parent();
-		}
-		return lastMatchedElement;
-	};
-
-	MarginTopContainer.prototype.applyTo = function( element ) {
-		return this.getSupportedElement( element );
-	};
-
-	MarginTopContainer.prototype.canApply = function( element ) {
-		if ( ! element ) {
-			element = this.element;
-		}
-		element = this.getSupportedElement( element );
-		if ( ! wp.hooks.applyFilters( 'pbs.overlay.margin_top_container.can_apply', true, element ) ) {
-			return false;
-		}
-		if ( this.supportedElements.indexOf( element.constructor.name ) !== -1 ) {
-			return true;
-		}
-		return false;
-	};
-
-	return MarginTopContainer;
-
-} )( PBSEditor.MarginTop );
-
-/* globals PBSEditor, __extends */
-
-/**
- * This is the column width overlay (right side of a column)
- */
-PBSEditor.OverlayColumnWidth = (function(_super) {
-	__extends(OverlayColumnWidth, _super);
-
-	function OverlayColumnWidth() {
-		OverlayColumnWidth.__super__.constructor.call(this);
-	}
-
-	OverlayColumnWidth.prototype.createElement = function() {
-		return document.createElement( 'DIV' );
-	};
-
-	OverlayColumnWidth.prototype.canApply = function( element ) {
-		if ( ! OverlayColumnWidth.__super__.canApply.call(this, element) ) {
-			return false;
-		}
-		if ( ! element ) {
-			element = this.element;
-		}
-		if ( element.constructor.name === 'DivCol' ) {
-			if ( element.parent().children.indexOf( element ) > 0 ) {
-				return true;
-			}
-		}
-		return false;
-	};
-
-	OverlayColumnWidth.prototype.onEnter = function() {
-		this.element.parent().showOutline();
-	};
-
-	OverlayColumnWidth.prototype.onLeave = function() {
-		this.element.parent().hideOutline();
-	};
-
-	OverlayColumnWidth.prototype.show = function( element ) {
-		var rect = element._domElement.getBoundingClientRect();
-
-		this._domElement.style.top = ( rect.top + window.scrollY ) + 'px';
-		this._domElement.style.height = rect.height + 'px';
-		this._domElement.style.left = ( rect.left - 10 ) + 'px';
-		this._domElement.style.width = '20px';
-	};
-
-	OverlayColumnWidth.prototype.onMoveStart = function() {
-		var cols = this.element.parent().children;
-		var colIndex = cols.indexOf( this.element );
-
-		this.leftInitialValue = this.normalizeFlexGrow( cols[ colIndex - 1 ] );
-		this.initialValue = this.normalizeFlexGrow( this.element );
-
-		this.element.parent().showOutline();
-	};
-
-	OverlayColumnWidth.prototype.normalizeFlexGrow = function( col ) {
-		var flex = parseFloat( col.style( 'flex-grow' ) );
-		var rowWidth = 0;
-		var totalFlex = 0;
-		for ( var i = 0; i < col.parent().children.length; i++ ) {
-			var otherCol = col.parent().children[ i ];
-			totalFlex += parseFloat( otherCol.style( 'flex-grow' ) );
-			rowWidth += parseInt( otherCol._domElement.offsetWidth, 10 );
-		}
-		return Math.floor( flex / totalFlex * rowWidth );
-	};
-
-	OverlayColumnWidth.prototype.onMove = function() {
-		var row = this.element.parent();
-		var cols = row.children;
-		var colIndex = cols.indexOf( this.element );
-		var widths = [];
-
-		this.element.parent().showOutline();
-
-		// If the value is too small, stop resizing. This prevents columns from getting negative widths.
-		if ( - this.deltaX + this.initialValue < 0 || this.deltaX + this.leftInitialValue < 0 ) {
-			return;
-		}
-
-		// We use the flex-grow for columns, so we need to normalize the values.
-		// Normalize means we convert them from 1-1 (for 2-column) to 200-200 (e.g. for a 400 width row)
-		// so that adjusting using overlays can be done visually with pixel units.
-		for ( var i = 0; i < cols.length; i++ ) {
-			widths.push( this.normalizeFlexGrow( cols[ i ] ) );
-		}
-		for ( i = 0; i < cols.length; i++ ) {
-			cols[ i ].style('flex-grow', widths[ i ] );
-		}
-
-		// When the shift button is down,
-		var amount = this.deltaX;
-		if ( window.PBSEditor.isShiftDown ) {
-			var remainder = ( this.deltaX + this.initialValue ) % 10;
-			amount -= remainder;
-		}
-
-		// Apply the new flex-grow values to change the column widths.
-		widths[ colIndex ] = - amount + this.initialValue;
-		widths[ colIndex - 1 ] = amount + this.leftInitialValue;
-
-		cols[ colIndex - 1 ].style('flex-grow', widths[ colIndex - 1 ] );
-		cols[ colIndex ].style('flex-grow', widths[ colIndex ] );
-	};
-
-	return OverlayColumnWidth;
-
-})(PBSEditor.Overlay);
-
-
-/**
- * This is the column width overlay (left side of a column)
- */
-PBSEditor.OverlayColumnWidthRight = (function(_super) {
-	__extends(OverlayColumnWidthRight, _super);
-
-	function OverlayColumnWidthRight() {
-		OverlayColumnWidthRight.__super__.constructor.call(this);
-	}
-
-	OverlayColumnWidthRight.prototype.canApply = function( element ) {
-		if ( ! PBSEditor.OverlayColumnWidth.__super__.canApply.call(this, element) ) {
-			return false;
-		}
-		if ( ! element ) {
-			element = this.element;
-		}
-		if ( element.constructor.name === 'DivCol' ) {
-			if ( element.parent().children.indexOf( element ) < element.parent().children.length - 1 ) {
-				return true;
-			}
-		}
-		return false;
-	};
-
-	OverlayColumnWidthRight.prototype.onEnter = function() {
-		this.element.parent().showOutline();
-	};
-
-	OverlayColumnWidthRight.prototype.onLeave = function() {
-		this.element.parent().hideOutline();
-	};
-
-	OverlayColumnWidthRight.prototype.show = function( element ) {
-		var rect = element._domElement.getBoundingClientRect();
-
-		this._domElement.style.top = ( rect.top + window.scrollY ) + 'px';
-		this._domElement.style.height = rect.height + 'px';
-		this._domElement.style.left = ( rect.left + rect.width - 10 ) + 'px';
-		this._domElement.style.width = '20px';
-	};
-
-	OverlayColumnWidthRight.prototype.onMoveStart = function() {
-		var cols = this.element.parent().children;
-		var colIndex = cols.indexOf( this.element );
-
-		this.rightInitialValue = this.normalizeFlexGrow( cols[ colIndex + 1 ] );
-		this.initialValue = this.normalizeFlexGrow( this.element );
-
-		this.element.parent().showOutline();
-	};
-
-	OverlayColumnWidthRight.prototype.onMove = function() {
-		var row = this.element.parent();
-		var cols = row.children;
-		var colIndex = cols.indexOf( this.element );
-		var widths = [];
-
-		this.element.parent().showOutline();
-
-		// If the value is too small, stop resizing. This prevents columns from getting negative widths.
-		if ( this.deltaX + this.initialValue < 0 || - this.deltaX + this.rightInitialValue < 0 ) {
-			return;
-		}
-
-		// We use the flex-grow for columns, so we need to normalize the values.
-		// Normalize means we convert them from 1-1 (for 2-column) to 200-200 (e.g. for a 400 width row)
-		// so that adjusting using overlays can be done visually with pixel units.
-		for ( var i = 0; i < cols.length; i++ ) {
-			widths.push( this.normalizeFlexGrow( cols[ i ] ) );
-		}
-		for ( i = 0; i < cols.length; i++ ) {
-			cols[ i ].style('flex-grow', widths[ i ] );
-		}
-
-		// When the shift button is down,
-		var amount = this.deltaX;
-		if ( window.PBSEditor.isShiftDown ) {
-			var remainder = ( this.deltaX + this.initialValue ) % 10;
-			amount -= remainder;
-		}
-
-		// Apply the new flex-grow values to change the column widths.
-		widths[ colIndex + 1 ] = - amount + this.rightInitialValue;
-		widths[ colIndex ] = amount + this.initialValue;
-
-		cols[ colIndex + 1 ].style('flex-grow', widths[ colIndex + 1 ] );
-		cols[ colIndex ].style('flex-grow', widths[ colIndex ] );
-	};
-
-	return OverlayColumnWidthRight;
-
-})(PBSEditor.OverlayColumnWidth);
-
-
-
-/**
- * Column width labels. These don't do anything except show width percentages of each column.
- */
-PBSEditor.OverlayColumnWidthLabels = (function(_super) {
-   __extends(OverlayColumnWidthLabels, _super);
-
-   function OverlayColumnWidthLabels() {
-	   OverlayColumnWidthLabels.__super__.constructor.call(this);
-   }
-
-   OverlayColumnWidthLabels.prototype.createElement = function() {
-	   return document.createElement( 'DIV' );
-   };
-
-   OverlayColumnWidthLabels.prototype.canApply = function( element ) {
-	   if ( ! OverlayColumnWidthLabels.__super__.canApply.call(this, element) ) {
-		   return false;
-	   }
-	   if ( ! element ) {
-		   element = this.element;
-	   }
-	   var ret = false;
-	   var row = element;
-	   if ( element.constructor.name === 'DivCol' ) {
-		   row = element.parent();
-		   if ( element.parent().children.length > 1 ) {
-			   ret = true;
-		   }
-	   } else if ( element.constructor.name === 'DivRow' ) {
-		   if ( element.children.length > 1 ) {
-			   ret = true;
-		   }
-	   }
-
-	   // Create a label div in the overlay for each column.
-	   if ( ret ) {
-		   while ( this._domElement.children.length > row.children.length ) {
-			   this._domElement.removeChild( this._domElement.firstChild );
-		   }
-		   while ( this._domElement.children.length < row.children.length ) {
-			   var label = document.createElement( 'DIV' );
-			   this._domElement.appendChild( label );
-		   }
-	   }
-
-	   return ret;
-
-   };
-
-   OverlayColumnWidthLabels.prototype.show = function( element ) {
-
-	   if ( element.constructor.name === 'DivCol' ) {
-		   element = element.parent();
-	   }
-
-	   var rect = element._domElement.getBoundingClientRect();
-
-	   this._domElement.style.top = ( rect.top + window.scrollY - 20 ) + 'px';
-	   this._domElement.style.height = '20px';
-	   this._domElement.style.left = rect.left + 'px';
-	   this._domElement.style.width = rect.width + 'px';
-
-	   var labelContainerLeft = rect.left;
-	   var percentageCount = 0;
-	   for ( var i = 0; i < element.children.length; i++ ) {
-		   var label = this._domElement.children[ i ];
-		   var percentage = Math.round( element.children[ i ]._domElement.offsetWidth / element._domElement.offsetWidth * 100 );
-
-		   if ( element.children.length - 1 === i ) {
-			   percentage = 100 - percentageCount;
-		   }
-		   percentageCount += percentage;
-
-		   label.innerHTML = percentage + '%';
-
-		   rect = element.children[ i ]._domElement.getBoundingClientRect();
-		   label.style.left = ( rect.left - labelContainerLeft + rect.width / 2 ) + 'px';
-	   }
-   };
-
-   return OverlayColumnWidthLabels;
+	return OverlayControls;
 
 })(PBSEditor.Overlay);
 
 /* globals PBSEditor, __extends, pbsParams */
 
-PBSEditor.OverlayMapHeight = (function(_super) {
-	__extends(OverlayMapHeight, _super);
+PBSEditor.OverlayElement = ( function( _super ) {
+	__extends( OverlayElement, _super );
 
-	function OverlayMapHeight() {
-		OverlayMapHeight.__super__.constructor.call(this);
+	function OverlayElement() {
+
+		var controls = [
+			{
+				name: 'resize-bottom-left',
+				refresh: function( overlay, element, styles, rect ) {
+
+					this._domElement.style.display = 'none';
+					if ( element.constructor.name === 'Image' ) {
+						this._domElement.style.display = '';
+					} else if ( element.constructor.name === 'Icon' ) {
+						this._domElement.style.display = '';
+					}
+
+					if ( rect.height < 150 || rect.width < 150 ) {
+						var side = rect.height;
+						if ( rect.height > rect.width ) {
+							side = rect.width;
+						}
+						side = side * 0.3;
+						this._domElement.style.width = side + 'px';
+						this._domElement.style.height = side + 'px';
+					} else {
+						this._domElement.style.width = '';
+						this._domElement.style.height = '';
+					}
+				},
+				onMoveStart: function( overlay, element, styles, rect ) {
+					this._initWidth = rect.width;
+					this._initHeight = rect.height;
+					this._aspectRatio = rect.width / rect.height;
+
+					var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
+					var toolbarHeight = parseInt( toolbar.height, 10 );
+					var scrollY = window.scrollY || window.pageYOffset;
+					this._toolbarHeight = toolbarHeight;
+
+					this._domElement.style.top =
+					this._overlaySize = document.createElement( 'DIV' );
+					this._overlaySize.classList.add( 'pbs-size-indicator' );
+					this._overlaySize.innerHTML = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
+					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.style.left = rect.right + 'px';
+					document.body.appendChild( this._overlaySize );
+				},
+				onMove: function( overlay, element, deltaX ) {
+					var width = - deltaX + this._initWidth;
+
+					if ( window.PBSEditor.isShiftDown ) {
+						var remainder = width % 10;
+						width -= remainder;
+					}
+					width = parseInt( width, 10 );
+
+					var height = 1 / this._aspectRatio * width;
+					element.style( 'height', height + 'px' );
+					element.style( 'width', width + 'px' );
+
+					if ( element.constructor.name === 'Image' ) {
+						element.attr( 'width', width );
+						element.attr( 'height', height );
+					}
+
+					var rect = element._domElement.getBoundingClientRect();
+					var scrollY = window.scrollY || window.pageYOffset;
+					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.style.left = rect.right + 'px';
+					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+				},
+				onMoveStop: function() {
+					document.body.removeChild( this._overlaySize );
+				}
+			},
+			{
+				name: 'resize-top-left',
+				refresh: function( overlay, element, styles, rect ) {
+
+					this._domElement.style.display = 'none';
+					if ( element.constructor.name === 'Image' ) {
+						this._domElement.style.display = '';
+					} else if ( element.constructor.name === 'Icon' ) {
+						this._domElement.style.display = '';
+					}
+
+					if ( rect.height < 150 || rect.width < 150 ) {
+						var side = rect.height;
+						if ( rect.height > rect.width ) {
+							side = rect.width;
+						}
+						side = side * 0.3;
+						this._domElement.style.width = side + 'px';
+						this._domElement.style.height = side + 'px';
+					} else {
+						this._domElement.style.width = '';
+						this._domElement.style.height = '';
+					}
+				},
+				onMoveStart: function( overlay, element, styles, rect ) {
+					this._initWidth = rect.width;
+					this._initHeight = rect.height;
+					this._aspectRatio = rect.width / rect.height;
+
+					var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
+					var toolbarHeight = parseInt( toolbar.height, 10 );
+					var scrollY = window.scrollY || window.pageYOffset;
+					this._toolbarHeight = toolbarHeight;
+
+					// this._domElement.style.top =
+					this._overlaySize = document.createElement( 'DIV' );
+					this._overlaySize.classList.add( 'pbs-size-indicator' );
+					this._overlaySize.innerHTML = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
+					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.style.left = rect.right + 'px';
+					document.body.appendChild( this._overlaySize );
+				},
+				onMove: function( overlay, element, deltaX ) {
+					var width = - deltaX + this._initWidth;
+
+					if ( window.PBSEditor.isShiftDown ) {
+						var remainder = width % 10;
+						width -= remainder;
+					}
+					width = parseInt( width, 10 );
+
+					var height = 1 / this._aspectRatio * width;
+					element.style( 'height', height + 'px' );
+					element.style( 'width', width + 'px' );
+
+					if ( element.constructor.name === 'Image' ) {
+						element.attr( 'width', width );
+						element.attr( 'height', height );
+					}
+
+					var rect = element._domElement.getBoundingClientRect();
+					var scrollY = window.scrollY || window.pageYOffset;
+					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.style.left = rect.right + 'px';
+					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+				},
+				onMoveStop: function() {
+					document.body.removeChild( this._overlaySize );
+				}
+			},
+			{
+				name: 'resize-top-right',
+				refresh: function( overlay, element, styles, rect ) {
+
+					this._domElement.style.display = 'none';
+					if ( element.constructor.name === 'Image' ) {
+						this._domElement.style.display = '';
+					} else if ( element.constructor.name === 'Icon' ) {
+						this._domElement.style.display = '';
+					}
+
+					if ( rect.height < 150 || rect.width < 150 ) {
+						var side = rect.height;
+						if ( rect.height > rect.width ) {
+							side = rect.width;
+						}
+						side = side * 0.3;
+						this._domElement.style.width = side + 'px';
+						this._domElement.style.height = side + 'px';
+					} else {
+						this._domElement.style.width = '';
+						this._domElement.style.height = '';
+					}
+				},
+				onMoveStart: function( overlay, element, styles, rect ) {
+					this._initWidth = rect.width;
+					this._initHeight = rect.height;
+					this._aspectRatio = rect.width / rect.height;
+
+					var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
+					var toolbarHeight = parseInt( toolbar.height, 10 );
+					var scrollY = window.scrollY || window.pageYOffset;
+					this._toolbarHeight = toolbarHeight;
+
+					this._domElement.style.top =
+					this._overlaySize = document.createElement( 'DIV' );
+					this._overlaySize.classList.add( 'pbs-size-indicator' );
+					this._overlaySize.innerHTML = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
+					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.style.left = rect.right + 'px';
+					document.body.appendChild( this._overlaySize );
+				},
+				onMove: function( overlay, element, deltaX ) {
+					var width = deltaX + this._initWidth;
+
+					if ( window.PBSEditor.isShiftDown ) {
+						var remainder = width % 10;
+						width -= remainder;
+					}
+					width = parseInt( width, 10 );
+
+					var height = 1 / this._aspectRatio * width;
+					element.style( 'height', height + 'px' );
+					element.style( 'width', width + 'px' );
+
+					if ( element.constructor.name === 'Image' ) {
+						element.attr( 'width', width );
+						element.attr( 'height', height );
+					}
+
+					var rect = element._domElement.getBoundingClientRect();
+					var scrollY = window.scrollY || window.pageYOffset;
+					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.style.left = rect.right + 'px';
+					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+				},
+				onMoveStop: function() {
+					document.body.removeChild( this._overlaySize );
+				}
+			},
+			{
+				name: 'resize-bottom-right',
+				refresh: function( overlay, element, styles, rect ) {
+
+					this._domElement.style.display = 'none';
+					if ( element.constructor.name === 'Image' ) {
+						this._domElement.style.display = '';
+					} else if ( element.constructor.name === 'Icon' ) {
+						this._domElement.style.display = '';
+					}
+
+					if ( rect.height < 150 || rect.width < 150 ) {
+						var side = rect.height;
+						if ( rect.height > rect.width ) {
+							side = rect.width;
+						}
+						side = side * 0.3;
+						this._domElement.style.width = side + 'px';
+						this._domElement.style.height = side + 'px';
+					} else {
+						this._domElement.style.width = '';
+						this._domElement.style.height = '';
+					}
+				},
+				onMoveStart: function( overlay, element, styles, rect ) {
+					this._initWidth = rect.width;
+					this._initHeight = rect.height;
+					this._aspectRatio = rect.width / rect.height;
+
+					var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
+					var toolbarHeight = parseInt( toolbar.height, 10 );
+					var scrollY = window.scrollY || window.pageYOffset;
+					this._toolbarHeight = toolbarHeight;
+
+					this._domElement.style.top =
+					this._overlaySize = document.createElement( 'DIV' );
+					this._overlaySize.classList.add( 'pbs-size-indicator' );
+					this._overlaySize.innerHTML = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
+					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.style.left = rect.right + 'px';
+					document.body.appendChild( this._overlaySize );
+				},
+				onMove: function( overlay, element, deltaX ) {
+					var width = deltaX + this._initWidth;
+
+					if ( window.PBSEditor.isShiftDown ) {
+						var remainder = width % 10;
+						width -= remainder;
+					}
+					width = parseInt( width, 10 );
+
+					var height = 1 / this._aspectRatio * width;
+					element.style( 'height', height + 'px' );
+					element.style( 'width', width + 'px' );
+
+					if ( element.constructor.name === 'Image' ) {
+						element.attr( 'width', width );
+						element.attr( 'height', height );
+					}
+
+					var rect = element._domElement.getBoundingClientRect();
+					var scrollY = window.scrollY || window.pageYOffset;
+					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.style.left = rect.right + 'px';
+					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+				},
+				onMoveStop: function() {
+					document.body.removeChild( this._overlaySize );
+				}
+			},
+			{
+				name: 'resize-bottom',
+				refresh: function( overlay, element, styles, rect ) {
+
+					this._domElement.style.display = 'none';
+					if ( element.constructor.name === 'Map' ) {
+						this._domElement.style.display = '';
+					}
+
+					if ( rect.height < 150 || rect.width < 150 ) {
+						var side = rect.height;
+						if ( rect.height > rect.width ) {
+							side = rect.width;
+						}
+						side = side * 0.3;
+						this._domElement.style.width = side + 'px';
+						this._domElement.style.height = side + 'px';
+					} else {
+						this._domElement.style.width = '';
+						this._domElement.style.height = '';
+					}
+				},
+				onMoveStart: function( overlay, element, styles, rect ) {
+					this._initWidth = rect.width;
+					this._initHeight = rect.height;
+
+					var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
+					var toolbarHeight = parseInt( toolbar.height, 10 );
+					var scrollY = window.scrollY || window.pageYOffset;
+					this._toolbarHeight = toolbarHeight;
+
+					this._domElement.style.top =
+					this._overlaySize = document.createElement( 'DIV' );
+					this._overlaySize.classList.add( 'pbs-size-indicator' );
+					this._overlaySize.innerHTML = rect.height + ' px';
+					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.style.left = rect.right + 'px';
+					document.body.appendChild( this._overlaySize );
+				},
+				onMove: function( overlay, element, deltaX, deltaY ) {
+					var height = deltaY + this._initHeight;
+
+					if ( window.PBSEditor.isShiftDown ) {
+						var remainder = height % 10;
+						height -= remainder;
+					}
+					height = parseInt( height, 10 );
+
+					element.style( 'height', height + 'px' );
+
+					var rect = element._domElement.getBoundingClientRect();
+					var scrollY = window.scrollY || window.pageYOffset;
+					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.style.left = rect.right + 'px';
+					this._overlaySize.innerHTML = rect.height + ' px';
+				},
+				onMoveStop: function() {
+					document.body.removeChild( this._overlaySize );
+				}
+			},
+			{
+				name: 'margin-top',
+				refresh: function( overlay, element, styles, rect ) {
+					this._domElement.style.display = '';
+					if ( element.constructor.name === 'Shortcode' ) {
+						this._domElement.style.display = 'none';
+					}
+
+					if ( rect.width > 100 ) {
+						this._domElement.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + styles.marginTop );
+					} else {
+						this._domElement.setAttribute( 'data-label', styles.marginTop );
+					}
+
+					if ( parseInt( styles.marginTop, 10 ) < 0 ) {
+						this._domElement.style.height = '0px';
+					} else {
+						this._domElement.style.height = styles.marginTop;
+					}
+
+					this._domElement.setAttribute( 'data-value', 'margin-' + styles.marginTop );
+				},
+				onMoveStart: function( overlay, element, styles ) {
+					this._initValue = parseInt( styles.marginTop, 10 );
+				},
+				onMove: function( overlay, element, deltaX, deltaY ) {
+					var margin = deltaY + this._initValue;
+
+					if ( window.PBSEditor.isShiftDown ) {
+						var remainder = margin % 10;
+						margin -= remainder;
+					}
+
+					element.style( 'margin-top', margin + 'px' );
+				}
+			},
+			{
+				name: 'margin-bottom',
+				refresh: function( overlay, element, styles, rect ) {
+					this._domElement.style.display = '';
+					if ( element.constructor.name === 'Shortcode' ) {
+						this._domElement.style.display = 'none';
+					}
+
+					if ( rect.width > 100 ) {
+						this._domElement.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + styles.marginBottom );
+					} else {
+						this._domElement.setAttribute( 'data-label', styles.marginBottom );
+					}
+
+					if ( parseInt( styles.marginBottom, 10 ) < 0 ) {
+						this._domElement.style.height = '0px';
+					} else {
+						this._domElement.style.height = styles.marginBottom;
+					}
+
+					this._domElement.setAttribute( 'data-value', 'margin-' + styles.marginBottom );
+				},
+				onMoveStart: function( overlay, element, styles ) {
+					this._initValue = parseInt( styles.marginBottom, 10 );
+				},
+				onMove: function( overlay, element, deltaX, deltaY ) {
+					var margin = deltaY + this._initValue;
+
+					if ( window.PBSEditor.isShiftDown ) {
+						var remainder = margin % 10;
+						margin -= remainder;
+					}
+
+					element.style( 'margin-bottom', margin + 'px' );
+				}
+			}
+		];
+
+		OverlayElement.__super__.constructor.call( this, controls );
+		this.showOnTaint = false;
 	}
 
-	OverlayMapHeight.prototype.createElement = function() {
-		var element = document.createElement( 'DIV' );
-		var label = document.createElement( 'DIV' );
-		element.appendChild( label );
-		return element;
-	};
-
-	OverlayMapHeight.prototype.canApply = function( element ) {
-		if ( ! OverlayMapHeight.__super__.canApply.call(this, element) ) {
+	OverlayElement.prototype.canApply = function( element ) {
+		if ( ! OverlayElement.__super__.canApply.call(this, element) ) {
 			return false;
 		}
 		if ( ! element ) {
 			element = this.element;
 		}
-		return element.constructor.name === 'Map';
+		if ( element.constructor.name === 'Static' ) {
+			return false;
+		}
+		// Highlight the whole list.
+		if ( [ 'ListItem', 'ListItemText' ].indexOf( element.constructor.name ) !== -1 ) {
+			return false;
+		}
+		// Nothing for tabs, but yes for the tabs container.
+		if ( [ 'Tab', 'TabPanelContainer' ].indexOf( element.constructor.name ) !== -1 ) {
+			return false;
+		}
+		// Nothing for table contents.
+		if ( [ 'TableRow', 'TableSection' ].indexOf( element.constructor.name ) !== -1 ) {
+			return false;
+		}
+		if ( [ 'Carousel' ].indexOf( element.constructor.name ) !== -1 ) {
+			return false;
+		}
+		if ( [ 'Div', 'DivRow', 'DivCol', 'Region' ].indexOf( element.constructor.name ) !== -1 ) {
+			return false;
+		}
+		return true;
 	};
 
-	OverlayMapHeight.prototype.show = function( element ) {
+	return OverlayElement;
+
+} )( PBSEditor.OverlayControls );
+
+/* globals PBSEditor, __extends, pbsParams */
+
+
+PBSEditor.OverlayColumn = ( function( _super ) {
+	__extends( OverlayColumn, _super );
+
+	function OverlayColumn() {
+
+		var controls = [
+			{
+				name: 'padding-top',
+				refresh: function( overlay, element, styles ) {
+
+					this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + styles.paddingTop );
+					this._domElement.style.height = styles.paddingTop;
+					this._domElement.setAttribute( 'data-value', 'padding-' + styles.paddingTop );
+				},
+				onMoveStart: function( overlay, element, styles ) {
+					this._initValue = parseInt( styles.paddingTop, 10 );
+				},
+				onMove: function( overlay, element, deltaX, deltaY ) {
+
+					var padding = deltaY + this._initValue;
+					if ( padding < 0 ) {
+						padding = 0;
+					}
+
+					if ( window.PBSEditor.isShiftDown ) {
+						var remainder = padding % 10;
+						padding -= remainder;
+					}
+
+					element.style( 'padding-top', padding + 'px' );
+				}
+			},
+			{
+				name: 'padding-bottom',
+				refresh: function( overlay, element, styles ) {
+
+					this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + styles.paddingBottom );
+					this._domElement.style.height = styles.paddingBottom;
+					this._domElement.setAttribute( 'data-value', 'padding-' + styles.paddingBottom );
+				},
+				onMoveStart: function( overlay, element, styles ) {
+					this._initValue = parseInt( styles.paddingBottom, 10 );
+				},
+				onMove: function( overlay, element, deltaX, deltaY ) {
+
+					var padding = deltaY + this._initValue;
+					if ( padding < 0 ) {
+						padding = 0;
+					}
+
+					if ( window.PBSEditor.isShiftDown ) {
+						var remainder = padding % 10;
+						padding -= remainder;
+					}
+
+					element.style( 'padding-bottom', padding + 'px' );
+				}
+			},
+			{
+				name: 'padding-left',
+				refresh: function( overlay, element, styles, rect ) {
+
+					if ( parseInt( rect.height, 10 ) > 100 ) {
+						this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + styles.paddingLeft );
+					} else {
+						this._domElement.setAttribute( 'data-label', styles.paddingLeft );
+					}
+					this._domElement.style.width = styles.paddingLeft;
+					this._domElement.setAttribute( 'data-value', 'padding-' + styles.paddingLeft );
+				},
+				onMoveStart: function( overlay, element, styles ) {
+					this._initValue = parseInt( styles.paddingLeft, 10 );
+				},
+				onMove: function( overlay, element, deltaX ) {
+
+					var padding = deltaX + this._initValue;
+					if ( padding < 0 ) {
+						padding = 0;
+					}
+
+					if ( window.PBSEditor.isShiftDown ) {
+						var remainder = padding % 10;
+						padding -= remainder;
+					}
+
+					element.style( 'padding-left', padding + 'px' );
+				}
+			},
+			{
+				name: 'padding-right',
+				refresh: function( overlay, element, styles, rect ) {
+
+					if ( parseInt( rect.height, 10 ) > 100 ) {
+						this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + styles.paddingRight );
+					} else {
+						this._domElement.setAttribute( 'data-label', styles.paddingRight );
+					}
+
+					this._domElement.style.width = styles.paddingRight;
+					this._domElement.setAttribute( 'data-value', 'padding-' + styles.paddingRight );
+				},
+				onMoveStart: function( overlay, element, styles ) {
+					this._initValue = parseInt( styles.paddingRight, 10 );
+				},
+				onMove: function( overlay, element, deltaX ) {
+
+					var padding = - deltaX + this._initValue;
+					if ( padding < 0 ) {
+						padding = 0;
+					}
+
+					if ( window.PBSEditor.isShiftDown ) {
+						var remainder = padding % 10;
+						padding -= remainder;
+					}
+
+					element.style( 'padding-right', padding + 'px' );
+				}
+			}
+		];
+
+		OverlayColumn.__super__.constructor.call( this, controls );
+		this.showOnTaint = false;
+	}
+
+	OverlayColumn.prototype.canApply = function( element ) {
+		if ( ! OverlayColumn.__super__.canApply.call(this, element) ) {
+			return false;
+		}
+		if ( ! element ) {
+			element = this.element;
+		}
+		if ( element.constructor.name === 'DivCol' ) {
+			return true;
+		}
+		var parent = element.parent();
+		while ( parent && parent.constructor.name !== 'Region' ) {
+			if ( parent.constructor.name === 'DivCol' ) {
+				return true;
+			}
+			parent = parent.parent();
+		}
+		if ( element ) {
+			if ( element.constructor.name === 'DivCol' ) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+
+	OverlayColumn.prototype.show = function( element ) {
+
+		if ( element.constructor.name !== 'DivCol' ) {
+			element = element.parent();
+			while ( element && element.constructor.name !== 'Region' ) {
+				if ( element.constructor.name === 'DivCol' ) {
+					break;
+				}
+				element = element.parent();
+			}
+			if ( ! element || element.constructor.name === 'Region' ) {
+				this._hide();
+				return;
+			}
+			this.element = element;
+		}
+
+		// Since this is run on EVERY element that's on the "over stack",
+		// only show this on the first ROW encountered.
+		if ( this._alreadyShown ) {
+			return;
+		}
+		this._alreadyShown = true;
+		setTimeout( function() {
+			this._alreadyShown = false;
+		}.bind( this ) );
+
+		return OverlayColumn.__super__.show.call( this, this.element );
+	};
+
+	OverlayColumn.prototype.applyTo = function( element ) {
+
+		// Since this is run on EVERY element that's on the "over stack",
+		// only show this on the first ROW encountered.
+		if ( this._alreadyShown2 ) {
+			return this.element;
+		}
+		this._alreadyShown2 = true;
+		setTimeout( function() {
+			this._alreadyShown2 = false;
+		}.bind( this ) );
+
+		if ( element.constructor.name !== 'DivCol' ) {
+			element = element.parent();
+			while ( element && element.constructor.name !== 'Region' ) {
+				if ( element.constructor.name === 'DivCol' ) {
+					return element;
+				}
+				element = element.parent();
+			}
+		}
+
+		return element;
+	};
+
+	return OverlayColumn;
+
+} )( PBSEditor.OverlayControls );
+
+/* globals PBSEditor, ContentEdit, __extends, pbsParams */
+
+PBSEditor.OverlayRow = (function(_super) {
+	__extends(OverlayRow, _super);
+
+	OverlayRow.showOnTaint = false;
+
+	function OverlayRow() {
+		OverlayRow.__super__.constructor.call(this);
+		this.showOnTaint = false;
+
+		ContentEdit.Root.get().bind( 'focus', function() {
+			this._hide();
+		}.bind( this ) );
+		document.addEventListener( 'mousedown', function( ev ) {
+			var focused = ContentEdit.Root.get().focused();
+			if ( focused ) {
+				if ( focused._domElement === ev.target ) {
+					this._hide();
+				}
+			}
+		}.bind( this ) );
+		ContentEdit.Root.get().bind( 'focus', function() {
+			this._hide();
+		}.bind( this ) );
+		document.addEventListener( 'keydown', function( ev ) {
+			if ( [ 40, 37, 39, 38, 9, 8, 46, 13, 16, 91, 18 ].indexOf( ev.keyCode ) === -1 ) {
+				this._hide();
+			}
+		}.bind( this ) );
+		window.addEventListener( 'resize', function() {
+			this._hide();
+		}.bind( this ) );
+	}
+
+	OverlayRow.prototype.createElement = function() {
+		var element = document.createElement( 'DIV' );
+		// var label = document.createElement( 'DIV' );
+		// element.appendChild( label );
+
+		this._topMargin = document.createElement( 'DIV' );
+		this._topMargin.classList.add( 'pbs-overlay-margin-top' );
+		this._topMargin.addEventListener( 'mouseenter', function() {
+			this._domElement.classList.add( 'pbs-over-margin-top' );
+		}.bind( this ) );
+		this._topMargin.addEventListener( 'mouseleave', function() {
+			this._domElement.classList.remove( 'pbs-over-margin-top' );
+		}.bind( this ) );
+		element.appendChild( this._topMargin );
+
+		this._bottomMargin = document.createElement( 'DIV' );
+		this._bottomMargin.classList.add( 'pbs-overlay-margin-bottom' );
+		this._bottomMargin.addEventListener( 'mouseenter', function() {
+			this._domElement.classList.add( 'pbs-over-margin-bottom' );
+		}.bind( this ) );
+		this._bottomMargin.addEventListener( 'mouseleave', function() {
+			this._domElement.classList.remove( 'pbs-over-margin-bottom' );
+		}.bind( this ) );
+		element.appendChild( this._bottomMargin );
+
+		this._columnWidths = [];
+		this._columnLabels = [];
+
+		return element;
+	};
+
+	OverlayRow.prototype.canApply = function( element ) {
+		// return true;
+		if ( ! OverlayRow.__super__.canApply.call(this, element) ) {
+			return false;
+		}
+		if ( ! element ) {
+			element = this.element;
+		}
+		if ( element.constructor.name === 'DivRow' ) {
+			return true;
+		}
+		var parent = element.parent();
+		element = null;
+		while ( parent && parent.constructor.name !== 'Region' ) {
+			if ( parent.constructor.name === 'DivRow' ) {
+				element = parent;
+				break;
+			}
+			parent = parent.parent();
+		}
+		if ( element ) {
+			if ( element.parent() ) {
+				if ( element.parent().constructor.name === 'Div' ) {
+					return false;
+				}
+			}
+			if ( element.constructor.name === 'DivRow' ) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	OverlayRow.prototype.updatePosition = function( element ) {
+		var rect = element._domElement.getBoundingClientRect();
+		var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
+		var toolbarHeight = parseInt( toolbar.height, 10 );
+		var scrollY = window.scrollY || window.pageYOffset;
+
+		this._domElement.style.top = ( rect.top + scrollY - toolbarHeight ) + 'px';
+		this._domElement.style.height = rect.height + 'px';
+		this._domElement.style.left = ( rect.left ) + 'px';
+		this._domElement.style.width = ( rect.width ) + 'px';
+	};
+
+	OverlayRow.prototype.hide = function() {
+		OverlayRow.__super__.hide.call( this );
+
+		clearInterval( this._updatePositionTimeout );
+	};
+
+	OverlayRow.prototype.show = function( element ) {
+
+		if ( element.constructor.name !== 'DivRow' ) {
+			element = element.parent();
+			while ( element && element.constructor.name !== 'Region' ) {
+				if ( element.constructor.name === 'DivRow' ) {
+					break;
+				}
+				element = element.parent();
+			}
+			if ( ! element || element.constructor.name === 'Region' ) {
+				this._hide();
+				return;
+			}
+			this.element = element;
+		}
+
+		// Since this is run on EVERY element that's on the "over stack",
+		// only show this on the first ROW encountered.
+		if ( this._alreadyShown ) {
+			return;
+		}
+		this._alreadyShown = true;
+		setTimeout( function() {
+			this._alreadyShown = false;
+		}.bind( this ) );
+
+		element = this.element;
+
+		clearInterval( this._updatePositionTimeout );
+		this._updatePositionTimeout = setInterval( function() {
+			this.updatePosition( this.element );
+		}.bind( this ), 60 );
+
+		this._topMargin.style.display = '';
+		this._bottomMargin.style.display = '';
+		if ( element.parent().constructor.name === 'Div' ) {
+			this._topMargin.style.display = 'none';
+			this._bottomMargin.style.display = 'none';
+		} else if ( element.parent().constructor.name === 'TabPanelContainer' ) {
+			this._topMargin.style.display = 'none';
+			this._bottomMargin.style.display = 'none';
+		}
+
 		var styles = getComputedStyle( element._domElement );
 		var rect = element._domElement.getBoundingClientRect();
 
-		this._domElement.style.top = ( rect.bottom + window.scrollY - 7.5 ) + 'px';
-		this._domElement.style.left = ( rect.left + rect.width / 2 - 7.5 - 30 ) + 'px';
+		this._domElement.classList.remove( 'pbs-active-margin-top' );
+		this._domElement.classList.remove( 'pbs-active-margin-bottom' );
 
-		var label = styles.height;
-		if ( styles.height === '250px' ) {
-			label = 'Auto';
+		this.updatePosition( element );
+
+		this._topMargin.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + styles.marginTop );
+		this._topMargin.style.height = styles.marginTop;
+		this._topMargin.setAttribute( 'data-value', 'margin-' + styles.marginTop );
+
+		this._bottomMargin.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + styles.marginBottom );
+		this._bottomMargin.style.height = styles.marginBottom;
+		this._bottomMargin.setAttribute( 'data-value', 'margin-' + styles.marginBottom );
+
+		var i, totalWidth = 0, totalWidthNoMargin = 0, margin, columnRect;
+		for ( i = this._columnWidths.length - 1; i >= 0; i-- ) {
+			this._columnWidths[ i ].parentNode.removeChild( this._columnWidths[ i ] );
 		}
-		this._domElement.firstChild.innerHTML = label;
+		for ( i = this._columnLabels.length - 1; i >= 0; i-- ) {
+			this._columnLabels[ i ].parentNode.removeChild( this._columnLabels[ i ] );
+		}
+		this._columnWidths = [];
+		this._columnLabels = [];
+
+		var rowLeftPadding = parseInt( element.style( 'padding-left' ), 10 );
+
+		for ( i = 0; i < element.children.length - 1; i++ ) {
+			var o = document.createElement( 'DIV' );
+			o.classList.add( 'pbs-overlay-column-width-' + i );
+			o.classList.add( 'pbs-overlay-column-width' );
+			o._index = i;
+			o._this = this;
+			if ( rect.height > 100 ) {
+				o.setAttribute( 'data-label', pbsParams.labels.column_width );
+			} else {
+				o.setAttribute( 'data-label', pbsParams.labels.width );
+			}
+
+			o.addEventListener( 'mouseenter', function() {
+				this._this._domElement.classList.add( 'pbs-over-column-width-' + this._index );
+				this._this._domElement.classList.add( 'pbs-overlay-column-width' );
+			} );
+			o.addEventListener( 'mouseleave', function() {
+				this._this._domElement.classList.remove( 'pbs-over-column-width-' + this._index );
+				this._this._domElement.classList.remove( 'pbs-overlay-column-width' );
+			} );
+
+			columnRect = element.children[ i ]._domElement.getBoundingClientRect();
+
+			totalWidth += columnRect.width;
+			totalWidthNoMargin += columnRect.width;
+
+			// The left row padding can affect the location of the columns.
+			o.style.left = ( rowLeftPadding + totalWidth ) + 'px';
+
+			if ( element.children[ i ]._domElement.style.marginRight ) {
+				margin = parseInt( element.children[ i ]._domElement.style.marginRight, 10 );
+				totalWidth += margin;
+				o.style.width = margin + 'px';
+				o.style.marginLeft = '0px';
+			}
+
+			this._domElement.appendChild( o );
+			this._columnWidths.push( o );
+		}
+		if ( element.children.length ) {
+			columnRect = element.children[ element.children.length - 1 ]._domElement.getBoundingClientRect();
+			totalWidthNoMargin += columnRect.width;
+		}
+
+		totalWidth = 0;
+		for ( i = 0; i < element.children.length; i++ ) {
+			columnRect = element.children[ i ]._domElement.getBoundingClientRect();
+
+			var label = document.createElement( 'DIV' );
+			label.classList.add( 'pbs-overlay-column-label' );
+			label.innerHTML = ( columnRect.width / totalWidthNoMargin * 100 ).toFixed( 1 ) + '%';
+
+
+			// The left row padding can affect the location of the columns.
+			if ( ! i ) {
+				label.style.left = totalWidth + 'px';
+			} else {
+				label.style.left = ( rowLeftPadding + totalWidth ) + 'px';
+			}
+
+			totalWidth += columnRect.width;
+			if ( element.children[ i ]._domElement.style.marginRight ) {
+				totalWidth += parseInt( element.children[ i ]._domElement.style.marginRight, 10 );
+			}
+
+			this._domElement.appendChild( label );
+			this._columnLabels.push( label );
+		}
 	};
 
-	OverlayMapHeight.prototype.onMoveStart = function() {
+	OverlayRow.prototype.onMoveStart = function() {
 		var styles = getComputedStyle( this.element._domElement );
-		this.initialValue = parseInt( styles.height, 10 );
-	};
-
-	OverlayMapHeight.prototype.onMove = function() {
-		var height = this.deltaY + this.initialValue;
-		if ( height < 0 ) {
-			height = 0;
-		}
-		if ( window.PBSEditor.isShiftDown ) {
-			var remainder = height % 10;
-			height -= remainder;
-		}
-		this.element.style( 'height', height + 'px' );
-		this.element.style( 'max-height', height + 'px' );
-		var styles = getComputedStyle( this.element._domElement );
-
-		var label = styles.height;
-		if ( styles.height === '250px' ) {
-			label = pbsParams.labels.auto;
-			this.element.style( 'max-height', '' );
-		}
-		this._domElement.firstChild.innerHTML = label;
-	};
-
-	OverlayMapHeight.prototype.onClick = function() {
-		if ( window.PBSEditor.isShiftDown && window.PBSEditor.isCtrlDown ) {
-			this.element.style( 'height', '' );
-			this.element.style( 'max-height', '' );
-			this.onMoveStart();
-			this._domElement.style.height = this.initialValue;
-			this._domElement.firstChild.innerHTML = pbsParams.labels.auto;
-			return;
+		this.marginTopInitialValue = parseInt( styles.marginTop, 10 );
+		this.marginBottomInitialValue = parseInt( styles.marginBottom, 10 );
+		this.columnWidthInitialValues = [];
+		for ( var i = 0; i < this.element.children.length; i++ ) {
+			var rect = this.element.children[ i ]._domElement.getBoundingClientRect();
+			this.columnWidthInitialValues.push( rect.width );
 		}
 	};
 
-	return OverlayMapHeight;
+	OverlayRow.prototype.onMove = function() {
+		var margin, remainder, rect, totalWidth, totalWidthNoMargin, i;
+
+		rect = this.element._domElement.getBoundingClientRect();
+
+		if ( this._locationDragging === 'margin-top' ) {
+			margin = this.deltaY + this.marginTopInitialValue;
+			if ( window.PBSEditor.isShiftDown ) {
+				remainder = margin % 10;
+				margin -= remainder;
+			}
+			this.element.style( 'margin-top', margin + 'px' );
+
+			this._topMargin.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + margin + 'px' );
+			this._topMargin.style.height = margin + 'px';
+			this._topMargin.setAttribute( 'data-value', 'margin-' + margin + 'px' );
+
+		} else if ( this._locationDragging === 'margin-bottom' ) {
+
+			margin = this.deltaY + this.marginBottomInitialValue;
+			if ( window.PBSEditor.isShiftDown ) {
+				remainder = margin % 10;
+				margin -= remainder;
+			}
+			this.element.style( 'margin-bottom', margin + 'px' );
+
+			// var rect = this.element._domElement.getBoundingClientRect();
+			if ( rect.width > 100 ) {
+				this._bottomMargin.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + margin + 'px' );
+			} else {
+				this._bottomMargin.setAttribute( 'data-label', margin + 'px' );
+			}
+			this._bottomMargin.style.height = margin + 'px';
+			this._bottomMargin.setAttribute( 'data-value', 'margin-' + margin + 'px' );
+
+		} else if ( this._locationDragging.indexOf( 'column-' ) === 0 ) {
+			var width = this.deltaX + this.columnWidthInitialValues[ this._columnDragging ];
+			if ( window.PBSEditor.isShiftDown ) {
+				remainder = width % 10;
+				width -= remainder;
+			}
+			var change = this.columnWidthInitialValues[ this._columnDragging ] - width;
+			totalWidth = 0;
+			totalWidthNoMargin = 0;
+			for ( i = 0; i < this.element.children.length; i++ ) {
+				var colRect = this.element.children[ i ]._domElement.getBoundingClientRect();
+				totalWidth += colRect.width;
+				totalWidthNoMargin += colRect.width;
+				if ( i < this.element.children.length - 1 ) {
+					this._columnWidths[ i ].style.left = totalWidth + 'px';
+					if ( this.element.children[ i ]._domElement.style.marginRight ) {
+						totalWidth += parseInt( this.element.children[ i ]._domElement.style.marginRight, 10 );
+					}
+				}
+			}
+			this.element._domElement.classList.add( 'pbs-overlay-changing-cols' );
+			for ( i = 0; i < this.element.children.length; i++ ) {
+
+				// We previously used flex-grow, don't use it anymore.
+				this.element.children[ i ].style( 'flex-grow', '' );
+
+				if ( i === this._columnDragging ) {
+					this.element.children[ i ].style( 'flex-basis', ( width / totalWidthNoMargin * 100 ) + '%' );
+				} else if ( i === this._columnDragging + 1 ) {
+					this.element.children[ i ].style( 'flex-basis', ( ( this.columnWidthInitialValues[ i ] + change ) / totalWidthNoMargin * 100 ) + '%' );
+				} else {
+					this.element.children[ i ].style( 'flex-basis', ( this.columnWidthInitialValues[ i ] / totalWidthNoMargin * 100 ) + '%' );
+				}
+			}
+		}
+
+		rect = this.element._domElement.getBoundingClientRect();
+		var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
+		var toolbarHeight = parseInt( toolbar.height, 10 );
+		var scrollY = window.scrollY || window.pageYOffset;
+
+		this._domElement.style.top = ( rect.top + scrollY - toolbarHeight ) + 'px';
+		this._domElement.style.height = rect.height + 'px';
+		this._domElement.style.left = ( rect.left ) + 'px';
+		this._domElement.style.width = ( rect.width ) + 'px';
+
+		// Adjust the column width labels.
+		var columnRect, rowLeftPadding = parseInt( this.element.style( 'padding-left' ), 10 );
+		totalWidthNoMargin = 0;
+		totalWidth = 0;
+		for ( i = 0; i < this.element.children.length; i++ ) {
+			columnRect = this.element.children[ i ]._domElement.getBoundingClientRect();
+			totalWidthNoMargin += columnRect.width;
+		}
+		for ( i = 0; i < this.element.children.length; i++ ) {
+			columnRect = this.element.children[ i ]._domElement.getBoundingClientRect();
+
+			this._columnLabels[ i ].classList.add( 'pbs-overlay-column-label' );
+			this._columnLabels[ i ].innerHTML = ( columnRect.width / totalWidthNoMargin * 100 ).toFixed( 1 ) + '%';
+
+			if ( ! i ) {
+				this._columnLabels[ i ].style.left = totalWidth + 'px';
+			} else {
+				this._columnLabels[ i ].style.left = rowLeftPadding + totalWidth + 'px';
+			}
+
+			totalWidth += columnRect.width;
+			if ( this.element.children[ i ]._domElement.style.marginRight ) {
+				totalWidth += parseInt( this.element.children[ i ]._domElement.style.marginRight, 10 );
+			}
+		}
+	};
+
+	OverlayRow.prototype.applyTo = function( element ) {
+
+		// Since this is run on EVERY element that's on the "over stack",
+		// only show this on the first ROW encountered.
+		if ( this._alreadyShown2 ) {
+			return this.element;
+		}
+		this._alreadyShown2 = true;
+		setTimeout( function() {
+			this._alreadyShown2 = false;
+		}.bind( this ) );
+
+		if ( element.constructor.name !== 'DivRow' ) {
+			element = element.parent();
+			while ( element && element.constructor.name !== 'Region' ) {
+				if ( element.constructor.name === 'DivRow' ) {
+					return element;
+				}
+				element = element.parent();
+			}
+		}
+		return element;
+	};
+
+
+	OverlayRow.prototype._mouseup = function() {
+		OverlayRow.__super__._mouseup.call( this );
+		if ( this.element && this.element._domElement ) {
+			this.element._domElement.classList.remove( 'pbs-overlay-changing-cols' );
+		}
+		this._domElement.classList.remove( 'pbs-active-overlay-column' );
+	};
+
+	OverlayRow.prototype.onClick = function( ev ) {
+		var i;
+		this._locationDragging = null;
+		this._domElement.classList.remove( 'pbs-active-overlay-column' );
+		if ( ev.target === this._topMargin ) {
+			this._locationDragging = 'margin-top';
+		} else if ( ev.target === this._bottomMargin ) {
+			this._locationDragging = 'margin-bottom';
+		} else {
+			for ( i = 0; i < this._columnWidths.length; i++ ) {
+				if ( ev.target === this._columnWidths[ i ] ) {
+					this._locationDragging = 'column-' + this._columnWidths[ i ]._index;
+					this._columnDragging = this._columnWidths[ i ]._index;
+					this._domElement.classList.add( 'pbs-active-overlay-column' );
+					break;
+				}
+			}
+		}
+		this._domElement.classList.remove( 'pbs-active-margin-top' );
+		this._domElement.classList.remove( 'pbs-active-margin-bottom' );
+		for ( i = 0; i < 10; i++ ) {
+			this._domElement.classList.remove( 'pbs-active-column-' + i );
+		}
+		if ( this._locationDragging ) {
+			this._domElement.classList.add( 'pbs-active-' + this._locationDragging );
+		}
+	};
+
+	return OverlayRow;
 
 })(PBSEditor.Overlay);
 
-window.addEventListener( 'DOMContentLoaded', function() {
-	new PBSEditor.OverlayMapHeight();
-});
+/* globals ContentEdit, pbsParams */
+
+/**
+ * This changes the drop behavior to use overlays to represent the droppable
+ * location instead of adding a pseudo element.
+ */
+
+( function() {
+
+	// Triggered when finding out whether to drop above or below an element.
+   	var _Root = ContentEdit.Root.get();
+   	var proxiedGetDropPlacement = _Root._getDropPlacement;
+	_Root._getDropPlacement = function( x, y ) {
+		var placement = proxiedGetDropPlacement.call( this, x, y );
+
+		if ( placement ) {
+
+			// Don't allow left/right dropping anymore.
+			placement[1] = 'center';
+
+			showDropIndicator( placement );
+		}
+		return placement;
+	};
+
+	// Triggered when dragging is cancelled.
+   	var proxiedCancelDragging = _Root.cancelDragging;
+	_Root.cancelDragging = function() {
+		if ( this._dragging ) {
+			hideDropIndicator();
+		}
+		return proxiedCancelDragging.call( this );
+	};
+
+	// Triggered when dragging is stopped.
+   	var proxiedOnStopDragging = _Root._onStopDragging;
+	_Root._onStopDragging = function( ev ) {
+		return proxiedOnStopDragging.call( this, ev );
+	};
+
+	// Triggered on mouseout when dragging.
+	var proxiedOnMouseOut = ContentEdit.Element.prototype._onMouseOut;
+	ContentEdit.Element.prototype._onMouseOut = function( ev ) {
+		var ret = proxiedOnMouseOut.call( this, ev );
+		var root = ContentEdit.Root.get();
+		if ( root.dragging() ) {
+			hideDropIndicator();
+		}
+		return ret;
+	};
+
+
+	// Triggered when hovering over an element. Cancel overlay when
+	// hovered over the dragged element.
+	var proxiedOnMouseOver = ContentEdit.Element.prototype._onMouseOver;
+	ContentEdit.Element.prototype._onMouseOver = function( ev ) {
+		var ret = proxiedOnMouseOver.call( this, ev );
+		var root = ContentEdit.Root.get();
+		if ( root.dragging() === this ) {
+			hideDropIndicator();
+			ev.stopPropagation();
+			ev.preventDefault();
+		}
+		return ret;
+	};
+
+	// Triggered after a successful drop.
+	var proxiedDrop = ContentEdit.Element.prototype.drop;
+	ContentEdit.Element.prototype.drop = function( element, placement ) {
+		var ret = proxiedDrop.call( this, element, placement );
+		if ( element ) {
+			hideDropIndicator();
+		}
+		return ret;
+	};
+
+	var indicatorTimeout = null;
+	var dropIndicator = null;
+	var prevDropTarget = null;
+	var prevDropPlacement = null;
+	var showDropIndicator = function( placement ) {
+		var root = ContentEdit.Root.get();
+
+		if ( ! dropIndicator ) {
+			dropIndicator = document.createElement( 'DIV' );
+			dropIndicator.classList.add( 'pbs-drop-indicator' );
+			dropIndicator.appendChild( document.createElement( 'SPAN' ) );
+			dropIndicator.appendChild( document.createElement( 'SPAN' ) );
+		}
+
+		var dropTargetDom = root._dropTarget._domElement;
+
+		if ( prevDropTarget === dropTargetDom && prevDropPlacement === placement[0] ) {
+			return;
+		}
+
+		prevDropTarget = dropTargetDom;
+		prevDropPlacement = placement[0];
+
+		clearTimeout( indicatorTimeout );
+
+		dropIndicator.firstChild.innerHTML = pbsParams.labels.move_above_s.replace(  /%s/, root._dropTarget.typeName() );
+		dropIndicator.firstChild.nextSibling.innerHTML = pbsParams.labels.move_below_s.replace(  /%s/, root._dropTarget.typeName() );
+
+		var styles = getComputedStyle( root._dropTarget._domElement );
+		var rect = root._dropTarget._domElement.getBoundingClientRect();
+		var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
+		var toolbarHeight = parseInt( toolbar.height, 10 );
+		var scrollY = window.scrollY || window.pageYOffset;
+
+		dropIndicator.classList.remove( 'pbs-drop-indicator-small' );
+		if ( rect.height + parseInt( styles.marginTop, 10 ) + parseInt( styles.marginBottom, 10 ) < 60 ) {
+			dropIndicator.classList.add( 'pbs-drop-indicator-small' );
+		}
+
+		// Add the classes for the drop indicator (whether to show up or down).
+		dropIndicator.classList.remove( 'pbs-drop-indicator-above' );
+		dropIndicator.classList.remove( 'pbs-drop-indicator-below' );
+		dropIndicator.classList.add( 'pbs-drop-indicator-' + placement[0] );
+
+		// If we're dropping on an empty paragraph inside a column, then that means we're
+		// dropping it inside the column, change the labels to make it appropriate.
+		if ( dropTargetDom.tagName === 'P' && dropTargetDom.parentNode.tagName === 'DIV' ) {
+			if ( dropTargetDom.parentNode.classList && dropTargetDom.classList ) {
+				if ( dropTargetDom.parentNode.classList.contains( 'pbs-col' ) && dropTargetDom.classList.contains( 'ce-element--empty' ) ) {
+					dropIndicator.firstChild.innerHTML = pbsParams.labels.move_inside_column;
+					dropIndicator.firstChild.nextSibling.innerHTML = pbsParams.labels.move_inside_column;
+					dropIndicator.classList.remove( 'pbs-drop-indicator-above' );
+					dropIndicator.classList.add( 'pbs-drop-indicator-below' );
+				}
+			}
+		}
+
+		// Only include the top margin if it's positive, or else it will
+		// screw up the overlay height & positioning. This makes it tolerable.
+		var marginTop = 0;
+		if ( parseInt( styles.marginTop, 10 ) > 0 ) {
+			marginTop = parseInt( styles.marginTop, 10 );
+		}
+
+		dropIndicator.style.top = ( rect.top + scrollY - toolbarHeight - 32 - marginTop ) + 'px';
+		dropIndicator.style.left = rect.left + 'px';
+		dropIndicator.style.width = rect.width + 'px';
+		dropIndicator.style.height = ( rect.height + marginTop + parseInt( styles.marginBottom, 10 ) ) + 'px';
+		setTimeout( function() {
+			if ( dropIndicator ) {
+				dropIndicator.classList.add( 'pbs-drop-indicator-show' );
+			}
+		}, 10 );
+		document.body.appendChild( dropIndicator );
+	};
+
+	var hideDropIndicator = function() {
+		prevDropTarget = null;
+		prevDropPlacement = null;
+
+		clearTimeout( indicatorTimeout );
+		indicatorTimeout = setTimeout( function() {
+			if ( dropIndicator ) {
+				document.body.removeChild( dropIndicator );
+				dropIndicator = null;
+			}
+		}, 10 );
+	};
+
+
+	/**
+	 * Introduce a cool dragging animation.
+	 */
+	var proxiedStartDragging = _Root.startDragging;
+	_Root.startDragging = function( element, x, y ) {
+		var ret = proxiedStartDragging.call( this, element, x, y );
+		if ( ! this._dragging ) {
+			return;
+        }
+		setTimeout( function() {
+			if ( this._draggingDOMElement ) {
+				this._draggingDOMElement.classList.add( 'pbs-drag-helper-show' );
+			}
+		}.bind( this ), 10 );
+		return ret;
+	};
+} )();
+
+/* globals PBSEditor, __extends */
+
+PBSEditor.Toolbar = ( function( _super ) {
+	__extends( Toolbar, _super );
+
+	function Toolbar( elementName, tools ) {
+		Toolbar.__super__.constructor.call( this );
+		this.tools = tools;
+		this.elementName = elementName;
+	}
+
+	Toolbar.prototype.createElement = function() {
+		var element = document.createElement( 'DIV' );
+		element.classList.add( 'pbs-overlay-toolbar' );
+		element.classList.add( 'pbs-toolbar-' + this.elementName.toLowerCase().replace( /[^\w\d]/, '-' ) );
+
+		var buttonContainer = document.createElement( 'DIV' );
+		buttonContainer.classList.add( 'pbs-toolbar-wrapper' );
+		element.appendChild( buttonContainer );
+		this._buttonContainer = buttonContainer;
+
+		var tool;
+		for ( var i = 0; i < this.tools.length; i++ ) {
+			tool = document.createElement( 'DIV' );
+			tool.classList.add( 'pbs-toolbar-tool' );
+
+			if ( this.tools[ i ].label ) {
+				tool.classList.add( 'pbs-toolbar-label' );
+				tool.innerHTML = this.tools[ i ].label;
+				buttonContainer.appendChild( tool );
+				continue;
+			}
+
+			tool.classList.add( 'pbs-toolbar-tool-' + this.tools[ i ].id );
+			if ( this.tools[ i ].tooltip ) {
+				tool.setAttribute( 'data-tooltip', this.tools[ i ].tooltip );
+			}
+			tool.toolbar = this;
+			tool.tool = this.tools[ i ];
+			tool.addEventListener( 'click', function( ev ) {
+				if ( this.tool.onClick ) {
+					this.tool.onClick( tool.toolbar.element, this, ev );
+					tool.toolbar.updatePosition( tool.toolbar.element );
+				}
+			}.bind( tool ) );
+			tool.addEventListener( 'mousedown', function( ev ) {
+				if ( this.tool.onMouseDown ) {
+					this.tool.onMouseDown( tool.toolbar.element, this, ev );
+					tool.toolbar.updatePosition( tool.toolbar.element );
+				}
+			}.bind( tool ) );
+			tool.addEventListener( 'mouseenter', function( ev ) {
+				if ( this.tool.onEnter ) {
+					this.tool.onEnter( tool.toolbar.element, tool.toolbar, ev );
+					tool.toolbar.updatePosition( tool.toolbar.element );
+				}
+			}.bind( tool ) );
+			buttonContainer.appendChild( tool );
+		}
+
+		return element;
+	};
+
+	Toolbar.prototype.canApply = function( element ) {
+		if ( ! Toolbar.__super__.canApply.call(this, element) ) {
+			return false;
+		}
+		if ( ! element ) {
+			element = this.element;
+		}
+
+		if ( element.constructor.name === this.elementName ) {
+
+			// Dynamic labels. Used for labels that change depending on what's selected.
+			for ( var i = 0; i < this.tools.length; i++ ) {
+				if ( typeof this.tools[ i ].label === 'function' ) {
+					this._domElement.children[0].children[ i ].innerHTML = this.tools[ i ].label( element );
+				}
+
+				this._domElement.children[0].children[ i ].classList.remove( 'pbs-toolbar-tool-hide' );
+				if ( typeof this.tools[ i ].display === 'function' ) {
+					if ( ! this.tools[ i ].display( element ) ) {
+						this._domElement.children[0].children[ i ].classList.add( 'pbs-toolbar-tool-hide' );
+					}
+				}
+			}
+
+			return true;
+		}
+		return false;
+	};
+
+	Toolbar.prototype._updateFirstLastButtons = function() {
+		var button = this._buttonContainer.querySelector( '.pbs-toolbar-button-first' );
+		if ( button ) {
+			button.classList.remove( 'pbs-toolbar-button-first' );
+		}
+		button = this._buttonContainer.querySelector( '.pbs-toolbar-button-last' );
+		if ( button ) {
+			button.classList.remove( 'pbs-toolbar-button-last' );
+		}
+
+		for ( var i = 0; i < this._buttonContainer.children.length; i++ ) {
+			if ( this._buttonContainer.children[ i ].offsetWidth !== 0 ) {
+				this._buttonContainer.children[ i ].classList.add( 'pbs-toolbar-button-first' );
+				break;
+			}
+		}
+		for ( i = this._buttonContainer.children.length - 1; i >= 0; i-- ) {
+			if ( this._buttonContainer.children[ i ].offsetWidth !== 0 ) {
+				this._buttonContainer.children[ i ].classList.add( 'pbs-toolbar-button-last' );
+				break;
+			}
+		}
+	};
+
+	Toolbar.prototype.show = function( element ) {
+		Toolbar.__super__.show.call( this, element );
+		this._updateFirstLastButtons();
+	};
+
+	Toolbar.prototype._mouseenter = function( ev ) {
+		Toolbar.__super__._mouseenter.call( this, ev );
+		this._updateFirstLastButtons();
+	};
+
+	return Toolbar;
+
+} )( PBSEditor.OverlayControls );
+
+/* globals ContentTools, PBSEditor, __extends, pbsParams */
+
+PBSEditor.ToolbarElement = ( function( _super ) {
+	__extends( ToolbarElement, _super );
+
+	function ToolbarElement() {
+
+		ToolbarElement.__super__.constructor.call( this,
+			'Text',
+			[
+				{
+					id: 'move',
+					tooltip: pbsParams.labels.move,
+					display: function( element ) {
+						return ! element.content.isWhitespace();
+					},
+					onMouseDown: function( element, toolbar, ev ) {
+						ev.stopPropagation();
+						element.drag( ev.pageX, ev.pageY );
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarElement;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, ContentTools, pbsParams */
+
+PBSEditor.ToolbarImage = ( function( _super ) {
+	__extends( ToolbarImage, _super );
+
+	function ToolbarImage() {
+
+		ToolbarImage.__super__.constructor.call( this,
+			'Image',
+			[
+				{
+					id: 'align-left',
+					tooltip: pbsParams.labels.align_left,
+					onClick: function( element ) {
+						element.removeCSSClass( 'alignleft' );
+						element.removeCSSClass( 'alignright' );
+						element.removeCSSClass( 'aligncenter' );
+						element.removeCSSClass( 'alignnone' );
+						element.addCSSClass( 'alignleft' );
+					}
+				},
+				{
+					id: 'align-center',
+					tooltip: pbsParams.labels.align_center,
+					onClick: function( element ) {
+						element.removeCSSClass( 'alignleft' );
+						element.removeCSSClass( 'alignright' );
+						element.removeCSSClass( 'aligncenter' );
+						element.removeCSSClass( 'alignnone' );
+						element.addCSSClass( 'aligncenter' );
+					}
+				},
+				{
+					id: 'align-right',
+					tooltip: pbsParams.labels.align_right,
+					onClick: function( element ) {
+						element.removeCSSClass( 'alignleft' );
+						element.removeCSSClass( 'alignright' );
+						element.removeCSSClass( 'aligncenter' );
+						element.removeCSSClass( 'alignnone' );
+						element.addCSSClass( 'alignright' );
+					}
+				},
+				{
+					id: 'edit',
+					tooltip: pbsParams.labels.edit,
+					onClick: function( element ) {
+						element.openMediaManager();
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarImage;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, ContentTools, __extends, pbsParams */
+
+PBSEditor.ToolbarNewsletter = ( function( _super ) {
+	__extends( ToolbarNewsletter, _super );
+
+	function ToolbarNewsletter() {
+
+		ToolbarNewsletter.__super__.constructor.call( this,
+			'Newsletter',
+			[
+				{
+					label: pbsParams.labels.newsletter
+				},
+				{
+					id: 'move',
+					tooltip: pbsParams.labels.move,
+					onMouseDown: function( element, toolbar, ev ) {
+						ev.stopPropagation();
+						element.drag( ev.pageX, ev.pageY );
+					}
+				},
+				{
+					id: 'settings',
+					tooltip: pbsParams.labels.properties,
+					onClick: function( element ) {
+						ContentTools.EditorApp.get()._toolboxProperties.inspect( element );
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarNewsletter;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, pbsParams */
+
+PBSEditor.ToolbarHtml = ( function( _super ) {
+	__extends( ToolbarHtml, _super );
+
+	function ToolbarHtml() {
+
+		ToolbarHtml.__super__.constructor.call( this,
+			'Html',
+			[
+				{
+					label: pbsParams.labels.html
+				},
+				{
+					id: 'edit',
+					tooltip: pbsParams.labels.edit,
+					onClick: function( element ) {
+						element.openEditor();
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarHtml;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, pbsParams */
+
+PBSEditor.ToolbarIframe = ( function( _super ) {
+	__extends( ToolbarIframe, _super );
+
+	function ToolbarIframe() {
+
+		ToolbarIframe.__super__.constructor.call( this,
+			'IFrame',
+			[
+				{
+					label: pbsParams.labels.iframe
+				},
+				{
+					id: 'edit',
+					tooltip: pbsParams.labels.edit,
+					onClick: function( element ) {
+						element._onDoubleClick();
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarIframe;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, pbsParams */
+
+PBSEditor.ToolbarEmbed = ( function( _super ) {
+	__extends( ToolbarEmbed, _super );
+
+	function ToolbarEmbed() {
+
+		ToolbarEmbed.__super__.constructor.call( this,
+			'Embed',
+			[
+				{
+					label: pbsParams.labels.embedded_url
+				},
+				{
+					id: 'edit',
+					tooltip: pbsParams.labels.edit,
+					onClick: function( element ) {
+						element._onDoubleClick();
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarEmbed;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, ContentTools, pbsParams */
+
+PBSEditor.ToolbarMap = ( function( _super ) {
+	__extends( ToolbarMap, _super );
+
+	function ToolbarMap() {
+
+		ToolbarMap.__super__.constructor.call( this,
+			'Map',
+			[
+				{
+					label: pbsParams.labels.map
+				},
+				{
+					id: 'settings',
+					tooltip: pbsParams.labels.properties,
+					onClick: function( element ) {
+						ContentTools.EditorApp.get()._toolboxProperties.inspect( element );
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarMap;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, ContentTools, pbsParams */
+
+PBSEditor.ToolbarIcon = ( function( _super ) {
+	__extends( ToolbarIcon, _super );
+
+	function ToolbarIcon() {
+
+		ToolbarIcon.__super__.constructor.call( this,
+			'Icon',
+			[
+				{
+					label: pbsParams.labels.icon
+				},
+				{
+					id: 'settings',
+					tooltip: pbsParams.labels.properties,
+					onClick: function( element ) {
+						ContentTools.EditorApp.get()._toolboxProperties.inspect( element );
+					}
+				},
+				{
+					id: 'edit',
+					tooltip: 'Edit',
+					onClick: function( element ) {
+						element._onDoubleClick();
+					}
+				},
+				{
+					id: 'clone',
+					tooltip: pbsParams.labels.clone,
+					onClick: function( element ) {
+						element.clone();
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	ToolbarIcon.prototype.canApply = function( element ) {
+		var ret = ToolbarIcon.__super__.canApply.call( this, element );
+		if ( ret ) {
+			this._domElement.classList.remove( 'pbs-small-toolbar' );
+			var rect = this._domElement.getBoundingClientRect();
+			if ( rect.width < 130 ) {
+				this._domElement.classList.add( 'pbs-small-toolbar' );
+			}
+		}
+		return ret;
+	};
+
+	return ToolbarIcon;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, PBSInspectorOptions, __extends, ContentTools, pbsParams */
+
+PBSEditor.ToolbarShortcode = ( function( _super ) {
+	__extends( ToolbarShortcode, _super );
+
+	function ToolbarShortcode() {
+
+		ToolbarShortcode.__super__.constructor.call( this,
+			'Shortcode',
+			[
+				{
+					label: function( element ) {
+						var label = wp.hooks.applyFilters( 'pbs.toolbar.shortcode.label', element.sc_base );
+
+						// Use the label of the shortcode if it is provided.
+						if ( PBSInspectorOptions.Shortcode[ element.sc_base ] ) {
+							if ( PBSInspectorOptions.Shortcode[ element.sc_base ].label ) {
+								label = wp.hooks.applyFilters( 'pbs.toolbar.shortcode.label', PBSInspectorOptions.Shortcode[ element.sc_base ].label );
+							}
+						}
+
+						return label;
+					}
+				},
+				{
+					id: 'settings',
+					tooltip: pbsParams.labels.properties,
+					onClick: function( element ) {
+						ContentTools.EditorApp.get()._toolboxProperties.inspect( element );
+					}
+				},
+				{
+					id: 'edit',
+					tooltip: pbsParams.labels.edit,
+					onClick: function( element ) {
+						element.convertToText();
+					}
+				},
+				{
+					id: 'clone',
+					tooltip: pbsParams.labels.clone,
+					onClick: function( element ) {
+						element.clone();
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarShortcode;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, ContentTools, pbsParams */
+
+PBSEditor.ToolbarList = ( function( _super ) {
+	__extends( ToolbarList, _super );
+
+	function ToolbarList() {
+
+		ToolbarList.__super__.constructor.call( this,
+			'List',
+			[
+				{
+					label: pbsParams.labels.list
+				},
+				{
+					id: 'move',
+					tooltip: pbsParams.labels.move,
+					onMouseDown: function( element, toolbar, ev ) {
+						ev.stopPropagation();
+						element.drag( ev.pageX, ev.pageY );
+					}
+				},
+				{
+					id: 'settings',
+					tooltip: pbsParams.labels.properties,
+					onClick: function( element ) {
+						ContentTools.EditorApp.get()._toolboxProperties.inspect( element );
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarList;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, ContentTools, pbsParams, ContentEdit */
+
+PBSEditor.ToolbarRow = ( function( _super ) {
+	__extends( ToolbarRow, _super );
+
+	function ToolbarRow() {
+
+		this._alreadyShown = false;
+		ToolbarRow.__super__.constructor.call( this,
+			'DivRow',
+			[
+
+				/**
+				 * Carousel Settings.
+				 */
+				{
+					'class': 'pbs-toolbar-yellow',
+					display: function( element ) {
+						// Only show when inside a carousel.
+						if ( element.parent() ) {
+							return element.parent()._domElement.classList.contains( 'glide__slide' );
+						}
+					},
+					label: function() {
+						return pbsParams.labels.carousel;
+					}
+				},
+				{
+					id: 'move',
+					tooltip: pbsParams.labels.move_carousel,
+					'class': 'pbs-toolbar-yellow',
+					display: function( element ) {
+						// Only show when inside a carousel.
+						return element.parent()._domElement.classList.contains( 'glide__slide' );
+					},
+					onMouseDown: function( element, toolbar, ev ) {
+						ev.stopPropagation();
+						var o = element.parent().parent().parent().parent();
+						o.drag( ev.pageX, ev.pageY );
+					}
+				},
+				{
+					id: 'settings',
+					tooltip: pbsParams.labels.properties,
+					'class': 'pbs-toolbar-yellow',
+					display: function( element ) {
+						// Only show when inside a carousel.
+						return element.parent()._domElement.classList.contains( 'glide__slide' );
+					},
+					onClick: function( element ) {
+						var o = element.parent().parent().parent().parent();
+						ContentTools.EditorApp.get()._toolboxProperties.inspect( o );
+					}
+				},
+				{
+					id: 'minus',
+					tooltip: pbsParams.labels.remove_slide,
+					'class': 'pbs-toolbar-yellow',
+					display: function( element ) {
+						// Only show when inside a carousel and when we have more than 1 slide.
+						if ( element.parent()._domElement.classList.contains( 'glide__slide' ) ) {
+							var o = element.parent().parent().parent().parent();
+							return o.numSlides() > 1;
+						}
+						return false;
+					},
+					onClick: function( element ) {
+						var o = element.parent().parent().parent().parent();
+						o.removeSlide( o.activeSlide() );
+					}
+				},
+				{
+					id: 'add',
+					tooltip: pbsParams.labels.add_slide,
+					'class': 'pbs-toolbar-yellow',
+					display: function( element ) {
+						// Only show when inside a carousel.
+						return element.parent()._domElement.classList.contains( 'glide__slide' );
+					},
+					onClick: function( element ) {
+						var o = element.parent().parent().parent().parent();
+						o.addSlide();
+					}
+				},
+				{
+					id: 'clone',
+					tooltip: pbsParams.labels.clone_slide,
+					'class': 'pbs-toolbar-yellow',
+					display: function( element ) {
+						// Only show when inside a carousel.
+						return element.parent()._domElement.classList.contains( 'glide__slide' );
+					},
+					onClick: function( element ) {
+						var o = element.parent().parent().parent().parent();
+						o.cloneSlide( o.activeSlide() );
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels.delete_carousel,
+					'class': 'pbs-toolbar-yellow',
+					display: function( element ) {
+						// Only show when inside a carousel.
+						return element.parent()._domElement.classList.contains( 'glide__slide' );
+					},
+					onClick: function( element ) {
+						var o = element.parent().parent().parent().parent();
+						o.parent().detach( o );
+					}
+				},
+
+
+
+
+				{
+					label: pbsParams.labels.row
+				},
+				{
+					id: 'move',
+					tooltip: pbsParams.labels.move,
+					display: function( element ) {
+						// Hide when the row is inside a carousel.
+						if ( element.parent()._domElement.classList.contains( 'glide__slide' ) ) {
+							return false;
+						}
+						// Hide when the row is inside tabs.
+						if ( element.parent().constructor.name === 'TabPanelContainer' ) {
+							return false;
+						}
+						// Hide when the row is inside a toggle.
+						if ( element.parent().constructor.name === 'Toggle' ) {
+							return false;
+						}
+						return true;
+					},
+					onMouseDown: function( element, toolbar, ev ) {
+						ev.stopPropagation();
+						element.drag( ev.pageX, ev.pageY );
+					}
+				},
+				{
+					id: 'settings',
+					tooltip: pbsParams.labels.properties,
+					onClick: function( element ) {
+						ContentTools.EditorApp.get()._toolboxProperties.inspect( element );
+					}
+				},
+				{
+					id: 'add',
+					tooltip: pbsParams.labels.add_column,
+					onClick: function( element ) {
+						var overElement = element._domElement.querySelector( '.ce-element--over' );
+						if ( overElement ) {
+							overElement.classList.remove('ce-element--over');
+						}
+						var root = ContentEdit.Root.get();
+						var index = element.children.length + 1;
+						var col;
+						if ( root.focused() ) {
+							col = root.focused();
+							while ( col.constructor.name !== 'Region' && col.constructor.name !== 'DivRow' ) {
+								if ( col.constructor.name === 'DivCol' ) {
+									index = element.children.indexOf( col ) + 1;
+									break;
+								}
+								col = col.parent();
+							}
+						}
+						col = element.addNewColumn( index );
+					}
+				},
+				{
+					id: 'clone',
+					tooltip: pbsParams.labels.clone_row,
+					display: function( element ) {
+						// Hide when the row is inside a carousel.
+						if ( element.parent()._domElement.classList.contains( 'glide__slide' ) ) {
+							return false;
+						}
+						// Hide when the row is inside tabs.
+						if ( element.parent().constructor.name === 'TabPanelContainer' ) {
+							return false;
+						}
+						// Hide when the row is inside a toggle.
+						if ( element.parent().constructor.name === 'Toggle' ) {
+							return false;
+						}
+						return true;
+					},
+					onClick: function( element ) {
+						var newRow = element.clone();
+						window._pbsFixRowWidth( newRow._domElement );
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					display: function( element ) {
+						// Hide when the row is inside a carousel.
+						if ( element.parent()._domElement.classList.contains( 'glide__slide' ) ) {
+							return false;
+						}
+						// Hide when the row is inside tabs.
+						if ( element.parent().constructor.name === 'TabPanelContainer' ) {
+							return false;
+						}
+						// Hide when the row is inside a toggle.
+						if ( element.parent().constructor.name === 'Toggle' ) {
+							return false;
+						}
+						return true;
+					},
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	ToolbarRow.prototype.canApply = function( element ) {
+		if ( ToolbarRow.__super__.show.call( this, this.element ) ) {
+			return true;
+		}
+
+		if ( typeof element === 'undefined' ) {
+			element = this.element;
+		}
+		if ( element.constructor.name === 'DivRow' ) {
+			return true;
+		}
+
+		// Since this is run on EVERY element that's on the "over stack",
+		// only show this on the first ROW encountered.
+		if ( this._alreadyShown ) {
+			return true;
+		}
+		// this._alreadyShown = true;
+		setTimeout( function() {
+			this._alreadyShown = false;
+		}.bind( this ), 10 );
+
+		if ( element.constructor.name !== 'DivRow' ) {
+			element = element.parent();
+			while ( element && element.constructor.name !== 'Region' ) {
+				if ( element.constructor.name === 'DivRow' ) {
+					break;
+				}
+				element = element.parent();
+			}
+			if ( ! element || element.constructor.name === 'Region' ) {
+				this._hide();
+				return;
+			}
+			this.element = element;
+			this._alreadyShown = true;
+			return true;
+		}
+
+		if ( element ) {
+			if ( element.parent() ) {
+				if ( element.parent().constructor.name === 'Div' ) {
+					return false;
+				}
+			}
+		}
+/*
+		var parent = element.parent();
+		element = null;
+		while ( parent && parent.constructor.name !== 'Region' ) {
+			if ( parent.constructor.name === 'DivRow' ) {
+				element = parent;
+				break;
+			}
+			parent = parent.parent();
+		}
+		if ( element ) {
+			if ( element.parent() ) {
+				if ( element.parent().constructor.name === 'Div' ) {
+					return false;
+				}
+			}
+		}
+		*/
+		return false;
+	};
+
+	ToolbarRow.prototype.applyTo = function( element ) {
+
+		if ( element.constructor.name !== 'DivRow' ) {
+			element = element.parent();
+			while ( element && element.constructor.name !== 'Region' ) {
+				if ( element.constructor.name === 'DivRow' ) {
+					break;
+				}
+				element = element.parent();
+			}
+		} else {
+			// this.element = element;
+		}
+
+		if ( element.constructor.name === 'Region' ) {
+			return null;
+		}
+
+		// Since this is run on EVERY element that's on the "over stack",
+		// only show this on the first ROW encountered.
+		if ( this._alreadyShown2 ) {
+			return this.element;
+		}
+		this._alreadyShown2 = true;
+		setTimeout( function() {
+			this._alreadyShown2 = false;
+		}.bind( this ) );
+
+		// Dynamic labels. Used for labels that change depending on what's selected.
+		for ( var i = 0; i < this.tools.length; i++ ) {
+
+			if ( this.tools[ i ]['class'] ) {
+				this._domElement.children[0].children[ i ].classList.add( this.tools[ i ]['class'] );
+			}
+
+			if ( typeof this.tools[ i ].label === 'function' ) {
+				this._domElement.children[0].children[ i ].innerHTML = this.tools[ i ].label( element );
+			}
+
+			if ( typeof this.tools[ i ].tooltip === 'function' ) {
+				this._domElement.children[0].children[ i ].setAttribute( 'data-tooltip', this.tools[ i ].tooltip( element ) );
+			}
+
+			this._domElement.children[0].children[ i ].classList.remove( 'pbs-toolbar-tool-hide' );
+			if ( typeof this.tools[ i ].display === 'function' ) {
+				if ( ! this.tools[ i ].display( element ) ) {
+					this._domElement.children[0].children[ i ].classList.add( 'pbs-toolbar-tool-hide' );
+				}
+			}
+		}
+
+		return element;
+	};
+
+	return ToolbarRow;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, ContentTools, pbsParams */
+
+PBSEditor.ToolbarColumn = ( function( _super ) {
+	__extends( ToolbarColumn, _super );
+
+	function ToolbarColumn() {
+
+		this._alreadyShown2 = false;
+		ToolbarColumn.__super__.constructor.call( this,
+			'DivCol',
+			[
+				{
+					label: pbsParams.labels.column
+				},
+				{
+					id: 'settings',
+					tooltip: pbsParams.labels.properties,
+					onClick: function( element ) {
+						ContentTools.EditorApp.get()._toolboxProperties.inspect( element );
+					}
+				},
+				{
+					id: 'clone',
+					tooltip: pbsParams.labels.clone,
+					onClick: function( element ) {
+						element._domElement.classList.remove('ce-element--over');
+						var col = element.clone();
+						col.focus();
+						col._domElement.classList.add('ce-element--over');
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					display: function( element ) {
+
+						if ( element.parent() && element.parent().parent() ) {
+
+							// If the row is inside a carousel, don't show the delete button
+							// if we only have 1 column left so as not to have the row deleted.
+							if ( element.parent().parent()._domElement.classList.contains( 'glide__slide' ) ) {
+								return element.parent().children.length > 1;
+							}
+
+							// If the row is inside tabs, don't show the delete button
+							// if we only have 1 column left so as not to have the row deleted.
+							if ( element.parent().parent().constructor.name === 'TabPanelContainer' ) {
+								return element.parent().children.length > 1;
+							}
+
+							// If the row is inside a toggle, don't show the delete button
+							// if we only have 1 column left so as not to have the row deleted.
+							if ( element.parent().parent().constructor.name === 'Toggle' ) {
+								return element.parent().children.length > 1;
+							}
+						}
+
+						return true;
+					},
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	ToolbarColumn.prototype.canApply = function( element ) {
+
+		if ( ToolbarColumn.__super__.show.call( this, this.element ) ) {
+			return true;
+		}
+
+		if ( typeof element === 'undefined' ) {
+			element = this.element;
+		}
+		if ( element.constructor.name === 'DivCol' ) {
+			return true;
+		}
+
+		// Since this is run on EVERY element that's on the "over stack",
+		// only show this on the first ROW encountered.
+		if ( this._alreadyShown ) {
+			return true;
+		}
+		// this._alreadyShown = true;
+		setTimeout( function() {
+			this._alreadyShown = false;
+		}.bind( this ) );
+
+		if ( element.constructor.name !== 'DivCol' ) {
+			element = element.parent();
+			while ( element && element.constructor.name !== 'Region' ) {
+				if ( element.constructor.name === 'DivCol' ) {
+					break;
+				}
+				element = element.parent();
+			}
+			if ( ! element || element.constructor.name === 'Region' ) {
+				this._hide();
+				return;
+			}
+			this.element = element;
+			this._alreadyShown = true;
+			return true;
+		}
+
+		return false;
+	};
+
+	ToolbarColumn.prototype.applyTo = function( element ) {
+
+		if ( element.constructor.name !== 'DivCol' ) {
+			element = element.parent();
+			while ( element && element.constructor.name !== 'Region' ) {
+				if ( element.constructor.name === 'DivCol' ) {
+					break;
+				}
+				element = element.parent();
+			}
+		} else {
+			// this.element = element;
+		}
+
+		// Since this is run on EVERY element that's on the "over stack",
+		// only show this on the first ROW encountered.
+		if ( this._alreadyShown2 ) {
+			return this.element;
+		}
+		this._alreadyShown2 = true;
+		setTimeout( function() {
+			this._alreadyShown2 = false;
+		}.bind( this ) );
+
+		// Dynamic labels. Used for labels that change depending on what's selected.
+		for ( var i = 0; i < this.tools.length; i++ ) {
+			this._domElement.children[0].children[ i ].classList.remove( 'pbs-toolbar-tool-hide' );
+			if ( typeof this.tools[ i ].display === 'function' ) {
+				if ( ! this.tools[ i ].display( element ) ) {
+					this._domElement.children[0].children[ i ].classList.add( 'pbs-toolbar-tool-hide' );
+				}
+			}
+		}
+
+		return element;
+	};
+
+
+	ToolbarColumn.prototype.show = function( element ) {
+		ToolbarColumn.__super__.show.call( this, element );
+		this.checkToolbarSize( element );
+	};
+
+
+	ToolbarColumn.prototype.checkToolbarSize = function( element ) {
+
+		var colToolbar = document.querySelector( '.pbs-toolbar-divcol.pbs-quick-action-overlay .pbs-toolbar-wrapper' );
+		var rowToolbar = document.querySelector( '.pbs-toolbar-divrow.pbs-quick-action-overlay .pbs-toolbar-wrapper' );
+
+		this._domElement.classList.remove( 'pbs-small-toolbar' );
+		rowToolbar.parentNode.classList.remove( 'pbs-small-toolbar' );
+		this._domElement.classList.remove( 'pbs-smaller-toolbar' );
+		rowToolbar.parentNode.classList.remove( 'pbs-smaller-toolbar' );
+		this._domElement.classList.remove( 'pbs-tiny-toolbar' );
+		rowToolbar.parentNode.classList.remove( 'pbs-tiny-toolbar' );
+
+		var ret = ToolbarColumn.__super__.show.call( this, element );
+
+		var colRect = colToolbar.getBoundingClientRect();
+		var rowRect = rowToolbar.getBoundingClientRect();
+
+		if ( colRect.left - rowRect.right < 0 ) {
+			colToolbar.parentNode.classList.add( 'pbs-small-toolbar' );
+			rowToolbar.parentNode.classList.add( 'pbs-small-toolbar' );
+		} else {
+			return ret;
+		}
+
+		colRect = colToolbar.getBoundingClientRect();
+		rowRect = rowToolbar.getBoundingClientRect();
+
+		if ( colRect.left - rowRect.right < 0 ) {
+			colToolbar.parentNode.classList.remove( 'pbs-small-toolbar' );
+			rowToolbar.parentNode.classList.remove( 'pbs-small-toolbar' );
+			colToolbar.parentNode.classList.add( 'pbs-smaller-toolbar' );
+			rowToolbar.parentNode.classList.add( 'pbs-smaller-toolbar' );
+		} else {
+			return ret;
+		}
+
+		colRect = colToolbar.getBoundingClientRect();
+		rowRect = rowToolbar.getBoundingClientRect();
+
+		if ( colRect.left - rowRect.right < 0 ) {
+			colToolbar.parentNode.classList.remove( 'pbs-smaller-toolbar' );
+			rowToolbar.parentNode.classList.remove( 'pbs-smaller-toolbar' );
+			colToolbar.parentNode.classList.add( 'pbs-tiny-toolbar' );
+			rowToolbar.parentNode.classList.add( 'pbs-tiny-toolbar' );
+		}
+
+		return ret;
+	};
+
+	return ToolbarColumn;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, ContentTools, pbsParams */
+
+PBSEditor.ToolbarTabContainer = ( function( _super ) {
+	__extends( ToolbarTabContainer, _super );
+
+	function ToolbarTabContainer() {
+
+		ToolbarTabContainer.__super__.constructor.call( this,
+			'TabContainer',
+			[
+				{
+					label: pbsParams.labels.tabs
+				},
+				{
+					id: 'move',
+					tooltip: pbsParams.labels.move,
+					onMouseDown: function( element, toolbar, ev ) {
+						ev.stopPropagation();
+						element.parent().drag( ev.pageX, ev.pageY );
+					}
+				},
+				{
+					id: 'add',
+					tooltip: pbsParams.labels.add_tab,
+					onClick: function( element ) {
+						element.parent().addTab();
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().parent().detach( element.parent() );
+					}
+				}
+			]
+		);
+	}
+
+
+	ToolbarTabContainer.prototype.applyTo = function( element ) {
+		element = ToolbarTabContainer.__super__.applyTo.call( this, element );
+
+		// Small toolbar when the column is small.
+		var rect = element._domElement.getBoundingClientRect();
+		this._domElement.classList.remove( 'pbs-small-toolbar' );
+		// First element.
+		if ( rect.width < 100 ) {
+			this._domElement.classList.add( 'pbs-small-toolbar' );
+		}
+
+		return element;
+	};
+
+	return ToolbarTabContainer;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, pbsParams */
+
+PBSEditor.ToolbarTable = ( function( _super ) {
+	__extends( ToolbarTable, _super );
+
+	function ToolbarTable() {
+
+		ToolbarTable.__super__.constructor.call( this,
+			'Table',
+			[
+				{
+					label: pbsParams.labels.table
+				},
+				{
+					id: 'move',
+					tooltip: pbsParams.labels.move,
+					onMouseDown: function( element, toolbar, ev ) {
+						ev.stopPropagation();
+						element.drag( ev.pageX, ev.pageY );
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarTable;
+
+} )( PBSEditor.Toolbar );
+
+
+/* globals ContentTools, PBSEditor, pbsSelectorMatches */
+
+/**
+ * The Tooltip API
+ */
+PBSEditor.Tooltip = ( function() {
+
+    function Tooltip( name, selector, labelFunction, tools ) {
+		this._domElement = null;
+		this.name = name || this.constructor.name.toLowerCase();
+		this.labelFunction = labelFunction || function() {};
+		this.selector = selector || '';
+		this.tools = tools || [];
+
+		this.init();
+    }
+
+	Tooltip.prototype.init = function() {
+		this._onMouseOverBound = this._onMouseOver.bind( this );
+		this._onMouseOutBound = this._onMouseOut.bind( this );
+
+		// Add/remove the event listeners to the editor.
+		ContentTools.EditorApp.get().bind('start', function () {
+			this._domElement = document.createElement( 'DIV' );
+			this._domElement.classList.add( 'pbs-tooltip--' + this.name );
+			this._domElement.classList.add( 'pbs-tooltip' );
+
+			var label = document.createElement( 'DIV' );
+			this._domElement.appendChild( label );
+
+			for ( var i = 0; i < this.tools.length; i++ ) {
+				var tool = document.createElement( 'DIV' );
+				tool.classList.add( 'pbs-tooltip-button' );
+				tool.classList.add( 'pbs-tooltip-button-' + this.tools[ i ].name );
+				tool.addEventListener( 'click', this.tools[ i ].onClick.bind( this ) );
+				this._domElement.appendChild( tool );
+			}
+
+			document.body.appendChild( this._domElement );
+
+			document.addEventListener( 'mouseover', this._onMouseOverBound );
+			document.addEventListener( 'mouseout', this._onMouseOutBound );
+		}.bind( this ) );
+		ContentTools.EditorApp.get().bind('stop', function () {
+			this.hide();
+			document.removeEventListener( 'mouseover', this._onMouseOverBound );
+			document.removeEventListener( 'mouseout', this._onMouseOutBound );
+
+			this._domElement.parentNode.removeChild( this._domElement );
+			this._domElement = null;
+		}.bind( this ) );
+	};
+
+	Tooltip.prototype._onMouseOver = function( ev ) {
+		// Find whether the selector matches the element (or any of it's parents).
+		if ( pbsSelectorMatches( ev.target, '.pbs-main-wrapper ' + this.selector + ', .pbs-main-wrapper ' + this.selector + ' *' ) ) {
+			var target = ev.target;
+
+			// Find the element that matched (if a child matched).
+			while ( ! pbsSelectorMatches( target, '.pbs-main-wrapper ' + this.selector ) ) {
+				target = target.parentNode;
+			}
+
+			this.show( target );
+		}
+	};
+
+	/**
+	 * Hide tooltip on mouse out.
+	 */
+	Tooltip.prototype._onMouseOut = function( ev ) {
+
+		// Out of bounds.
+		if ( ! ev.relatedTarget ) {
+			this.hide();
+			return;
+		}
+
+		// pbs-button -> tooltip / tooltip-button
+		if ( pbsSelectorMatches( ev.target, '.pbs-main-wrapper ' + this.selector ) || pbsSelectorMatches( ev.target, '.pbs-main-wrapper ' + this.selector + ' *' ) ) {
+			if ( ev.relatedTarget === this._domElement || this._domElement.contains( ev.relatedTarget ) ) {
+				return;
+			}
+		}
+		// tooltip / tooltip-button -> pbs-button
+		if ( this._domElement === ev.target || this._domElement.contains( ev.target ) ) {
+			if ( pbsSelectorMatches( ev.relatedTarget, '.pbs-main-wrapper ' + this.selector ) || pbsSelectorMatches( ev.relatedTarget, '.pbs-main-wrapper ' + this.selector + ' *' ) ) {
+				return;
+			}
+		}
+		// tooltip <-> tooltip-button
+		if ( this._domElement === ev.target || this._domElement.contains( ev.target ) ) {
+			if ( this._domElement === ev.relative || this._domElement.contains( ev.relatedTarget ) ) {
+				return;
+			}
+		}
+
+		this.hide();
+	};
+
+	Tooltip.prototype.show = function( domElementTarget ) {
+		var rect = domElementTarget.getBoundingClientRect();
+		var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
+		var toolbarHeight = parseInt( toolbar.height, 10 );
+		var scrollY = window.scrollY || window.pageYOffset;
+
+		this._domElement.style.top = ( rect.top + scrollY - toolbarHeight ) + 'px';
+		this._domElement.style.left = ( rect.left + rect.width / 2 ) + 'px';
+
+		if ( typeof this.labelFunction === 'function' ) {
+			this._domElement.firstChild.innerHTML = this.labelFunction( domElementTarget );
+		} else {
+			this._domElement.firstChild.innerHTML = this.labelFunction;
+		}
+		this._domElement.classList.add( 'pbs-tooltip-show' );
+		this.element = domElementTarget;
+	};
+
+	Tooltip.prototype.hide = function() {
+		this._domElement.classList.remove( 'pbs-tooltip-show' );
+	};
+
+	return Tooltip;
+
+} )();
+
+/* globals PBSEditor, ContentSelect, ContentTools, __extends */
+
+PBSEditor.TooltipLink = ( function( _super ) {
+	__extends( TooltipLink, _super );
+
+    function TooltipLink() {
+		TooltipLink.__super__.constructor.call( this,
+		 	'link',
+			'.ce-element--type-text a:not(.pbs-button)',
+			function( element ) {
+				var link = element.getAttribute( 'href' );
+				if ( link.length > 70 ) {
+					link = link.substr( 0, 70 ) + '...';
+				}
+				return link;
+			},
+			[
+				{
+					name: 'visit',
+					onClick: function() {
+						window.open( this.element.getAttribute( 'href' ), '_linktool' );
+						this.hide();
+					}
+				},
+				{
+					name: 'edit',
+					onClick: function() {
+
+						// Find ce-element parent
+						var domElement = this.element;
+						while ( ! domElement._ceElement ) {
+							domElement = domElement.parentNode;
+						}
+
+						// Select the link.
+						var index = domElement._ceElement.content.indexOf( this.element.innerHTML );
+						var selection = new ContentSelect.Range( index, index );
+						selection.select( domElement );
+
+						// Open the link editor.
+						window.PBSEditor.getToolUI( 'link' ).apply( domElement._ceElement, selection, function() { } );
+
+						this.hide();
+					}
+				},
+				{
+					name: 'unlink',
+					onClick: function() {
+
+						// Find ce-element parent
+						var domElement = this.element;
+						while ( ! domElement._ceElement ) {
+							domElement = domElement.parentNode;
+						}
+
+						// Get the link position.
+						var index = domElement._ceElement.content.indexOf( this.element.innerHTML );
+
+						// The start should be the start of the link block.
+						var selected = ContentTools.Tools.Link.getSelectedLink( domElement._ceElement, index, index );
+						var from = selected.from;
+						var to = selected.to;
+
+						// Remove the link.
+						domElement._ceElement.content = domElement._ceElement.content.unformat( from, to, 'a' );
+						domElement._ceElement.updateInnerHTML();
+						domElement._ceElement.taint();
+
+						this.hide();
+					}
+				}
+			]
+		);
+    }
+
+	return TooltipLink;
+
+} )( PBSEditor.Tooltip );
+
+/* globals PBSEditor, ContentSelect, ContentTools, __extends */
+
+PBSEditor.TooltipButton = ( function( _super ) {
+	__extends( TooltipButton, _super );
+
+    function TooltipButton() {
+		TooltipButton.__super__.constructor.call( this,
+		 	'button',
+			'a.pbs-button',
+			function( element ) {
+				var link = element.getAttribute( 'href' );
+				if ( link.length > 70 ) {
+					link = link.substr( 0, 70 ) + '...';
+				}
+				return link;
+			},
+			[
+				{
+					name: 'settings',
+					onClick: function() {
+						ContentTools.EditorApp.get()._toolboxProperties.inspect( this.element );
+					}
+				},
+				{
+					name: 'visit',
+					onClick: function() {
+						window.open( this.element.getAttribute( 'href' ), '_linktool' );
+						this.hide();
+					}
+				},
+				{
+					name: 'edit',
+					onClick: function() {
+
+						// Find ce-element parent
+						var domElement = this.element;
+						while ( ! domElement._ceElement ) {
+							domElement = domElement.parentNode;
+						}
+
+						// Select the link.
+						var index = domElement._ceElement.content.indexOf( this.element.innerHTML );
+						var selection = new ContentSelect.Range( index, index );
+						selection.select( domElement );
+
+						// Open the link editor.
+						window.PBSEditor.getToolUI( 'link' ).apply( domElement._ceElement, selection, function() { } );
+
+						this.hide();
+					}
+				},
+				{
+					name: 'unlink',
+					onClick: function() {
+
+						// Find ce-element parent
+						var domElement = this.element;
+						while ( ! domElement._ceElement ) {
+							domElement = domElement.parentNode;
+						}
+
+						// Get the link position.
+						var index = domElement._ceElement.content.indexOf( this.element.innerHTML );
+
+						// The start should be the start of the link block.
+						var selected = ContentTools.Tools.Link.getSelectedLink( domElement._ceElement, index, index );
+						var from = selected.from;
+						var to = selected.to;
+
+						// Remove the link.
+						domElement._ceElement.content = domElement._ceElement.content.unformat( from, to, 'a' );
+						domElement._ceElement.updateInnerHTML();
+						domElement._ceElement.taint();
+
+						this.hide();
+					}
+				}
+			]
+		);
+    }
+
+	return TooltipButton;
+
+} )( PBSEditor.Tooltip );
+
+/* globals PBSEditor, ContentTools, __extends, pbsParams */
+
+PBSEditor.TooltipInput = ( function( _super ) {
+	__extends( TooltipInput, _super );
+
+    function TooltipInput() {
+		TooltipInput.__super__.constructor.call( this,
+		 	'input',
+			'p[class*="ce-element--"] input[type="text"]',
+			pbsParams.labels.input_field,
+			[
+				{
+					name: 'settings',
+					onClick: function() {
+						ContentTools.EditorApp.get()._toolboxProperties.inspect( this.element );
+					}
+				}
+			]
+		);
+    }
+
+	return TooltipInput;
+
+} )( PBSEditor.Tooltip );
+
+/* globals PBSEditor, __extends, pbsParams */
+
+PBSEditor.TooltipTab = ( function( _super ) {
+	__extends( TooltipTab, _super );
+
+    function TooltipTab() {
+		TooltipTab.__super__.constructor.call( this,
+		 	'button',
+			'[data-ce-tag="tab"]',
+			pbsParams.labels.tab,
+			[
+				{
+					name: 'remove',
+					onClick: function() {
+						this.element._ceElement.parent().parent().removeTab( this.element._ceElement );
+						this.hide();
+					}
+				}
+			]
+		);
+    }
+
+	return TooltipTab;
+
+} )( PBSEditor.Tooltip );
+
+/* globals ContentEdit, AOS */
+
+document.addEventListener( 'DOMContentLoaded', function() {
+
+	// Update when something gets deleted.
+	ContentEdit.Root.get().bind( 'detach', function() {
+		if ( typeof AOS !== 'undefined' ) {
+			AOS.refresh();
+		}
+	} );
+} );
 
 /* globals ContentEdit, ContentSelect, PBSEditor */
 
@@ -3003,7 +5725,9 @@ PBSEditor.allDroppers = {
 	'List': ContentEdit.Element._dropVert,
 	'PreText': ContentEdit.Element._dropVert,
 	'Table': ContentEdit.Element._dropVert,
-	'Video': ContentEdit.Element._dropVert
+	'Video': ContentEdit.Element._dropVert,
+	'Tabs': ContentEdit.Element._dropVert,
+	'Toggle': ContentEdit.Element._dropVert
 };
 
 
@@ -3204,6 +5928,29 @@ ContentEdit.Node.prototype.nextContent = function() {
 		return node.content !== void 0 || PBSEditor.isNewStaticLikeElement( node );
 	});
 };
+
+
+/**
+ * Spell-checking triggers oninput, after oninput, sync content or the text will
+ * remain the same before-spell-checking.
+ * To replicate:
+ * - Create a new element, type in "this is a tes."
+ * - Spell check "tes" into "test"
+ * - Make entire text bold (ctrl+b), "test" will revert to "tes".
+ */
+( function() {
+	var proxied = ContentEdit.Element.prototype._addDOMEventListeners;
+	ContentEdit.Element.prototype._addDOMEventListeners = function() {
+		if ( this._syncContent ) {
+			this._domElement.oninput = function() {
+				if ( this._syncContent ) {
+					return this._syncContent();
+				}
+			}.bind(this);
+		}
+		return proxied.call( this );
+	};
+} )();
 
 /* globals ContentEdit */
 
@@ -3451,13 +6198,37 @@ ContentEdit.StaticEditable = (function(_super) {
 			ev.preventDefault();
 			return;
 		}
+
 		ContentEdit.Text.__super__._onMouseDown.call(this);
+
+		// Fixes problem with Firefox not being able to click on empty columns.
+		// The cursor moves to the right, this re-places the cursor.
+		if ( this.content.isWhitespace() ) {
+			setTimeout( function() {
+				var selection = new ContentSelect.Range( 0, 0 );
+				selection.select( this.domElement() );
+			}.bind( this ), 10 );
+			return;
+		}
+
 		clearTimeout(this._dragTimeout);
 		return this._dragTimeout = setTimeout((function(_this) {
 			return function() {
 				return _this.drag(ev.pageX, ev.pageY);
 			};
 		})(this), ContentEdit.DRAG_HOLD_DURATION);
+	};
+
+
+	// Fixes problem with Firefox not being able to click on empty columns.
+	// The cursor moves to the right, this prevents that during mouse up.
+	var proxied = ContentEdit.Text.prototype._onMouseUp;
+    ContentEdit.Text.prototype._onMouseUp = function( ev ) {
+		proxied.call( this, ev );
+
+		if ( this.content.isWhitespace() ) {
+			ev.preventDefault();
+		}
 	};
 })();
 
@@ -3624,7 +6395,7 @@ ContentEdit.StaticEditable = (function(_super) {
 
 
 
-/* globals ContentEdit, HTMLString, pbsParams, __extends */
+/* globals ContentEdit, HTMLString, pbsParams, __extends, console */
 
 
 
@@ -3654,7 +6425,7 @@ ContentEdit.Shortcode = (function(_super) {
 
 		this.sc_base = attributes['data-base'];
 
-		this.sc_raw = atob( this.sc_hash );
+		this.sc_raw = Shortcode.atob( this.sc_hash );
 
 		this.sc_prev_raw = this.sc_raw;
 
@@ -3694,6 +6465,18 @@ ContentEdit.Shortcode = (function(_super) {
 
 
 
+	Shortcode.atob = function(str) {
+
+		return decodeURIComponent( Array.prototype.map.call( window.atob( str ), function( c ) {
+
+	        return '%' + ( '00' + c.charCodeAt( 0 ).toString( 16 ) ).slice( -2 );
+
+	    } ).join( '' ) );
+
+	};
+
+
+
 	Shortcode.prototype.mount = function() {
 
 		var ret = Shortcode.__super__.mount.call( this );
@@ -3711,6 +6494,28 @@ ContentEdit.Shortcode = (function(_super) {
 			this._domElement.classList.remove('pbs--blank');
 
 		}
+
+
+
+		setTimeout( function() {
+
+			if ( this._domElement ) {
+
+				var scStyles = getComputedStyle( this._domElement );
+
+				if ( scStyles.height === '0px' ) {
+
+					this._domElement.classList.add('pbs--blank');
+
+				} else {
+
+					this._domElement.classList.remove('pbs--blank');
+
+				}
+
+			}
+
+		}.bind( this ), 1 );
 
 
 
@@ -3956,6 +6761,172 @@ ContentEdit.Shortcode = (function(_super) {
 
 
 
+
+
+	Shortcode.prototype.unmount = function() {
+
+		Shortcode.__super__.unmount.call( this );
+
+
+
+		// Re-init the shortcode scripts to make sure it still works.
+
+		setTimeout( function() {
+
+			this.runInitScripts();
+
+		}.bind( this ), 100 );
+
+	};
+
+
+
+	Shortcode.prototype.runInitScripts = function() {
+
+
+
+		var ranInitCode = false;
+
+
+
+		if ( this._scriptsToRun ) {
+
+			for ( var i = 0; i < this._scriptsToRun.length; i++ ) {
+
+				try {
+
+
+
+					/**
+
+					 * Yes, this is a form of eval'ed code, but we can do this because:
+
+					 * 1. We only do this when editing,
+
+					 * 2. Logged out users will never see this code,
+
+					 * 3. Script init code comes from the plugin's rendered shortcode,
+
+					 * 4. This is only performed when refreshing shortcodes
+
+					 */
+
+
+
+					// jshint evil:true
+
+					( new Function( this._scriptsToRun[ i ] ) )();
+
+
+
+					ranInitCode = true;
+
+
+
+				} catch ( err ) {
+
+
+
+					// Shortcode init failed.
+
+					console.log( 'PBS:', this.sc_base, 'init code errored out.' );
+
+				}
+
+			}
+
+		}
+
+
+
+		// Run shortcode mapping init code.
+
+		if ( typeof pbsParams.shortcode_mappings[ this.sc_base ] !== 'undefined' ) {
+
+			var map = pbsParams.shortcode_mappings[ this.sc_base ];
+
+			if ( typeof map.init_code !== 'undefined' ) {
+
+				try {
+
+
+
+					/**
+
+					 * Yes, this is a form of eval'ed code, but we can do this because:
+
+					 * 1. We only do this when editing,
+
+					 * 2. Logged out users will never see this code,
+
+					 * 3. map.init_code doesn't come from any user input like GET vars,
+
+					 * 4. This is only performed when refreshing shortcodes
+
+					 */
+
+
+
+					// jshint evil:true
+
+					if ( this._domElement ) {
+
+						( new Function( map.init_code ) ).bind( this._domElement.firstChild )();
+
+					} else {
+
+						( new Function( map.init_code ) )();
+
+					}
+
+
+
+					ranInitCode = true;
+
+
+
+				} catch ( err ) {
+
+
+
+					// Shortcode init failed.
+
+					console.log( 'PBS:', this.sc_base, 'init code errored out.' );
+
+				}
+
+			}
+
+		}
+
+
+
+		// Refresh the dom element if some init code was used.
+
+		if ( ranInitCode ) {
+
+			setTimeout( function() {
+
+				if ( this._domElement ) {
+
+					this._content = this._domElement.innerHTML;
+
+				}
+
+			}.bind( this ), 10 );
+
+		} else if ( this._domElement ) {
+
+			this._content = this._domElement.innerHTML;
+
+		}
+
+
+
+	};
+
+
+
 	Shortcode.prototype.ajaxUpdate = function( forceUpdate ) {
 
 		clearTimeout( this._ajaxUpdateTimeout );
@@ -3988,7 +6959,7 @@ ContentEdit.Shortcode = (function(_super) {
 
 		payload.append( 'shortcode', this.sc_hash );
 
-		payload.append( 'nonce', pbsParams.shortcode_nonce );
+		payload.append( 'nonce', pbsParams.nonce );
 
 
 
@@ -4010,7 +6981,45 @@ ContentEdit.Shortcode = (function(_super) {
 
 
 
-				var response = JSON.parse( request.responseText );
+				var i, node, response;
+
+
+
+				// The response should be a JSON object,
+
+				// If not we probably encountered an error during rendering.
+
+				try {
+
+					response = JSON.parse( request.responseText );
+
+				} catch ( err ) {
+
+
+
+					console.log( 'PBS: Error getting rendered shortcode' );
+
+
+
+					_this._domElement.classList.remove('pbs--rendering');
+
+
+
+					// Min-height is set during editing, remove it
+
+					_this._domElement.style.minHeight = '';
+
+					_this._domElement.style.marginBottom = '';
+
+
+
+					// Take note of the new hash to prevent unnecessary updating.
+
+					_this.sc_prev_raw = _this.sc_raw;
+
+					return;
+
+				}
 
 
 
@@ -4028,13 +7037,109 @@ ContentEdit.Shortcode = (function(_super) {
 
 				var currentHead = document.querySelector('html').innerHTML;
 
+				var enqueuedScriptsPending = 0;
+
+				var scriptsToRun = [];
+
+
+
 				if ( enqueued.trim().length ) {
 
-					for ( var i = dummyContainer.childNodes.length - 1; i >= 0; i-- ) {
+					for ( i = dummyContainer.childNodes.length - 1; i >= 0; i-- ) {
 
 						if ( dummyContainer.childNodes[i].getAttribute ) {
 
-							var node = dummyContainer.childNodes[i];
+							node = dummyContainer.childNodes[i];
+
+
+
+							// Scripts.
+
+							if ( node.tagName === 'SCRIPT' ) {
+
+
+
+								// JS scripts added are most likely initialization code.
+
+								if ( ! node.getAttribute( 'src' ) ) {
+
+									scriptsToRun.unshift( node.innerHTML );
+
+									continue;
+
+
+
+								} else {
+
+
+
+									// Dynamically load these scripts.
+
+									var scriptURL = node.getAttribute( 'src' );
+
+									if ( ! document.querySelector( 'script[src="' + scriptURL + '"]' ) ) {
+
+
+
+										// We count these so we can run initialization
+
+										// when everything has completed loading.
+
+										enqueuedScriptsPending++;
+
+
+
+										/* jshint loopfunc:true */
+
+										jQuery.getScript( node.getAttribute( 'src' ) )
+
+										.done( function() {
+
+											enqueuedScriptsPending--;
+
+										} )
+
+										.fail( function() {
+
+											enqueuedScriptsPending--;
+
+										} );
+
+									}
+
+
+
+									continue;
+
+								}
+
+
+
+							// Styles.
+
+							} else if ( node.tagName === 'LINK' ) {
+
+
+
+								// Include the style files if they aren't added in yet.
+
+								if ( node.getAttribute( 'rel' ) === 'stylesheet' && node.getAttribute( 'href' ) ) {
+
+									var styleURL = node.getAttribute( 'href' );
+
+									if ( document.querySelector( 'link[href="' + styleURL + '"]' ) ) {
+
+										continue;
+
+									}
+
+								}
+
+							}
+
+
+
+							// Add the script or styles.
 
 							if ( currentHead.indexOf( node.outerHTML ) === -1 ) {
 
@@ -4052,11 +7157,77 @@ ContentEdit.Shortcode = (function(_super) {
 
 				// Add the results
 
-				var rendered = response.output.trim();
+				dummyContainer = document.createElement('div');
 
-				_this._domElement.innerHTML = rendered;
+				dummyContainer.innerHTML = response.output.trim();
 
-				_this._content = rendered;
+
+
+				// Add the rendered shortcode output.
+
+				_this._domElement.innerHTML = '';
+
+				if ( dummyContainer.innerHTML.length ) {
+
+					for ( i = dummyContainer.childNodes.length - 1; i >= 0; i-- ) {
+
+						node = dummyContainer.childNodes[ i ];
+
+						if ( dummyContainer.childNodes[ i ].nodeType === 3 ) {
+
+							_this._domElement.insertBefore( node, _this._domElement.firstChild );
+
+						} else {
+
+
+
+							// If a script was outputted, we can use this to
+
+							// initialize the shortcode.
+
+							if ( node.tagName === 'SCRIPT' ) {
+
+								scriptsToRun.unshift( node.innerHTML );
+
+								continue;
+
+							}
+
+
+
+							// Insert rendered output.
+
+							_this._domElement.insertBefore( node, _this._domElement.firstChild );
+
+						}
+
+					}
+
+				}
+
+				_this._content = dummyContainer.innerHTML;
+
+
+
+				// Run initialization scripts.
+
+				if ( scriptsToRun ) {
+
+					_this._scriptsToRun = scriptsToRun;
+
+					_this._scriptRunInterval = setInterval( function() {
+
+						if ( ! enqueuedScriptsPending ) {
+
+							this.runInitScripts();
+
+							clearInterval( this._scriptRunInterval );
+
+						}
+
+					}.bind( _this ), 100 );
+
+				}
 
 
 
@@ -4204,7 +7375,7 @@ ContentEdit.Text.prototype.convertShortcodes = function() {
 
 
 
-	var shortcodeRegex = /\[([^\/][\w-_]+)[^\]]*\]/g;
+	var shortcodeRegex = /\[([^\/][^\s\]\[]+)[^\]]*\]/g;
 
 	var shortcodeMatch = shortcodeRegex.exec( html );
 
@@ -4886,7 +8057,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	ContentEdit.PreText.prototype.html = function( indent ) {
 		proxied.call( this, indent );
 		this._cached = this._cached.replace( /<\/?\w+[^>]*>/g, '' );
-		return ( '' + indent + '<' + this._tagName + ( this._attributesToString() ) + '>' ) + ( '' + this._cached + '</' + this._tagName + '>' );
+		return ( '' + indent + '<' + this._tagName + ( this._attributesToString() ) + '>' ) + ( '' + this._cached.replace( /\n/g, '\r\n' ) + '</' + this._tagName + '>' );
     };
 
 } )();
@@ -5610,10 +8781,10 @@ ContentEdit.DivRow = (function(_super) {
 		this.addCSSClass('pbs-row');
 
 		// Generate a unique class if there isn't one yet.
-		var currentClass = this._domElement.getAttribute( 'class' );
-		if ( ! currentClass.match( /pbs_row_uid_/ ) ) {
-			this.addCSSClass( 'pbs_row_uid_' + Math.floor((1 + Math.random()) * 0x10000000).toString(36) );
-		}
+		// var currentClass = this._domElement.getAttribute( 'class' );
+		// if ( ! currentClass.match( /pbs_row_uid_/ ) ) {
+		// 	this.addCSSClass( 'pbs_row_uid_' + Math.floor((1 + Math.random()) * 0x10000000).toString(36) );
+		// }
 
 		// Full-width rows get busted when mounting, this fixes them.
 		if ( window._pbsFixRowWidth ) {
@@ -5679,11 +8850,22 @@ ContentEdit.DivRow = (function(_super) {
 		// If existing columns have a gap, copy it.
 		var existingGap = this.hasColumnGap();
 
+		// If any columns don't have a flex-basis yet, add one.
+		for ( var i = 0; i < this.children.length; i++ ) {
+			var currFlexBasis = this.children[ i ].style( 'flex-basis' );
+			if ( ! currFlexBasis || currFlexBasis === '0px' ) {
+				this.children[ i ].style( 'flex-basis', ( 100 / ( this.children.length + 1 ) ) + '%' );
+			}
+		}
+
 		var col = new ContentEdit.DivCol('div');
 		var p = new ContentEdit.Text('p', {}, '');
 		col.attach(p);
 		this.attach( col, index );
-		col.style('flex-grow', '1');
+
+		// Add some default width.
+		col.style( 'flex-grow', '1' );
+		col.style( 'flex-basis', ( 100 / this.children.length ) + '%' );
 
 		// Apply existing column gap to the new column, or the previous column if adding on the end of the row.
 		if ( existingGap && index !== this.children.length - 1 ) {
@@ -5943,7 +9125,9 @@ ContentEdit.DivCol = (function(_super) {
 
 
     DivCol.prototype._onMouseMove = function(ev) {
+		DivCol.__super__._onMouseMove.call(this, ev);
 		DivCol.__super__._onMouseOver.call(this, ev);
+		
 		clearTimeout(this._dragTimeout);
 
 		var root = ContentEdit.Root.get(),
@@ -6131,10 +9315,10 @@ ContentEdit.DivCol = (function(_super) {
 		this.addCSSClass('pbs-col');
 
 		// Generate a unique class if there isn't one yet.
-		var currentClass = this._domElement.getAttribute( 'class' );
-		if ( ! currentClass.match( /pbs_col_uid_/ ) ) {
-			this.addCSSClass( 'pbs_col_uid_' + Math.floor((1 + Math.random()) * 0x10000000).toString(36) );
-		}
+		// var currentClass = this._domElement.getAttribute( 'class' );
+		// if ( ! currentClass.match( /pbs_col_uid_/ ) ) {
+		// 	this.addCSSClass( 'pbs_col_uid_' + Math.floor((1 + Math.random()) * 0x10000000).toString(36) );
+		// }
 
 		// Check how many empty paragraphs are there.
 		var numEmpties = 0;
@@ -7411,6 +10595,11 @@ ContentEdit.Tabs = ( function( _super ) {
 		var tabContainer = this._domElement.querySelector( '.pbs-tab-tabs' )._ceElement;
 		tabContainer.attach( tab, tabContainer.children.length );
 
+		// Copy all existing tab styles.
+		if ( tabContainer.children.length ) {
+			tab.attr( 'style', tabContainer.children[0].attr( 'style' ) );
+		}
+
 		var panelContainer = this._domElement.querySelector( '.pbs-tab-panels' )._ceElement;
 		var row = new ContentEdit.DivRow( 'div', {
 			'data-panel': tabNum
@@ -8140,7 +11329,11 @@ ContentEdit.Image.prototype.openMediaManager = function() {
 
 	frame.state('image-details').on( 'update', function( imageData ) {
 		_pbsUpdateNonCaptionedImageCTElement( this, imageData );
-	}.bind(this) );
+	}.bind( this ) );
+
+	frame.state('replace-image').on( 'replace', function( imageData ) {
+		_pbsUpdateNonCaptionedImageCTElement( this, imageData );
+	}.bind( this ) );
 
 	// Delete the frame's state so that opening another frame won't have the settings
 	// of the previous frame.
@@ -8270,6 +11463,10 @@ wp.hooks.addFilter( 'pbs.shortcode.allow_raw_edit', function( allow, scBase, ele
 		});
 
 		frame.state('image-details').on( 'update', function( imageData ) {
+			_pbsUpdateNonCaptionedImage( target, imageData );
+		} );
+
+		frame.state('replace-image').on( 'replace', function( imageData ) {
 			_pbsUpdateNonCaptionedImage( target, imageData );
 		} );
 
@@ -8523,6 +11720,16 @@ var _pbsUpdateNonCaptionedImageCTElement = function( imageNode, imageData ) {
 	// The aspect ratio might have changed.
 	imageNode._aspectRatio = height / width;
 	imageNode.size([width, height]);
+
+	// Remove any existing attachment id class
+	var cls = imageNode.attr( 'class' ).match( /wp-image-\d+/ );
+	if ( cls ) {
+		imageNode.removeCSSClass( cls[0] );
+	}
+	cls = imageNode.attr( 'class' ).match( /size-\w+/ );
+	if ( cls ) {
+		imageNode.removeCSSClass( cls[0] );
+	}
 
 	// Add the classes
 	imageNode.removeCSSClass('alignleft');
@@ -8853,6 +12060,7 @@ wp.hooks.addFilter( 'pbs.inspector.do_add_section_options', function( doContinue
 	}
 	return doContinue;
 } );
+
 
 /**
  * A collection of functions that extend the capabilities of HTMLString to
@@ -9257,7 +12465,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	 */
 	var payload = new FormData();
 	payload.append( 'action', 'pbs_get_widget_templates' );
-	payload.append( 'nonce', pbsParams.widget_nonce );
+	payload.append( 'nonce', pbsParams.nonce );
 
 	var xhr = new XMLHttpRequest();
 
@@ -9271,6 +12479,1066 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	xhr.send( payload );
 
 });
+
+/* globals ContentTools, ContentEdit, __extends */
+
+ContentTools.ToolboxBarUI = ( function( _super ) {
+	__extends( ToolboxBarUI, _super );
+
+	function ToolboxBarUI(tools) {
+		ToolboxBarUI.__super__.constructor.call(this);
+		this._tools = tools;
+		this._toolUIs = {};
+	}
+
+	ToolboxBarUI.prototype.isDragging = function() {
+		return false;
+	};
+
+	ToolboxBarUI.prototype.hide = function() {
+		this._removeDOMEventListeners();
+		return ToolboxBarUI.__super__.hide.call(this);
+	};
+
+	ToolboxBarUI.prototype.tools = function(tools) {
+		if (tools === void 0) {
+			return this._tools;
+		}
+		this._tools = tools;
+		this.unmount();
+		return this.mount();
+	};
+
+	ToolboxBarUI.prototype.mount = function() {
+		var domToolGroup, i, tool, toolGroup, toolName, _i, _j, _len, _len1, _ref;
+		this._domElement = this.constructor.createDiv( [ 'pbs-toolbox-bar', 'ct-widget', 'ct-toolbox' ] );
+		document.body.appendChild( this._domElement );
+		_ref = this._tools;
+		for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
+			toolGroup = _ref[i];
+			domToolGroup = this.constructor.createDiv(['ct-tool-group']);
+			this._domElement.appendChild(domToolGroup);
+			for (_j = 0, _len1 = toolGroup.length; _j < _len1; _j++) {
+				toolName = toolGroup[_j];
+
+				if ( toolName === '|' ) {
+					tool = this.constructor.createDiv(['pbs-tool-sep']);
+					domToolGroup.appendChild( tool );
+					continue;
+				}
+
+				tool = ContentTools.ToolShelf.fetch(toolName);
+				this._toolUIs[toolName] = new ContentTools.ToolUI(tool);
+				this._toolUIs[toolName].mount(domToolGroup);
+				this._toolUIs[toolName].disabled(true);
+				this._toolUIs[toolName].bind('apply', (function(_this) {
+					return function() {
+						return _this.updateTools();
+					};
+				})(this));
+			}
+		}
+		return this._addDOMEventListeners();
+	};
+
+	ToolboxBarUI.prototype.updateTools = function() {
+		ToolboxBarUI.__super__.updateTools.call( this );
+	};
+
+	ToolboxBarUI.prototype._addDOMEventListeners = function() {
+	  this._updateTools = (function(_this) {
+	    return function() {
+	      var app, element, name, selection, toolUI, update, _ref, _results;
+	      app = ContentTools.EditorApp.get();
+	      update = false;
+	      element = ContentEdit.Root.get().focused();
+	      selection = null;
+	      if (element === _this._lastUpdateElement) {
+	        if (element && element.selection) {
+	          selection = element.selection();
+	          if (_this._lastUpdateSelection && selection.eq(_this._lastUpdateSelection)) {
+	            update = true;
+	          }
+	        }
+	      } else {
+	        update = true;
+	      }
+	      if (app.history) {
+	        if (_this._lastUpdateHistoryLength !== app.history.length()) {
+	          update = true;
+	        }
+	        _this._lastUpdateHistoryLength = app.history.length();
+	      }
+	      _this._lastUpdateElement = element;
+	      _this._lastUpdateSelection = selection;
+	      _ref = _this._toolUIs;
+	      _results = [];
+	      for (name in _ref) {
+	        toolUI = _ref[name];
+	        _results.push(toolUI.update(element, selection));
+	      }
+	      return _results;
+	    };
+	  })(this);
+	  this._updateToolsTimeout = setInterval(this._updateTools, 100);
+	  this._handleKeyDown = (function() {
+	    return function(ev) {
+	      var element, os, redo, undo, version;
+	      if (ev.keyCode === 46) {
+	        element = ContentEdit.Root.get().focused();
+	        if (element && !element.content) {
+	          ContentTools.Tools.Remove.apply(element, null, function() {});
+	        }
+	      }
+	      version = navigator.appVersion;
+	      os = 'linux';
+	      if (version.indexOf('Mac') !== -1) {
+	        os = 'mac';
+	      } else if (version.indexOf('Win') !== -1) {
+	        os = 'windows';
+	      }
+	      redo = false;
+	      undo = false;
+	      switch (os) {
+	        case 'linux':
+	          if (ev.keyCode === 90 && ev.ctrlKey) {
+	            redo = ev.shiftKey;
+	            undo = !redo;
+	          }
+	          break;
+	        case 'mac':
+	          if (ev.keyCode === 90 && ev.metaKey) {
+	            redo = ev.shiftKey;
+	            undo = !redo;
+	          }
+	          break;
+	        case 'windows':
+	          if (ev.keyCode === 89 && ev.ctrlKey) {
+	            redo = true;
+	          }
+	          if (ev.keyCode === 90 && ev.ctrlKey) {
+	            undo = true;
+	          }
+	      }
+	      if (undo && ContentTools.Tools.Undo.canApply(null, null)) {
+	        ContentTools.Tools.Undo.apply(null, null, function() {});
+	      }
+	      if (redo && ContentTools.Tools.Redo.canApply(null, null)) {
+	        return ContentTools.Tools.Redo.apply(null, null, function() {});
+	      }
+	    };
+	  })(this);
+	  return window.addEventListener('keydown', this._handleKeyDown);
+	};
+
+	ToolboxBarUI.prototype._removeDOMEventListeners = function() {
+		window.removeEventListener('keydown', this._handleKeyDown);
+		return clearInterval( this._updateToolsTimeout );
+	};
+
+	ToolboxBarUI.prototype._onStartDragging = function() {
+	};
+
+	ToolboxBarUI.prototype._onStopDragging = function() {
+	};
+
+	ToolboxBarUI.prototype._onDrag = function() {
+	};
+
+	return ToolboxBarUI;
+
+})(ContentTools.ToolboxUI);
+
+
+( function() {
+	var _EditorApp = ContentTools.EditorApp.getCls();
+	var proxied = _EditorApp.prototype.init;
+	_EditorApp.prototype.init = function( queryOrDOMElements, namingProp ) {
+		proxied.call( this, queryOrDOMElements, namingProp );
+
+		this._toolboxBar = new ContentTools.ToolboxBarUI( window.PBSEditor.formattingTools );
+		this.attach(this._toolboxBar);
+	};
+
+	var unmountProxy = _EditorApp.prototype.unmount;
+	_EditorApp.prototype.unmount = function() {
+		unmountProxy.call( this );
+		if ( ! this.isMounted() ) {
+			return;
+		}
+		this._toolboxBar = null;
+	};
+
+	var startProxy = _EditorApp.prototype.start;
+	_EditorApp.prototype.start = function() {
+		startProxy.call( this );
+		this._toolboxBar.show();
+	};
+
+	var stopProxy = _EditorApp.prototype.stop;
+	_EditorApp.prototype.stop = function() {
+		stopProxy.call( this );
+		this._toolboxBar.hide();
+	};
+
+} )();
+
+/* globals ContentTools, ContentEdit, __extends, pbsParams */
+
+ContentTools.ToolboxFixedUI = ( function( _super ) {
+	__extends( ToolboxFixedUI, _super );
+
+	function ToolboxFixedUI(tools) {
+		ToolboxFixedUI.__super__.constructor.call(this);
+		this._tools = tools;
+		this._toolUIs = {};
+	}
+
+	ToolboxFixedUI.prototype.isDragging = function() {
+		return false;
+	};
+
+	ToolboxFixedUI.prototype.toggle = function() {
+		if ( ! this._domElement ) {
+			this.show();
+		} else if ( this._domElement.classList.contains( 'pbs-toolbox-elements-shown' ) ) {
+			this.hide();
+		} else {
+			this.show();
+		}
+	};
+
+	ToolboxFixedUI.prototype.show = function() {
+        if ( ! this.isMounted() ) {
+			this.mount();
+        }
+		this._domElement.scrollTop = 0;
+		this.addCSSClass( 'ct-widget--active' );
+	};
+
+	ToolboxFixedUI.prototype.hide = function() {
+		if ( this._domElement ) {
+			this.removeCSSClass( 'ct-widget--active' );
+		}
+		this._removeDOMEventListeners();
+		return ToolboxFixedUI.__super__.hide.call(this);
+	};
+
+	ToolboxFixedUI.prototype.tools = function(tools) {
+		if (tools === void 0) {
+			return this._tools;
+		}
+		this._tools = tools;
+		this.unmount();
+		return this.mount();
+	};
+
+	ToolboxFixedUI.prototype.mount = function() {
+		var domToolGroup, i, tool, toolGroup, toolName, _i, _j, _len, _len1, _ref;
+		this._domElement = this.constructor.createDiv( [ 'pbs-interactive-elements-group', 'pbs-toolbox-elements', 'ct-widget', 'ct-toolbox' ] );
+		document.body.appendChild( this._domElement );
+
+		var note = this.constructor.createDiv( [ 'pbs-toolbox-elements-note' ] );
+		note.innerHTML = pbsParams.labels.drag_an_element;
+		this._domElement.appendChild( note );
+
+		_ref = this._tools;
+		for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
+			toolGroup = _ref[i];
+			domToolGroup = this.constructor.createDiv(['ct-tool-group']);
+			this._domElement.appendChild(domToolGroup);
+			for (_j = 0, _len1 = toolGroup.length; _j < _len1; _j++) {
+				toolName = toolGroup[_j];
+				tool = ContentTools.ToolShelf.fetch(toolName);
+				this._toolUIs[toolName] = new ContentTools.ToolUI(tool);
+				this._toolUIs[toolName].mount(domToolGroup);
+				this._toolUIs[toolName].disabled(true);
+				this._toolUIs[toolName].bind('apply', (function(_this) {
+					return function() {
+						return _this.updateTools();
+					};
+				})(this));
+			}
+		}
+		return this._addDOMEventListeners();
+	};
+
+	ToolboxFixedUI.prototype.updateTools = function() {
+		ToolboxFixedUI.__super__.updateTools.call( this );
+	};
+
+	ToolboxFixedUI.prototype._addDOMEventListeners = function() {
+
+		// When leaving the toolbar, hide it.
+		this._domElement.addEventListener( 'mouseleave', function( ev ) {
+			if ( ev.relatedTarget ) {
+				if ( window.pbsSelectorMatches( ev.relatedTarget, '.ct-tool--insert-element, .ct-tool--insert-element *' ) ) {
+					return;
+				}
+			}
+			this.hide();
+		}.bind( this ) );
+
+	  this._updateTools = (function(_this) {
+	    return function() {
+	      var app, element, name, selection, toolUI, update, _ref, _results;
+	      app = ContentTools.EditorApp.get();
+	      update = false;
+	      element = ContentEdit.Root.get().focused();
+	      selection = null;
+	      if (element === _this._lastUpdateElement) {
+	        if (element && element.selection) {
+	          selection = element.selection();
+	          if (_this._lastUpdateSelection && selection.eq(_this._lastUpdateSelection)) {
+	            update = true;
+	          }
+	        }
+	      } else {
+	        update = true;
+	      }
+	      if (app.history) {
+	        if (_this._lastUpdateHistoryLength !== app.history.length()) {
+	          update = true;
+	        }
+	        _this._lastUpdateHistoryLength = app.history.length();
+	      }
+	      _this._lastUpdateElement = element;
+	      _this._lastUpdateSelection = selection;
+	      _ref = _this._toolUIs;
+	      _results = [];
+	      for (name in _ref) {
+	        toolUI = _ref[name];
+	        _results.push(toolUI.update(element, selection));
+	      }
+	      return _results;
+	    };
+	  })(this);
+	  this._updateToolsTimeout = setInterval(this._updateTools, 100);
+	  this._handleKeyDown = (function() {
+	    return function(ev) {
+	      var element, os, redo, undo, version;
+	      if (ev.keyCode === 46) {
+	        element = ContentEdit.Root.get().focused();
+	        if (element && !element.content) {
+	          ContentTools.Tools.Remove.apply(element, null, function() {});
+	        }
+	      }
+	      version = navigator.appVersion;
+	      os = 'linux';
+	      if (version.indexOf('Mac') !== -1) {
+	        os = 'mac';
+	      } else if (version.indexOf('Win') !== -1) {
+	        os = 'windows';
+	      }
+	      redo = false;
+	      undo = false;
+	      switch (os) {
+	        case 'linux':
+	          if (ev.keyCode === 90 && ev.ctrlKey) {
+	            redo = ev.shiftKey;
+	            undo = !redo;
+	          }
+	          break;
+	        case 'mac':
+	          if (ev.keyCode === 90 && ev.metaKey) {
+	            redo = ev.shiftKey;
+	            undo = !redo;
+	          }
+	          break;
+	        case 'windows':
+	          if (ev.keyCode === 89 && ev.ctrlKey) {
+	            redo = true;
+	          }
+	          if (ev.keyCode === 90 && ev.ctrlKey) {
+	            undo = true;
+	          }
+	      }
+	      if (undo && ContentTools.Tools.Undo.canApply(null, null)) {
+	        ContentTools.Tools.Undo.apply(null, null, function() {});
+	      }
+	      if (redo && ContentTools.Tools.Redo.canApply(null, null)) {
+	        return ContentTools.Tools.Redo.apply(null, null, function() {});
+	      }
+	    };
+	  })(this);
+	  return window.addEventListener('keydown', this._handleKeyDown);
+	};
+
+	ToolboxFixedUI.prototype._removeDOMEventListeners = function() {
+		window.removeEventListener('keydown', this._handleKeyDown);
+		return clearInterval( this._updateToolsTimeout );
+	};
+
+	ToolboxFixedUI.prototype._onStartDragging = function() {
+	};
+
+	ToolboxFixedUI.prototype._onStopDragging = function() {
+	};
+
+	ToolboxFixedUI.prototype._onDrag = function() {
+	};
+
+	return ToolboxFixedUI;
+
+})(ContentTools.ToolboxUI);
+
+
+( function() {
+	var _EditorApp = ContentTools.EditorApp.getCls();
+	var proxied = _EditorApp.prototype.init;
+	_EditorApp.prototype.init = function( queryOrDOMElements, namingProp ) {
+		proxied.call( this, queryOrDOMElements, namingProp );
+
+		this._toolboxElements = new ContentTools.ToolboxFixedUI( window.PBSEditor.insertElements );
+		this.attach(this._toolboxElements);
+	};
+
+	var unmountProxy = _EditorApp.prototype.unmount;
+	_EditorApp.prototype.unmount = function() {
+		unmountProxy.call( this );
+		if ( ! this.isMounted() ) {
+			return;
+		}
+		this._toolboxElements = null;
+	};
+
+	// var startProxy = _EditorApp.prototype.start;
+	// _EditorApp.prototype.start = function() {
+	// 	startProxy.call( this );
+	// 	this._toolboxElements.show();
+	// };
+
+	var stopProxy = _EditorApp.prototype.stop;
+	_EditorApp.prototype.stop = function() {
+		stopProxy.call( this );
+		this._toolboxElements.hide();
+	};
+
+} )();
+
+
+// Close the elemen list when contents are clicked.
+window.addEventListener( 'DOMContentLoaded', function() {
+	document.querySelector( '.pbs-main-wrapper' ).addEventListener( 'mousedown', function() {
+		ContentTools.EditorApp.get()._toolboxElements.hide();
+	} );
+	document.querySelector( '.pbs-main-wrapper' ).addEventListener( 'mouseup', function() {
+		ContentTools.EditorApp.get()._toolboxElements.hide();
+	} );
+	document.querySelector( '.pbs-main-wrapper' ).addEventListener( 'keydown', function() {
+		ContentTools.EditorApp.get()._toolboxElements.hide();
+	} );
+} );
+
+/* globals ContentTools, ContentEdit, __extends, PBSEditor */
+
+
+( function() {
+	var proxied = ContentTools.ToolUI.prototype._onMouseLeave;
+	ContentTools.ToolUI.prototype._onMouseLeave = function( ev ) {
+		if ( this._mouseDown && this._domElement.classList.contains( 'pbs-tool-large' ) ) {
+			var element = new ContentEdit.NewElementDragHelper( this.tool );
+			var scrollY = window.scrollY || window.pageYOffset;
+			ContentTools.EditorApp.get().regions()['main-content'].attach( element );
+			element.drag( ev.screenX, ev.screenY + scrollY );
+			ev.stopPropagation();
+			ev.preventDefault();
+		}
+		return proxied.call( this, ev );
+	};
+} )();
+
+
+ContentEdit.NewElementDragHelper = ( function( _super ) {
+	__extends( NewElementDragHelper, _super );
+
+	function NewElementDragHelper( tool, attributes ) {
+		NewElementDragHelper.__super__.constructor.call( this, 'div', attributes );
+		this._content = '';
+		this.tool = tool;
+	}
+
+    NewElementDragHelper.droppers = PBSEditor.allDroppers;
+
+	NewElementDragHelper.prototype.typeName = function() {
+		return this.tool.label;
+	};
+
+	NewElementDragHelper.prototype.drop = function(element, placement) {
+
+		// If dragged into nothing, cancel the drag.
+		if ( ! element ) {
+			ContentEdit.Root.get().cancelDragging();
+			this.parent().detach( this );
+			return;
+		}
+
+		var index = element.parent().children.indexOf( element );
+		index += placement[0] === 'above' ? 0 : 1;
+
+		this.tool.createNew( element.parent(), index );
+
+		// Remove the drag helper element.
+		this.parent().detach( this );
+	};
+
+	return NewElementDragHelper;
+
+})(ContentEdit.Static);
+
+ContentEdit.TagNames.get().register( ContentEdit.NewElementDragHelper, 'NewElementDragHelper' );
+
+/* globals ContentTools, __extends, __bind, PBSInspectorOptions, pbsParams */
+
+ContentTools.ToolboxPropertiesUI = (function(_super) {
+	__extends(ToolboxPropertiesUI, _super);
+
+	function ToolboxPropertiesUI(tools) {
+		this._onClose = __bind( this._onClose, this );
+		ToolboxPropertiesUI.__super__.constructor.call( this, tools );
+	}
+
+    ToolboxPropertiesUI.prototype.isDragging = function() {
+		return ToolboxPropertiesUI.__super__.isDragging.call( this );
+    };
+
+	ToolboxPropertiesUI.prototype.show = function() {
+		if ( ! this.isMounted() ) {
+			this.mount();
+		}
+		return this.addCSSClass( 'ct-widget--active' );
+	};
+
+    ToolboxPropertiesUI.prototype.hide = function() {
+		this.removeCSSClass( 'ct-widget--active' );
+    };
+
+    ToolboxPropertiesUI.prototype.tools = function( tools ) {
+		return ToolboxPropertiesUI.__super__.tools.call( this, tools );
+    };
+
+    ToolboxPropertiesUI.prototype.mount = function() {
+      var coord, domToolGroup, i, position, restore, tool, toolGroup, toolName, _i, _j, _len, _len1, _ref;
+      this._domElement = this.constructor.createDiv(['pbs-toolbox-properties', 'ct-widget', 'ct-toolbox']);
+      this.parent().domElement().appendChild(this._domElement);
+      this._domGrip = this.constructor.createDiv( [ 'pbs-toolbox-titlebar' ] );
+      this._domElement.appendChild( this._domGrip );
+      this._domTabs = this.constructor.createDiv( [ 'pbs-toolbox-tabs' ] );
+      this._domElement.appendChild( this._domTabs );
+      this._domSections = this.constructor.createDiv( [ 'pbs-toolbox-sections' ] );
+      this._domElement.appendChild( this._domSections );
+      this._domResize = this.constructor.createDiv( [ 'pbs-toolbox-resizer' ] );
+      this._domElement.appendChild( this._domResize );
+	  var title = this.constructor.createDiv( [ 'pbs-toolbox-title' ] );
+	  title.innerHTML = pbsParams.labels.properties_inspector;
+      this._domGrip.appendChild( title );
+	  this._closeButton = this.constructor.createDiv( [ 'pbs-titlebox-close' ] );
+      this._domGrip.appendChild( this._closeButton );
+      _ref = this._tools;
+      for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
+        toolGroup = _ref[i];
+        domToolGroup = this.constructor.createDiv(['ct-tool-group']);
+        this._domElement.appendChild(domToolGroup);
+        for (_j = 0, _len1 = toolGroup.length; _j < _len1; _j++) {
+          toolName = toolGroup[_j];
+          tool = ContentTools.ToolShelf.fetch(toolName);
+          this._toolUIs[toolName] = new ContentTools.ToolUI(tool);
+          this._toolUIs[toolName].mount(domToolGroup);
+        //   this._toolUIs[toolName].disabled(true);
+          this._toolUIs[toolName].bind('apply', (function(_this) {
+            return function() {
+              return _this.updateTools();
+            };
+          })(this));
+        }
+      }
+	  if ( window.localStorage.getItem( 'pbs-toolbox-elements-position' ) === null ) {
+		  window.localStorage.setItem( 'pbs-toolbox-elements-position', ( window.innerWidth - 250 - 30 ) + ',87,' + ( window.innerHeight - 77 - 20 ) );
+	  }
+      restore = window.localStorage.getItem('pbs-toolbox-elements-position');
+      if (restore && /^\d+,\d+,\d+$/.test(restore)) {
+        position = (function() {
+          var _k, _len2, _ref1, _results;
+          _ref1 = restore.split(',');
+          _results = [];
+          for (_k = 0, _len2 = _ref1.length; _k < _len2; _k++) {
+            coord = _ref1[_k];
+            _results.push(parseInt(coord, 10));
+          }
+          return _results;
+        })();
+        this._domElement.style.left = position[0] + 'px';
+        this._domElement.style.top = position[1] + 'px';
+		this._domElement.style.height = position[2] + 'px';
+      }
+      return this._addDOMEventListeners();
+    };
+
+    ToolboxPropertiesUI.prototype.updateTools = function() {
+		return ToolboxPropertiesUI.__super__.updateTools.call( this );
+    };
+
+    ToolboxPropertiesUI.prototype.unmount = function() {
+		return ToolboxPropertiesUI.__super__.unmount.call( this );
+    };
+
+    ToolboxPropertiesUI.prototype._addDOMEventListeners = function() {
+		this._closeButton.addEventListener( 'mousedown', this._onClose );
+		this._onResizeBound = this._onResize.bind( this );
+		this._onResizeMoveBound = this._onResizeMove.bind( this );
+		this._onResizeStopBound = this._onResizeStop.bind( this );
+		this._domResize.addEventListener( 'mousedown', this._onResizeBound );
+		ToolboxPropertiesUI.__super__._addDOMEventListeners.call( this );
+    };
+
+	ToolboxPropertiesUI.prototype._onResize = function( ev ) {
+		ev.preventDefault();
+		ev.stopPropagation();
+		document.body.addEventListener( 'mousemove', this._onResizeMoveBound );
+		document.body.addEventListener( 'mouseup', this._onResizeStopBound );
+		this._resizeStart = ev.screenY;
+		this._resizeOrigHeight = this._domElement.getBoundingClientRect().height;
+	};
+
+	ToolboxPropertiesUI.prototype._onResizeMove = function( ev ) {
+		ev.preventDefault();
+		ev.stopPropagation();
+		this._domElement.style.transition = 'none';
+		this._domElement.style.height = ( this._resizeOrigHeight + ( ev.screenY - this._resizeStart ) ) + 'px';
+	};
+
+	ToolboxPropertiesUI.prototype._onResizeStop = function( ev ) {
+		ev.preventDefault();
+		ev.stopPropagation();
+		document.body.removeEventListener( 'mousemove', this._onResizeMoveBound );
+		document.body.removeEventListener( 'mouseup', this._onResizeStopBound );
+		this._domElement.style.transition = '';
+
+		var rect = this._domElement.getBoundingClientRect();
+
+		window.localStorage.setItem( 'pbs-toolbox-elements-position', parseInt( rect.left, 10 ) + ',' + parseInt( rect.top, 10 ) + ',' + parseInt( rect.height, 10 ) );
+
+		this._contain();
+	};
+
+    ToolboxPropertiesUI.prototype._contain = function() {
+		var rect;
+		if ( ! this.isMounted() ) {
+			return;
+		}
+
+		var top = 0;
+		if ( document.querySelector('#wpadminbar') ) {
+			top += parseInt( document.querySelector('#wpadminbar').clientHeight, 10 );
+		}
+		if ( document.querySelector('.pbs-toolbox-bar') ) {
+			top += parseInt( document.querySelector('.pbs-toolbox-bar').clientHeight, 10 );
+		}
+
+		rect = this._domElement.getBoundingClientRect();
+
+		if ( rect.left + rect.width > window.innerWidth ) {
+			if ( window.innerWidth - rect.width < 0 ) {
+				this._domElement.style.left = '0px';
+			} else {
+				this._domElement.style.left = ( window.innerWidth - rect.width ) + 'px';
+			}
+		}
+		if ( rect.top + rect.height > window.innerHeight ) {
+			if ( window.innerHeight - rect.height < 77 ) {
+				this._domElement.style.top = '77px';
+			} else {
+				this._domElement.style.top = ( window.innerHeight - rect.height ) + 'px';
+			}
+		}
+		if (rect.left < 0) {
+			this._domElement.style.left = '0px';
+		}
+		if (rect.top < 77) {
+			this._domElement.style.top = '77px';
+		}
+    };
+
+    ToolboxPropertiesUI.prototype._removeDOMEventListeners = function() {
+		if ( this.isMounted() ) {
+			this._closeButton.removeEventListener( 'mousedown', this._onClose );
+		}
+		ToolboxPropertiesUI.__super__._removeDOMEventListeners.call( this );
+    };
+
+    ToolboxPropertiesUI.prototype._onClose = function() {
+		if ( this.isMounted() ) {
+			return this.hide();
+		}
+    };
+
+    ToolboxPropertiesUI.prototype._onDrag = function(ev) {
+		return ToolboxPropertiesUI.__super__._onDrag.call( this, ev );
+    };
+
+    ToolboxPropertiesUI.prototype._onStartDragging = function(ev) {
+		return ToolboxPropertiesUI.__super__._onStartDragging.call( this, ev );
+    };
+
+    ToolboxPropertiesUI.prototype._onStopDragging = function( ev ) {
+
+		var rect = this._domElement.getBoundingClientRect();
+
+		window.localStorage.setItem( 'pbs-toolbox-elements-position', parseInt( rect.left, 10 ) + ',' + parseInt( rect.top, 10 ) + ',' + parseInt( rect.height, 10 ) );
+
+		return ToolboxPropertiesUI.__super__._onStopDragging.call( this, ev );
+    };
+
+	// Open the toolbox and inspect an element.
+	ToolboxPropertiesUI.prototype.inspect = function( element ) {
+		this._inspectElement( element );
+		this.show();
+		this._contain();
+		setTimeout( function() {
+			if ( this._domElement.classList.contains( 'ct-widget--active' ) ) {
+				this._contain();
+			}
+		}.bind( this ), 1000 );
+	};
+
+	// Adds a tab. Used internally by addSection().
+	ToolboxPropertiesUI.prototype._addTab = function( label, element ) {
+		var tab = document.createElement( 'DIV' );
+		tab.classList.add( 'pbs-toolbox-tab' );
+		tab.innerHTML = label;
+		tab.setAttribute( 'data-name', element.constructor.name );
+		this._domTabs.appendChild( tab );
+		tab._targetElement = element;
+
+		// If this is the only tab, make it visible.
+		if ( this._domTabs.children.length === 1 ) {
+			tab.classList.add( 'pbs-toolbox-tab-shown' );
+		}
+
+		// Add event handlers.
+		tab.addEventListener( 'click', function() {
+			var visibleTab = this.parentNode.querySelector( '.pbs-toolbox-tab-shown' );
+			if ( visibleTab ) {
+				visibleTab.classList.remove( 'pbs-toolbox-tab-shown' );
+			}
+			this.classList.add( 'pbs-toolbox-tab-shown' );
+
+			var visibleSection = this.parentNode.parentNode.querySelector( '.pbs-toolbox-section-shown' );
+			if ( visibleSection ) {
+				visibleSection.classList.remove( 'pbs-toolbox-section-shown' );
+			}
+			this.parentNode.parentNode.querySelector( '.pbs-toolbox-section[data-name="' + this.getAttribute( 'data-name' ) + '"]' ).classList.add( 'pbs-toolbox-section-shown' );
+
+		}.bind( tab ) );
+	};
+
+	// Removes a tab. Used internally by removeSection().
+	ToolboxPropertiesUI.prototype._removeTab = function( name ) {
+		var removeMe = this._domTabs.querySelector( '[data-name="' + name + '"]' );
+		if ( removeMe ) {
+			this._domTabs.removeChild( removeMe );
+		}
+	};
+
+	// Adds a section of options for the given element.
+	ToolboxPropertiesUI.prototype.addSection = function( label, element, optionIndex ) {
+
+		// Add the tab.
+		this._addTab( label, element );
+
+		// Add the section.
+		var section = document.createElement( 'DIV' );
+		section.classList.add( 'pbs-toolbox-section' );
+		section.setAttribute( 'data-name', element.constructor.name );
+		this._domSections.appendChild( section );
+
+		if ( this._domSections.children.length === 1 ) {
+			section.classList.add( 'pbs-toolbox-section-shown' );
+		}
+
+		//
+		if ( element.constructor.name === 'Shortcode' ) {
+
+			// If there is an existing shortcode mapping, use that.
+			if ( typeof PBSInspectorOptions.Shortcode[ element.sc_base ] === 'undefined' ) {
+				if ( typeof pbsParams.shortcode_mappings !== 'undefined' && typeof pbsParams.shortcode_mappings[ element.sc_base ] !== 'undefined' ) {
+					if ( this.createShortcodeMappingOptions ) {
+						this.createShortcodeMappingOptions( element.sc_base );
+					}
+				}
+			}
+		}
+
+		// Add options for the element.
+
+		var elemType = element.constructor.name, numWithGroups, numNoGroup, k, note;
+
+		if ( elemType === 'Shortcode' ) {
+
+			var shortcodeBase = element.sc_base;
+			var shortcodeProperties = PBSInspectorOptions.Shortcode[ shortcodeBase ];
+
+			if ( typeof shortcodeProperties !== 'undefined' && typeof shortcodeProperties.hidden !== 'undefined' ) {
+				if ( shortcodeProperties.hidden ) {
+					return;
+				}
+			}
+
+			var heading;
+			if ( typeof shortcodeProperties !== 'undefined' && typeof shortcodeProperties.options !== 'undefined' ) {
+
+				// If there's a group, add a general group for those without a group.
+				numWithGroups = 0;
+				numNoGroup = 0;
+				for ( k = 0; k < shortcodeProperties.options.length; k++ ) {
+					if ( shortcodeProperties.options[ k ].group ) {
+						numWithGroups++;
+					} else {
+						numNoGroup++;
+					}
+				}
+				if ( numWithGroups && numNoGroup ) {
+					for ( k = 0; k < shortcodeProperties.options.length; k++ ) {
+						if ( ! shortcodeProperties.options[ k ].group ) {
+							shortcodeProperties.options[ k ].group = 'General';
+						}
+					}
+				}
+
+				for ( k = 0; k < shortcodeProperties.options.length; k++ ) {
+					this.addSectionOptions( section, shortcodeProperties.options[ k ], element );
+				}
+
+				// Add a note if the shortcode doesn't have attributes.
+				if ( ! shortcodeProperties.options.length ) {
+					note = document.createElement( 'DIV' );
+					note.innerHTML = pbsParams.labels.no_attributes_available;
+					note.classList.add( 'pbs-shortcode-no-options' );
+					section.appendChild( note );
+				}
+
+			} else {
+
+				heading = document.createElement( 'DIV' );
+				heading.innerHTML = pbsParams.labels.note_options_are_detected;
+				section.appendChild( heading );
+				// heading.innerHTML += '<span>' + pbsParams.labels.note_options_are_detected + '</span>';
+
+				this.addGenericShortcodeOptions( section, element );
+			}
+
+			// Add note.
+			var shortcodeNote = document.createElement( 'DIV' );
+			shortcodeNote.classList.add( 'pbs-inspector-shortcode-note' );
+			shortcodeNote.innerHTML = pbsParams.labels.note_shortcode_not_appearing;
+			section.appendChild( shortcodeNote );
+
+		} else if ( typeof PBSInspectorOptions[ optionIndex ] !== 'undefined' ) {
+
+			var currElemModel;
+			if ( ! element.model ) {
+				currElemModel = new Backbone.Model({
+					element: element
+				});
+			} else {
+				currElemModel = element.model;
+				currElemModel.set( 'element', element );
+			}
+
+			// If there's a group, add a general group for those without a group.
+			numWithGroups = 0;
+			numNoGroup = 0;
+			for ( k = 0; k < PBSInspectorOptions[ optionIndex ].options.length; k++ ) {
+				if ( PBSInspectorOptions[ optionIndex ].options[ k ].group ) {
+					numWithGroups++;
+				} else {
+					numNoGroup++;
+				}
+			}
+			if ( numWithGroups && numNoGroup ) {
+				for ( k = 0; k < PBSInspectorOptions[ optionIndex ].options.length; k++ ) {
+					if ( ! PBSInspectorOptions[ optionIndex ].options[ k ].group ) {
+						PBSInspectorOptions[ optionIndex ].options[ k ].group = 'General';
+					}
+				}
+			}
+
+			for ( k = 0; k < PBSInspectorOptions[ optionIndex ].options.length; k++ ) {
+				this.addSectionOptions( section, PBSInspectorOptions[ optionIndex ].options[ k ], element, currElemModel );
+			}
+
+			// Add hover events if there are any.
+			if ( PBSInspectorOptions[ optionIndex ].onMouseEnter ) {
+				section.addEventListener( 'mouseenter', function( e ) {
+					PBSInspectorOptions[ optionIndex ].onMouseEnter( this, e );
+				}.bind( element ) );
+			}
+			if ( PBSInspectorOptions[ optionIndex ].onMouseLeave ) {
+				section.addEventListener( 'mouseleave', function( e ) {
+					PBSInspectorOptions[ optionIndex ].onMouseLeave( this, e );
+				}.bind( element ) );
+			}
+
+			// Footer notice for the inspector.
+			if ( typeof PBSInspectorOptions[ optionIndex ].footer !== 'undefined' ) {
+				if ( Math.random() > 0.5 ) { // Do this only half of the time.
+					note = document.createElement( 'DIV' );
+					note.innerHTML = PBSInspectorOptions[ optionIndex ].footer;
+					note.classList.add( 'pbs-group-footer' );
+					section.appendChild( note );
+				}
+			}
+		}
+	};
+
+	// Remove a section.
+	ToolboxPropertiesUI.prototype.removeSection = function( name ) {
+		// Remove the tab.
+		this._removeTab( name );
+
+		// Remove the section.
+		var removeMe = this._domSections.querySelector( '[data-name="' + name + '"]' );
+		if ( removeMe ) {
+			this._domSections.removeChild( removeMe );
+		}
+	};
+
+	ToolboxPropertiesUI.prototype.removeAllSections = function() {
+
+		this.clearSections();
+
+		// Remove all tabs.
+		while ( this._domTabs.firstChild ) {
+			this._domTabs.removeChild( this._domTabs.firstChild );
+		}
+
+		// Remove all sections.
+		while ( this._domSections.firstChild ) {
+			this._domSections.removeChild( this._domSections.firstChild );
+		}
+	};
+
+	ToolboxPropertiesUI.prototype._inspectElement = function( element ) {
+
+		this.removeAllSections();
+
+		// Add the options for the DOM element if there is one.
+		while ( element.nodeType && ! element._ceElement && element.tagName !== 'BODY' ) {
+
+			this.addOptions( element );
+
+			element = element.parentNode;
+		}
+
+		if ( element._ceElement ) {
+			element = element._ceElement;
+		}
+
+		var inspectedElementNames = [];
+
+		// Add the options for the CT elements.
+		while ( element && element.type ) {
+			if ( inspectedElementNames.indexOf( element.constructor.name ) === -1 ) {
+				this.addOptions( element );
+
+				// Don't add options of those already added.
+				inspectedElementNames.push( element.constructor.name );
+
+				// If we already added row options, don't show another column.
+				if ( element.constructor.name === 'DivRow' ) {
+					inspectedElementNames.push( 'DivCol' );
+				}
+			}
+			element = element.parent();
+		}
+	};
+
+	ToolboxPropertiesUI.prototype.addOptions = function( element ) {
+		var optionIndex = element.constructor.name;
+		var label = optionIndex;
+
+		if ( ! window.PBSInspectorOptions[ element.constructor.name ] && element.nodeType ) {
+			// Check if the element matches any of the selectors.
+			var matched = false;
+
+			for ( var index in window.PBSInspectorOptions ) {
+				if ( window.PBSInspectorOptions.hasOwnProperty( index ) ) {
+					if ( window.pbsSelectorMatches( element, index ) ) {
+						optionIndex = index;
+						matched = true;
+						break;
+					}
+				}
+			}
+			if ( ! matched ) {
+				return;
+			}
+		}
+
+		if ( ! window.PBSInspectorOptions[ optionIndex ] ) {
+			return;
+		}
+
+		label = window.PBSInspectorOptions[ optionIndex ].label;
+
+		// Shortcodes are just labeled 'Shortcode'.
+		if ( element.constructor.name === 'Shortcode' ) {
+			label = element.constructor.name;
+
+			if ( element.sc_base === 'pbs_widget' ) {
+				label = 'Widget';
+			} else if ( element.sc_base === 'pbs_sidebar' ) {
+				label = 'Sidebar';
+			}
+		}
+
+		this.addSection( label, element, optionIndex );
+	};
+
+	ToolboxPropertiesUI.prototype.addOption = function() { // element, section, option ) {
+		// We override it to nothing.
+	};
+
+    return ToolboxPropertiesUI;
+
+  })(ContentTools.ToolboxUI);
+
+
+( function() {
+	var _EditorApp = ContentTools.EditorApp.getCls();
+	var proxied = _EditorApp.prototype.init;
+	_EditorApp.prototype.init = function( queryOrDOMElements, namingProp ) {
+		proxied.call( this, queryOrDOMElements, namingProp );
+
+		this._toolboxProperties = new ContentTools.ToolboxPropertiesUI([]);
+		this.attach(this._toolboxProperties);
+	};
+
+	var unmountProxy = _EditorApp.prototype.unmount;
+	_EditorApp.prototype.unmount = function() {
+		unmountProxy.call( this );
+		if ( ! this.isMounted() ) {
+			return;
+		}
+		this._toolboxProperties = null;
+	};
+
+	var startProxy = _EditorApp.prototype.start;
+	_EditorApp.prototype.start = function() {
+		startProxy.call( this );
+		// this._toolbox.hide();
+		if ( ! this._toolboxProperties.isMounted() ) {
+			this._toolboxProperties.mount();
+		}
+	};
+
+	var stopProxy = _EditorApp.prototype.stop;
+	_EditorApp.prototype.stop = function() {
+		stopProxy.call( this );
+		this._toolboxProperties.hide();
+	};
+
+} )();
 
 /* globals ContentEdit, ContentTools, PBSOption, pbsParams */
 
@@ -9287,31 +13555,36 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	var editor = ContentTools.EditorApp.get();
 
 	// Remove added docking classes
-	editor.bind('stop', function() {
-		document.querySelector('html').classList.remove('pbs-inspector-docked-right');
-		document.querySelector('html').classList.remove('pbs-inspector-docked-left');
-	});
+	// editor.bind('stop', function() {
+	// 	document.querySelector('html').classList.remove('pbs-inspector-docked-right');
+	// 	document.querySelector('html').classList.remove('pbs-inspector-docked-left');
+	// });
 
 	// When first time opening the dock in the browser, make sure it's docked on the left.
-	if ( window.localStorage.getItem( 'ct-toolbox-position' ) === null ) {
-		window.localStorage.setItem( 'ct-toolbox-position', '0,32' );
-	}
+	// if ( window.localStorage.getItem( 'ct-toolbox-position' ) === null ) {
+	// 	window.localStorage.setItem( 'ct-toolbox-position', '10,87' );
+	// }
 
+	/*
 	// Allow left & right screen docking
-	var toolbox = ContentTools.EditorApp.get()._toolbox;
+	var toolbox = ContentTools.EditorApp.get()._toolboxProperties;
 	toolbox.__contain = toolbox._contain;
 	toolbox._contain = function() {
 
 		// Get the admin bar height.
 		var adminBarTop = 32;
+		var formatBar = 45;
 		if ( document.querySelector('#wpadminbar') ) {
 			adminBarTop = parseInt( document.querySelector('#wpadminbar').clientHeight, 10 );
 		}
+		if ( document.querySelector('.pbs-toolbox-bar') ) {
+			formatBar = parseInt( document.querySelector('.pbs-toolbox-bar').clientHeight, 10 );
+		}
 
-		this._domElement.style.top = adminBarTop + 'px';
+		this._domElement.style.top = ( adminBarTop + formatBar ) + 'px';
 
 		if ( isNaN( parseInt( this._domElement.style.left, 10 ) ) ) {
-			this._domElement.style.left = '0px';
+			this._domElement.style.left = '10px';
 		}
 
 		var ret = toolbox.__contain();
@@ -9330,7 +13603,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 		return ret;
 	};
-
+	*/
 
 	/*******************************************************************************************
 	 * When scrolling inside the inspector, prevent the page from scrolling.
@@ -9365,10 +13638,10 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	};
 	editor.bind('start', function() {
 		// Won't work if this isn't jQuery...
-		jQuery('.ct-toolbox').on('DOMMouseScroll mousewheel', stopBodyScroll);
+		jQuery( 'body' ).on( 'DOMMouseScroll mousewheel', '.pbs-toolbox-elements, .pbs-toolbox-sections', stopBodyScroll );
 	});
 	editor.bind('stop', function() {
-		jQuery('.ct-toolbox').off('DOMMouseScroll mousewheel', stopBodyScroll);
+		jQuery( 'body' ).off( 'DOMMouseScroll mousewheel', '.pbs-toolbox-elements, .pbs-toolbox-sections', stopBodyScroll );
 	});
 });
 
@@ -9379,6 +13652,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
  * Override the Toolbox to allow it to be docked on the left or right side of the screen.
  ***********************************************************************************************/
 
+/*
 window.updateInspector = function( clickedElement ) {
 	clearTimeout( window._updateInspectorTimeout );
 	window._updateInspectorTimeout = setTimeout( function() {
@@ -9390,17 +13664,15 @@ window.updateInspector = function( clickedElement ) {
 		}
 
 		window._inspectorOrigScrollTop = document.querySelector('.ct-toolbox').scrollTop;
-		editor._toolbox.addSection( domElement );
+		editor._toolboxProperties.addSection( domElement );
 		document.querySelector('.ct-toolbox').scrollTop = window._inspectorOrigScrollTop;
 	}, 10 );
 };
+*/
 
+/*
 window.addEventListener( 'DOMContentLoaded', function() {
 
-	/**
-	 * When the cursor has moved, update the inspector.
-	 * This is different from the focus event below.
-	 */
 	document.addEventListener( 'mouseup', function(ev) {
 		if ( ! window.PBSEditor.isEditing() ) {
 			return;
@@ -9473,7 +13745,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 		setTimeout( function() {
 			var editor = ContentTools.EditorApp.get(), root = ContentEdit.Root.get();
 			if ( ! root.focused() ) {
-				editor._toolbox.clearOldGroups();
+				editor._toolboxProperties.clearOldGroups();
 				return;
 			}
 			var domElement = null;
@@ -9484,14 +13756,63 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			if ( domElement ) {
 				window.updateInspector( domElement );
 			} else {
-				editor._toolbox.clearOldGroups();
+				editor._toolboxProperties.clearOldGroups();
 			}
 		}, 10 );
 	});
 });
+*/
 
+window.addEventListener( 'DOMContentLoaded', function() {
 
+	// When the cursor has moved, hide the properties panel.
+	document.addEventListener( 'mousedown', function(ev) {
+		if ( ! window.PBSEditor.isEditing() ) {
+			return;
+		}
 
+		// Only entertain clicks on the editor area.
+		if ( window.pbsSelectorMatches( ev.target, '[data-name="main-content"] *, .pbs-quick-action-overlay, .pbs-quick-action-overlay *' ) ) {
+			ContentTools.EditorApp.get()._toolboxProperties.hide();
+		}
+	} );
+
+	// When the cursor has moved, hide the properties panel.
+	document.addEventListener( 'keyup', function(ev) {
+		if ( ! window.PBSEditor.isEditing() ) {
+			return;
+		}
+		// Only entertain keyups on the editor area.
+		if ( ! window.pbsSelectorMatches( ev.target, '[data-name="main-content"] *' ) ) {
+			return;
+		}
+		if ( [ 40, 37, 39, 38, 9, 8, 46, 13 ].indexOf( ev.keyCode ) !== -1 ) {
+			ContentTools.EditorApp.get()._toolboxProperties.hide();
+		}
+	});
+
+	// When something's focused hide the properties panel.
+	ContentEdit.Root.get().bind( 'focus', function () {
+		ContentTools.EditorApp.get()._toolboxProperties.hide();
+	} );
+
+	// When something's blurred hide the properties panel.
+	ContentEdit.Root.get().bind( 'blur', function () {
+		// ContentTools.EditorApp.get()._toolboxProperties.hide();
+	} );
+
+	// When something's dragged, hide the properties panel.
+	ContentEdit.Root.get().bind( 'drag', function () {
+		ContentTools.EditorApp.get()._toolboxProperties.hide();
+	} );
+
+	// When something's dropped, hide the properties panel.
+	ContentEdit.Root.get().bind( 'drop', function () {
+		ContentTools.EditorApp.get()._toolboxProperties.hide();
+	} );
+} );
+
+/*
 ContentTools.ToolboxUI.prototype._pbsAddDesignMount = ContentTools.ToolboxUI.prototype.mount;
 ContentTools.ToolboxUI.prototype.mount = function() {
 	var ret = this._pbsAddDesignMount();
@@ -9523,6 +13844,7 @@ ContentTools.ToolboxUI.prototype.mount = function() {
 
 	return ret;
 };
+*/
 
 window.PBSEditor.createGroupTip = function( text ) {
 	var tip = document.createElement( 'span' );
@@ -9539,21 +13861,24 @@ window.PBSEditor.createGroupTip = function( text ) {
 
 
 var _pbsCreatedViews = [];
-ContentTools.ToolboxUI.prototype.addSectionOptions = function( divGroup, option, element, model ) {
+ContentTools.ToolboxPropertiesUI.prototype.addSectionOptions = function( divGroup, option, element, model ) {
 	if ( typeof model === 'undefined' ) {
 		model = element.model;
 	}
 
 	// If an option type doesn't match any of the supported types, default back to 'Text'.
-	var matchesAnOptionType = Object.keys( PBSOption ).some( function( name ) {
-		return name.toLowerCase() === option.type.toLowerCase().replace( /_/g, '' );
-	} );
+	var matchesAnOptionType = null;
+	if ( typeof option.type !== 'undefined' ) {
+		matchesAnOptionType = Object.keys( PBSOption ).some( function( name ) {
+			return name.toLowerCase() === option.type.toLowerCase().replace( /_/g, '' );
+		} );
+	}
 	if ( ! matchesAnOptionType ) {
 		option.type = 'Text';
 	}
 
 	var type = option.type.toLowerCase().replace( /_/g, '' );
-	for ( var optionName in PBSOption ) {
+	for ( optionName in PBSOption ) {
 		if ( PBSOption.hasOwnProperty( optionName ) && type === optionName.toLowerCase() ) {
 
 			var id = optionName.replace( /([a-z])([A-Z])/g, '$1-$2' ).toLowerCase();
@@ -9580,6 +13905,8 @@ ContentTools.ToolboxUI.prototype.addSectionOptions = function( divGroup, option,
 			if ( option.group ) {
 				var subGroupName = option.group.toLowerCase().trim().replace( /\"/g, '' );
 				var subGroup = divGroup.querySelector( '[data-subgroup="' + subGroupName + '"]' );
+
+				divGroup.classList.add( 'pbs-has-group' );
 				if ( ! subGroup ) {
 					subGroup = document.createElement( 'DIV' );
 					subGroup.setAttribute( 'data-subgroup', subGroupName );
@@ -9590,7 +13917,7 @@ ContentTools.ToolboxUI.prototype.addSectionOptions = function( divGroup, option,
 						subGroup.innerHTML = '<div class="pbs-option-subtitle pbs-tool-option">' + option.group + '</div>';
 
 						// For shortcodes, groupings are accordions. Make it collapsable.
-						if ( element.constructor.name === 'Shortcode' ) {
+						// if ( element.constructor.name === 'Shortcode' ) {
 							subGroup.firstChild.classList.add( 'pbs-collapsable-title' );
 
 							// Grouping is applied to shortcodes to make them into an accordion,
@@ -9599,7 +13926,7 @@ ContentTools.ToolboxUI.prototype.addSectionOptions = function( divGroup, option,
 							if ( divGroup.querySelectorAll( '[data-subgroup]' ).length > 1 ) {
 								window.pbsCollapseSection( subGroup );
 							}
-						}
+						// }
 					}
 				}
 				subGroup.appendChild( optionWrapper );
@@ -9647,7 +13974,7 @@ ContentTools.ToolboxUI.prototype.addSectionOptions = function( divGroup, option,
 };
 
 
-ContentTools.ToolboxUI.prototype.applyOptionDependencies = function( view ) {
+ContentTools.ToolboxPropertiesUI.prototype.applyOptionDependencies = function( view ) {
 	if ( ! view.optionSettings.depends ) {
 		return;
 	}
@@ -9818,9 +14145,11 @@ ContentTools.ToolboxUI.prototype.applyOptionDependencies = function( view ) {
 };
 
 
-ContentTools.ToolboxUI.prototype.addGenericShortcodeOptions = function( divGroup, element ) {
+ContentTools.ToolboxPropertiesUI.prototype.addGenericShortcodeOptions = function( divGroup, element ) {
 
 	var view, keys, i, attributeName, hasOptions = false;
+
+	divGroup.classList.add( 'pbs-shortcode-generic' );
 
 	// do matches
 	keys = element.model.keys();
@@ -9853,7 +14182,7 @@ ContentTools.ToolboxUI.prototype.addGenericShortcodeOptions = function( divGroup
 	}
 
 	if ( ! hasOptions ) {
-		var note = document.createElement( 'SPAN' );
+		var note = document.createElement( 'DIV' );
 		note.innerHTML = pbsParams.labels.shortcodes_not_attributes_detected;
 		note.classList.add( 'pbs-shortcode-no-options' );
 		divGroup.appendChild( note );
@@ -9864,7 +14193,7 @@ ContentTools.ToolboxUI.prototype.addGenericShortcodeOptions = function( divGroup
 
 
 
-ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
+ContentTools.ToolboxPropertiesUI.prototype._addSection = function( domElement ) {
 	var currElem, i, k, group, heading, label,
 		doneTypes = [];
 
@@ -10090,7 +14419,7 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 
 				// Add a note if the shortcode doesn't have attributes.
 				if ( ! shortcodeProperties.options.length ) {
-					var note = document.createElement( 'SPAN' );
+					var note = document.createElement( 'DIV' );
 					note.innerHTML = pbsParams.labels.no_attributes_available;
 					note.classList.add( 'pbs-shortcode-no-options' );
 					group.appendChild( note );
@@ -10151,7 +14480,7 @@ ContentTools.ToolboxUI.prototype.addSection = function( domElement ) {
 };
 
 
-ContentTools.ToolboxUI.prototype.clearOldGroups = function() {
+ContentTools.ToolboxPropertiesUI.prototype.clearOldGroups = function() {
 	for ( var i = 0; i < this._oldGroups.length; i++ ) {
 		var oldGroup = this._oldGroups[ i ];
 		if ( typeof oldGroup.view !== 'undefined' ) {
@@ -10193,7 +14522,7 @@ ContentTools.ToolboxUI.prototype.clearOldGroups = function() {
 	this._oldGroups = [];
 };
 
-ContentTools.ToolboxUI.prototype.clearSections = function() {
+ContentTools.ToolboxPropertiesUI.prototype.clearSections = function() {
 
 	while ( _pbsCreatedViews.length > 0 ) {
 		var o = _pbsCreatedViews.pop();
@@ -10216,7 +14545,7 @@ ContentTools.ToolboxUI.prototype.clearSections = function() {
  * If a similar group already exists (same type), then replace it's contents & resize it
  * If it's a new group, add it and animate it.
  */
-ContentTools.ToolboxUI.prototype.placeGroup = function( group ) {
+ContentTools.ToolboxPropertiesUI.prototype.placeGroup = function( group ) {
 	this._newGroups.push( group );
 
 	// Check the existing groups and replace if it already exists.
@@ -10325,6 +14654,7 @@ ContentTools.ToolboxUI.prototype.placeGroup = function( group ) {
 /***********************************************************************************************
  * These are the inspector elements that we are supporting.
  ***********************************************************************************************/
+window.pbsElementsWithInspector = [];
 window.pbsAddInspector = function( elemName, args ) {// options ) {
 	if ( typeof args !== 'object' ) {
 		return;
@@ -10342,6 +14672,14 @@ window.pbsAddInspector = function( elemName, args ) {// options ) {
 	if ( typeof args.is_shortcode !== 'undefined' ) {
 		if ( args.is_shortcode ) {
 			container = PBSInspectorOptions.Shortcode;
+		} else {
+			if ( window.pbsElementsWithInspector.indexOf( elemName ) === -1 ) {
+				window.pbsElementsWithInspector.push( elemName );
+			}
+		}
+	} else {
+		if ( window.pbsElementsWithInspector.indexOf( elemName ) === -1 ) {
+			window.pbsElementsWithInspector.push( elemName );
 		}
 	}
 
@@ -10413,7 +14751,6 @@ if ( pbsParams.additional_shortcodes ) {
  * Collapse transition.
  * @see http://n12v.com/css-transition-to-from-auto/ for animating the height from auto to 0.
  */
-var storedCollapsed = [];
 window.pbsCollapseSection = function( section ) {
 	var classes;
 
@@ -10457,10 +14794,6 @@ window.pbsCollapseSection = function( section ) {
 		classes = section.getAttribute( 'class' );
 		classes = classes.replace( /\s*(ct-tool-group|pbs-collapse|pbs-inspector-group)\s*/g, '' );
 
-		if ( storedCollapsed.indexOf( classes ) !== -1 ) {
-			storedCollapsed.splice( storedCollapsed.indexOf( classes ), 1 );
-			localStorage.setItem( 'pbs_collapsed_sections', JSON.stringify( storedCollapsed ) );
-		}
 	} else {
 
 		// Do collapse animation.
@@ -10471,7 +14804,8 @@ window.pbsCollapseSection = function( section ) {
 		section.style.transition = 'height .3s ease-in-out';
 		section.style.overflow = 'hidden';
 		section.offsetHeight; // force repaint;
-		section.style.height = window.getComputedStyle( section.firstChild ).height;
+
+		section.style.height = '38px';
 		section.addEventListener('transitionend', function transitionEnd(event) {
 			if (event.propertyName === 'height') {
 				section.removeEventListener('transitionend', transitionEnd, false);
@@ -10482,11 +14816,6 @@ window.pbsCollapseSection = function( section ) {
 
 		classes = section.getAttribute( 'class' );
 		classes = classes.replace( /\s*(ct-tool-group|pbs-collapse|pbs-inspector-group)\s*/g, '' );
-
-		if ( storedCollapsed.indexOf( classes ) === -1 ) {
-			storedCollapsed.push( classes );
-			localStorage.setItem( 'pbs_collapsed_sections', JSON.stringify( storedCollapsed ) );
-		}
 	}
 };
 window.pbsOpenAllSections = function() {
@@ -10520,23 +14849,23 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	}
 
 	// Load saved collapsed sections on start.
-	var editor = ContentTools.EditorApp.get();
-	editor.bind( 'start', function() {
-		if ( typeof localStorage.getItem( 'pbs_collapsed_sections' ) !== 'undefined' && localStorage.getItem( 'pbs_collapsed_sections' ) ) {
-			storedCollapsed = JSON.parse( localStorage.getItem( 'pbs_collapsed_sections' ) );
-
-			for ( var i = 0; i < storedCollapsed.length; i++ ) {
-				var groupClass = storedCollapsed[ i ].replace( /\s/g, '.' );
-				if ( groupClass ) {
-					var section = document.querySelector( '.ct-tool-group.' + groupClass );
-					if ( section ) {
-						section.classList.add( 'pbs-collapse' );
-						section.style.height = window.getComputedStyle( section.firstChild ).height;
-					}
-				}
-			}
-		}
-	} );
+	// var editor = ContentTools.EditorApp.get();
+	// editor.bind( 'start', function() {
+	// 	if ( typeof localStorage.getItem( 'pbs_collapsed_sections' ) !== 'undefined' && localStorage.getItem( 'pbs_collapsed_sections' ) ) {
+	// 		storedCollapsed = JSON.parse( localStorage.getItem( 'pbs_collapsed_sections' ) );
+	//
+	// 		for ( var i = 0; i < storedCollapsed.length; i++ ) {
+	// 			var groupClass = storedCollapsed[ i ].replace( /\s/g, '.' );
+	// 			if ( groupClass ) {
+	// 				var section = document.querySelector( '.ct-tool-group.' + groupClass );
+	// 				if ( section ) {
+	// 					section.classList.add( 'pbs-collapse' );
+	// 					section.style.height = window.getComputedStyle( section.firstChild ).height;
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// } );
 
 	// Handler for collapsing / uncollapsing.
 	document.addEventListener('click', function(ev) {
@@ -10598,6 +14927,42 @@ wp.hooks.addAction( 'inspector.group_title.create', function( section ) {
 var PBSOption = {};
 
 
+var PBSBaseView = Backbone.View.extend( {
+
+	initialize: function(options) {
+
+		this.optionSettings = _.clone( options.optionSettings );
+
+		if ( this.optionSettings.initialize ) {
+			this.optionSettings.initialize( this.model.get('element'), this );
+		}
+
+		if ( this.optionSettings.visible ) {
+			this._visibleBound = this._visible.bind( this );
+			wp.hooks.addAction( 'pbs.option.changed', this._visibleBound );
+			this._visible();
+		}
+
+		Backbone.View.prototype.initialize.call( this, options );
+	},
+
+	_visible: function() {
+		if ( this.optionSettings.visible( this.model.get( 'element' ) ) ) {
+			this.$el.show();
+		} else {
+			this.$el.hide();
+		}
+	},
+
+	remove: function() {
+		if ( this.optionSettings.visible ) {
+			wp.hooks.removeAction( 'pbs.option.changed', this._visibleBound );
+		}
+
+        Backbone.View.prototype.remove.apply( this );
+    }
+} );
+
 PBSOption.widgetSettings = Backbone.View.extend({
 
 	className: 'pbs-tool-option',
@@ -10614,7 +14979,6 @@ PBSOption.widgetSettings = Backbone.View.extend({
 	},
 
 	initialize: function(options) {
-		// _.extend(this, _.pick(options, 'optionSettings', 'attribute'));
 		this.optionSettings = _.clone( options.optionSettings );
 		this.attribute = _.clone( options.attribute );
 
@@ -10630,8 +14994,8 @@ PBSOption.widgetSettings = Backbone.View.extend({
 
 		// Adjust the inspector title.
 		var widgetInfo = pbsParams.widget_list[ this.model.attributes.widget ];
-		var inspectorContainer = this.el.parentNode.querySelector( '.pbs-group-title' );
-		inspectorContainer.innerHTML = pbsParams.labels.widget_properties_title.replace( '%s', widgetInfo.name ) + '<span>' + widgetInfo.description + '</span>';
+		// var inspectorContainer = this.el.parentNode.querySelector( '.pbs-group-title' );
+		// inspectorContainer.innerHTML = pbsParams.labels.widget_properties_title.replace( '%s', widgetInfo.name ) + '<span>' + widgetInfo.description + '</span>';
 
 		// Assign the current settings of the widget.
 		for (var attributeName in this.model.attributes ) {
@@ -10677,7 +15041,7 @@ PBSOption.widgetSettings = Backbone.View.extend({
 });
 
 
-PBSOption.Button = Backbone.View.extend({
+PBSOption.Button = PBSBaseView.extend({
 
 	events: {
 		'click': 'click',
@@ -10688,12 +15052,10 @@ PBSOption.Button = Backbone.View.extend({
 	},
 
 	initialize: function(options) {
-		// _.extend(this, _.pick(options, 'optionSettings', 'attribute'));
-		this.optionSettings = _.clone( options.optionSettings );
+		PBSBaseView.prototype.initialize.call( this, options );
+
 		this.attribute = _.clone( options.attribute );
-		if ( this.optionSettings.initialize ) {
-			this.optionSettings.initialize( this.model.get('element'), this );
-		}
+
 		this._canApplyUpdater();
 	},
 
@@ -10904,10 +15266,8 @@ PBSOption.Border = Backbone.View.extend({
 	},
 
 	initialize: function(options) {
-		// _.extend(this, _.pick(options, 'optionSettings'));
 		this.optionSettings = _.clone( options.optionSettings );
 		this.randomID = this.optionSettings.id + '-' + _.random(0, 10000);
-		// this.model.set( this.optionSettings.id, this.optionSettings.value( this.model.get('element') ) );
 
 		this._hidePickerBound = this.hidePicker.bind(this);
 		document.querySelector('.ct-toolbox').addEventListener('mouseleave', this._hidePickerBound);
@@ -10951,7 +15311,7 @@ PBSOption.Border = Backbone.View.extend({
 	remove: function(){
 		jQuery('#' + this.randomID).iris('destroy');
 		document.querySelector('.ct-toolbox').removeEventListener('mouseleave', this._hidePickerBound);
-        Backbone.View.prototype.remove.apply(this, arguments);
+        Backbone.View.prototype.remove.call( this );
     },
 
 	colorChanged: function() {
@@ -11037,7 +15397,7 @@ PBSOption.Border = Backbone.View.extend({
 
 
 
-PBSOption.Color = Backbone.View.extend({
+PBSOption.Color = PBSBaseView.extend({
 	template: wp.template( 'pbs-option-color' ),
 
 	events: {
@@ -11047,12 +15407,12 @@ PBSOption.Color = Backbone.View.extend({
 		'keyup input' : 'selectChanged',
 		'click .pbs-color-preview': 'togglePicker',
 		'mousedown .iris-square-handle': 'mousedownPicker',
-		'mouseup .iris-square-handle': 'mouseupPicker'
+		'mouseup .iris-square-handle': 'mouseupPicker',
+		'click .iris-square-handle': 'irisHandleClick'
 	},
 
 	initialize: function(options) {
-		// _.extend(this, _.pick(options, 'optionSettings'));
-		this.optionSettings = _.clone( options.optionSettings );
+        PBSBaseView.prototype.initialize.call( this, options );
 		this.randomID = this.optionSettings.id + '-' + _.random(0, 10000);
 
 		if ( this.optionSettings.value ) {
@@ -11061,10 +15421,6 @@ PBSOption.Color = Backbone.View.extend({
 
 		this._hidePickerBound = this.hidePicker.bind(this);
 		document.querySelector('.ct-toolbox').addEventListener('mouseleave', this._hidePickerBound);
-
-		if ( this.optionSettings.initialize ) {
-			this.optionSettings.initialize( this.model.get('element'), this );
-		}
 
 		this._canApplyUpdater();
 	},
@@ -11086,6 +15442,12 @@ PBSOption.Color = Backbone.View.extend({
 		}
 	},
 
+	// Prevent the screen from jumping up when clicking on the handle.
+	irisHandleClick: function( ev ) {
+		ev.preventDefault();
+	},
+
+	/*
 	updateTooltip: function( value ) {
 		if ( ! value ) {
 			if ( this.optionSettings.value ) {
@@ -11116,6 +15478,7 @@ PBSOption.Color = Backbone.View.extend({
 			this.el.setAttribute( 'data-tooltip', this.optionSettings.name );
 		}
 	},
+	*/
 
 	render: function() {
 		var data = _.extend( {}, this.model.attributes, this.optionSettings );
@@ -11128,9 +15491,9 @@ PBSOption.Color = Backbone.View.extend({
 		}
 
 	    this.$el.html( this.template( data ) );
-		this.el.classList.add( 'pbs-button' );
+		// this.el.classList.add( 'pbs-button' );
 
-		this.updateTooltip( data.value );
+		// this.updateTooltip( data.value );
 
 		var _this = this;
 		jQuery( '#' + this.randomID ).iris({
@@ -11158,10 +15521,11 @@ PBSOption.Color = Backbone.View.extend({
 	    return this;
 	},
 
-	remove: function(){
+	remove: function() {
 		jQuery('#' + this.randomID).iris('destroy');
 		document.querySelector('.ct-toolbox').removeEventListener('mouseleave', this._hidePickerBound);
-        Backbone.View.prototype.remove.apply(this, arguments);
+
+        PBSBaseView.prototype.remove.call( this );
     },
 
 	selectChanged: function( forceColor ) {
@@ -11187,6 +15551,8 @@ PBSOption.Color = Backbone.View.extend({
 			color = '';
 		}
 		this.el.querySelector('.pbs-color-preview').style.background = color;
+
+		wp.hooks.doAction( 'pbs.option.changed' );
 	},
 
 	togglePicker: function() {
@@ -11231,14 +15597,14 @@ PBSOption.Color = Backbone.View.extend({
 		if ( this.optionSettings.mouseenter ) {
 			this.optionSettings.mouseenter( this.model.get('element'), this );
 		}
-		this._tooltipUpdaterInterval = setInterval( this.updateTooltip.bind(this), 100 );
+		// this._tooltipUpdaterInterval = setInterval( this.updateTooltip.bind(this), 100 );
 	},
 
 	mouseleave: function() {
 		if ( this.optionSettings.mouseleave ) {
 			this.optionSettings.mouseleave( this.model.get('element'), this );
 		}
-		clearInterval( this._tooltipUpdaterInterval );
+		// clearInterval( this._tooltipUpdaterInterval );
 	},
 
 	mousedownPicker: function() {
@@ -11254,7 +15620,7 @@ PBSOption.Color = Backbone.View.extend({
 PBSOption.ColorButton = PBSOption.Color.extend({});
 
 
-PBSOption.Select = Backbone.View.extend({
+PBSOption.Select = PBSBaseView.extend({
 	template: wp.template( 'pbs-option-select' ),
 
 	events: {
@@ -11262,8 +15628,7 @@ PBSOption.Select = Backbone.View.extend({
 	},
 
 	initialize: function(options) {
-		// _.extend(this, _.pick(options, 'optionSettings'));
-		this.optionSettings = _.clone( options.optionSettings );
+		PBSBaseView.prototype.initialize.call( this, options );
 
 		this.listenTo( this.model, 'change', this.render );
 		if ( this.optionSettings.value ) {
@@ -11271,9 +15636,6 @@ PBSOption.Select = Backbone.View.extend({
 		} else {
 			var value = this.model.element.model.attributes[ this.optionSettings.id ] || '';
 			this.model.set( this.optionSettings.id, value );
-		}
-		if ( this.optionSettings.initialize ) {
-			this.optionSettings.initialize( this.model.get('element'), this );
 		}
 	},
 
@@ -11293,11 +15655,77 @@ PBSOption.Select = Backbone.View.extend({
 			this.optionSettings.change( this.model.get('element'), e.target.value, this );
 		}
 		this.model.set( this.optionSettings.id, e.target.value );
+		wp.hooks.doAction( 'pbs.option.changed' );
 	}
 });
 
 
-PBSOption.Text = Backbone.View.extend({
+PBSOption.Checkbox = PBSBaseView.extend({
+	template: wp.template( 'pbs-option-checkbox' ),
+
+	events: {
+		'change input' : 'selectChanged'
+	},
+
+	initialize: function(options) {
+		PBSBaseView.prototype.initialize.call( this, options );
+
+		if ( typeof this.optionSettings.checked === 'undefined' ) {
+			this.optionSettings.checked = true;
+		}
+
+		this.listenTo( this.model, 'change', this.render );
+		if ( this.optionSettings.value ) {
+			this.model.set( this.optionSettings.id, this.optionSettings.value( this.model.get('element') ) );
+		}
+	},
+
+	render: function() {
+		var data = _.extend( {}, this.model.attributes, this.optionSettings );
+		data.value = '';
+
+		if ( this.optionSettings.value ) {
+			data.value = this.optionSettings.value( this.model.get('element' ) );
+		} else if ( this.optionSettings.id ) {
+			data.value = this.model.get( this.optionSettings.id );
+		}
+
+		// Add the template if it doesn't exist yet.
+		if ( ! this.$el.html() ) {
+    		this.$el.html( this.template( data ) );
+		} else {
+			this.$el.find( 'input[type="checkbox"]' )[0].checked = data.value === this.optionSettings.checked;
+		}
+	    return this;
+	},
+
+	selectChanged: function(e) {
+		var value = false;
+		if ( this.optionSettings.unchecked ) {
+			value = this.optionSettings.unchecked;
+		}
+		if ( e.target.checked ) {
+			value = true;
+			if ( this.optionSettings.checked ) {
+				value = this.optionSettings.checked;
+			}
+		}
+		if ( this.optionSettings.change ) {
+			this.optionSettings.change( this.model.get('element'), value, this );
+		}
+		this.model.set( this.optionSettings.id, value );
+		wp.hooks.doAction( 'pbs.option.changed' );
+	},
+
+	click: function(e) {
+		if ( this.optionSettings.click ) {
+			this.optionSettings.click( this.model.get('element'), e.target.value );
+		}
+	}
+});
+
+
+PBSOption.Text = PBSBaseView.extend({
 	template: wp.template( 'pbs-option-text' ),
 
 	events: {
@@ -11307,11 +15735,7 @@ PBSOption.Text = Backbone.View.extend({
 	},
 
 	initialize: function(options) {
-		this.optionSettings = _.clone( options.optionSettings );
-
-		if ( this.optionSettings.initialize ) {
-			this.optionSettings.initialize( this.model.get('element'), this );
-		}
+		PBSBaseView.prototype.initialize.call( this, options );
 
 		this.listenTo( this.model, 'change', this.render );
 		if ( this.optionSettings.value ) {
@@ -11344,6 +15768,7 @@ PBSOption.Text = Backbone.View.extend({
 			this.optionSettings.change( this.model.get('element'), e.target.value, this );
 		}
 		this.model.set( this.optionSettings.id, e.target.value );
+		wp.hooks.doAction( 'pbs.option.changed' );
 	},
 
 	click: function(e) {
@@ -11363,6 +15788,347 @@ PBSOption.Textarea = PBSOption.Text.extend({
 		'keyup textarea' : 'selectChanged',
 		'click textarea' : 'click'
 	}
+} );
+
+
+PBSOption.Number = PBSOption.Text.extend( {
+	template: wp.template( 'pbs-option-number' ),
+
+	render: function() {
+
+		var input;
+		if ( this.$el.html() ) {
+
+			if ( this.optionSettings.value ) {
+				var value = this.optionSettings.value( this.model.get('element' ) );
+				var slider = this.$el.find( '.pbs-option-number-slider' );
+				input = this.$el.find( 'input' );
+
+				if ( slider.slider( 'value' ).toString() !== value.toString() ) {
+					slider.slider( 'value', value );
+				}
+				input.val( value );
+			}
+
+			return this;
+		}
+
+		PBSOption.Number.__super__.render.call( this );
+
+		input = this.$el.find( 'input' );
+		this.$el.find( '.pbs-option-number-slider' ).slider({
+			max: parseFloat( input.attr( 'max' ) ),
+			min: parseFloat( input.attr( 'min' ) ),
+			step: parseFloat( input.attr( 'step' ) ),
+			value: input.val(),
+			animate: 'fast',
+			change: function( event, ui ) {
+				clearTimeout( this._changeTimeout );
+				this._changeTimeout = setTimeout( function( ui ) {
+					var input = this.$el.find( 'input' );
+					if ( ui.value !== input.val() ) {
+						input.val( ui.value ).trigger( 'change' );
+					}
+				}.bind( this, ui ), 60 );
+			}.bind( this ),
+			slide: function( event, ui ) {
+				clearTimeout( this._changeTimeout );
+				this._changeTimeout = setTimeout( function( ui ) {
+					var input = this.$el.find( 'input' );
+					if ( ui.value !== input.val() ) {
+						input.val( ui.value ).trigger( 'change' );
+					}
+				}.bind( this, ui ), 60 );
+			}.bind( this )
+		}).disableSelection();
+
+		return this;
+	},
+
+	selectChanged: function( e ) {
+		PBSOption.Number.__super__.selectChanged.call( this, e );
+
+		var slider = this.$el.find( '.pbs-option-number-slider' );
+		var input = this.$el.find( 'input' );
+		var inputVal = input.val();
+
+		if ( e.type === 'keyup' && inputVal !== '' ) {
+			if ( slider.slider( 'value' ).toString() !== input.val().toString() ) {
+				slider.slider( 'value', input.val() );
+			}
+		}
+
+		if ( inputVal === '' ) {
+			input.val( '' );
+		}
+
+		if ( this.optionSettings.change ) {
+			this.optionSettings.change( this.model.get('element'), inputVal, this );
+		}
+		wp.hooks.doAction( 'pbs.option.changed' );
+	}
+} );
+
+
+PBSOption.Image = PBSOption.Text.extend( {
+	template: wp.template( 'pbs-option-image' ),
+
+	multiple: false,
+
+	events: {
+		'change input' : 'selectChanged',
+		'click .pbs-image-preview' : 'openImagePicker',
+		'click .pbs-image-preview-remove': 'removeImage'
+	},
+
+	render: function() {
+		var ajaxToGetImageURL = false;
+		if ( ! this.$el.html() ) {
+			ajaxToGetImageURL = true;
+		}
+
+		var ret = PBSOption.Image.__super__.render.call( this );
+
+		// First load of the attribute.
+		if ( ajaxToGetImageURL ) {
+
+			// This will hold the imageIDs that we don't have URLs to.
+			var imageIDsToAjaxLoad = '';
+
+			// The attribute is an attachment ID, so we don't have the actual
+			// URL of the image. Check if we have one already in memory.
+			this.$el.find( '.pbs-image-preview:not([data-id=""])' ).each( function() {
+				var imageID = this.getAttribute( 'data-id' );
+				if ( ! imageID.match( /^[\d,]+$/ ) ) {
+					this.style.backgroundImage = imageID.match( /url\(/ ) ? imageID : 'url(' + imageID + ')';
+					return;
+				}
+				if ( PBSOption.Image._imageURLs.hasOwnProperty( imageID ) ) {
+					this.style.backgroundImage = 'url(' + PBSOption.Image._imageURLs[ imageID ] + ')';
+				} else {
+					imageIDsToAjaxLoad += imageIDsToAjaxLoad ? ',' : '';
+					imageIDsToAjaxLoad += imageID;
+				}
+			} );
+
+			// Use Ajax to get the image URLs of the attachment IDs that we
+			// don't have the URLs of yet.
+			if ( imageIDsToAjaxLoad ) {
+				PBSOption.Image.doAjaxToGetImageURLs( imageIDsToAjaxLoad );
+			}
+
+		}
+
+		return ret;
+	},
+
+	openImagePicker: function() {
+		var frame = wp.media( {
+			title: pbsParams.labels.s_attribute.replace( '%s', this.optionSettings.name ),
+			multiple: this.multiple,
+			library: { type: 'image' },
+			button : { text : pbsParams.labels.select_image }
+		});
+
+		frame.on( 'open', function() {
+			var imageIDs = this.model.get( this.optionSettings.id ) || '';
+			imageIDs = imageIDs.split( ',' );
+			var selection = frame.state().get( 'selection' );
+			for ( var i = 0; i < imageIDs.length; i++ ) {
+				var attachment = wp.media.attachment( imageIDs[ i ] );
+				selection.add( attachment ? [ attachment ] : [] );
+			}
+		}.bind( this ) );
+
+		// get the url when done
+		frame.on('select', function() {
+			var selection = frame.state().get( 'selection' );
+			var value = '';
+
+			// Remove all preview images.
+			this.$el.find( '.pbs-image-preview' ).remove();
+
+			var attachmentURLs = [];
+			var attachmentIDs = [];
+			selection.each( function( attachment ) {
+				if ( typeof attachment.attributes.sizes === 'undefined' ) {
+					return;
+				}
+
+				var image = attachment.attributes.sizes.full;
+				if ( typeof attachment.attributes.sizes.medium !== 'undefined' ) {
+					image = attachment.attributes.sizes.medium;
+				}
+
+				// Add preview images for each selected image.
+				jQuery( '<div></div>' )
+					.addClass( 'pbs-image-preview' )
+					.css( 'backgroundImage', 'url(' + image.url + ')' )
+					.attr( 'data-id', attachment.id )
+					.append( jQuery( '<div></div>' ).addClass( 'pbs-image-preview-remove' ) )
+					.appendTo( this.$el );
+
+				attachmentURLs.push( attachment.attributes.sizes.full.url );
+				attachmentIDs.push( attachment.id );
+
+				value += value ? ',' : '';
+				value += attachment.id;
+
+				// Keep the image preview URL in memory for future renders.
+				PBSOption.Image._imageURLs[ attachment.id ] = image.url;
+
+			}.bind( this ) );
+
+			// Set the new image value.
+			this.model.set( this.optionSettings.id, value );
+			wp.hooks.doAction( 'pbs.option.changed' );
+
+			if ( this.optionSettings.change ) {
+				this.optionSettings.change( this.model.get('element'), attachmentIDs, attachmentURLs, this );
+			}
+
+			frame.off('select');
+		}.bind( this ) );
+
+		// open the uploader
+		frame.open();
+		return false;
+	},
+
+	removeImage: function(e) {
+
+		var value = '', removeMe = e.target.parentNode.getAttribute( 'data-id' );
+
+		var attachmentIDs = [];
+
+		if ( this.multiple ) {
+			this.$el.find( '.pbs-image-preview' ).each( function() {
+				if ( this.getAttribute( 'data-id' ) !== removeMe ) {
+					value += value ? ',' : '';
+					value += this.getAttribute( 'data-id' );
+
+					attachmentIDs.push( this.getAttribute( 'data-id' ) );
+				}
+			} );
+		}
+		e.target.parentNode.parentNode.removeChild( e.target.parentNode );
+
+		if ( ! this.multiple || ( this.multiple && ! this.$el.find( '.pbs-image-preview' ).length ) ) {
+			jQuery( '<div></div>' )
+				.addClass( 'pbs-image-preview' )
+				.attr( 'data-id', '' )
+				.appendTo( this.$el );
+		}
+
+		this.model.set( this.optionSettings.id, value );
+		wp.hooks.doAction( 'pbs.option.changed' );
+
+		if ( this.optionSettings.remove ) {
+			this.optionSettings.remove( this.model.get('element'), attachmentIDs, this );
+		}
+
+		return false;
+	}
+} );
+
+
+// This contains imageURLs per attachment ID that we have gotten through
+// the course of editing, remember them so as not to re-get them during
+// the entire editing session.
+PBSOption.Image._imageURLs = {};
+
+
+// This is called to get the image URLs from a given set of
+// comma separated attachment IDs.
+PBSOption.Image.doAjaxToGetImageURLs = function( imageIDs ) {
+	if ( typeof PBSOption.Image._imageIDsToAjax === 'undefined' ) {
+		PBSOption.Image._imageIDsToAjax = '';
+	}
+
+	if ( ! imageIDs.match( /^[\d,]+$/ ) ) {
+		return;
+	}
+
+	PBSOption.Image._imageIDsToAjax += PBSOption.Image._imageIDsToAjax ? ',' : '';
+	PBSOption.Image._imageIDsToAjax += imageIDs;
+
+	// Do this in a timeout to only do one ajax at a time for faster querying.
+	clearTimeout( PBSOption.Image._doAjaxToGetImageURLsTimeout );
+	PBSOption.Image._doAjaxToGetImageURLsTimeout = setTimeout( function() {
+		PBSOption.Image._doAjaxToGetImageURLs();
+	}, 50 );
+};
+PBSOption.Image._doAjaxToGetImageURLs = function() {
+
+	var imageIDs = PBSOption.Image._imageIDsToAjax || '';
+	imageIDs = imageIDs.split( ',' );
+	for ( var i = 0; i < imageIDs.length; i++ ) {
+		jQuery( '.pbs-tool-option .pbs-image-preview[data-id=' + imageIDs[ i ] + ']' ).addClass( 'pbs-loading' );
+	}
+
+	var payload = new FormData();
+	payload.append( 'action', 'pbs_get_attachment_urls' );
+	payload.append( 'image_ids', PBSOption.Image._imageIDsToAjax );
+	payload.append( 'nonce', pbsParams.nonce );
+
+	var request = new XMLHttpRequest();
+	request.open('POST', pbsParams.ajax_url );
+
+	request.onload = function() {
+		var i, response;
+		if (request.status >= 200 && request.status < 400) {
+			try {
+				response = JSON.parse( request.responseText );
+
+				// The response is an object of IDs => URLs.
+				for ( i = 0; i < imageIDs.length; i++ ) {
+					if ( typeof response[ imageIDs[ i ] ] !== 'undefined' ) {
+
+						// Add the background image.
+						jQuery( '.pbs-tool-option .pbs-image-preview[data-id=' + imageIDs[ i ] + ']' ).css( 'backgroundImage', 'url(' + response[ imageIDs[ i ] ] + ')' );
+
+						// Keep the image for future use.
+						PBSOption.Image._imageURLs[ imageIDs[ i ] ] = response[ imageIDs[ i ] ];
+
+					} else {
+						// We didn't have an image for this image ID.
+						jQuery( '.pbs-tool-option .pbs-image-preview[data-id=' + imageIDs[ i ] + ']' ).addClass( 'pbs-ajax-error' );
+					}
+				}
+
+			} catch (e) {
+				// Add error class.
+				for ( i = 0; i < imageIDs.length; i++ ) {
+					jQuery( '.pbs-tool-option .pbs-image-preview[data-id=' + imageIDs[ i ] + ']' ).addClass( 'pbs-ajax-error' );
+				}
+			}
+		}
+
+		// Remove the loading class.
+		for ( i = 0; i < imageIDs.length; i++ ) {
+			jQuery( '.pbs-tool-option .pbs-image-preview[data-id=' + imageIDs[ i ] + ']' ).removeClass( 'pbs-loading' );
+		}
+
+		// When we're done, make the image IDs blank for future requests.
+		PBSOption.Image._imageIDsToAjax = '';
+	};
+
+	// There was a connection error of some sort.
+	request.onerror = function() {
+		// Remove the loading class.
+		for ( var i = 0; i < imageIDs.length; i++ ) {
+			jQuery( '.pbs-tool-option .pbs-image-preview[data-id=' + imageIDs[ i ] + ']' ).removeClass( 'pbs-loading' );
+		}
+
+		// When we're done, make the image IDs blank for future requests.
+		PBSOption.Image._imageIDsToAjax = '';
+	};
+	request.send( payload );
+};
+
+
+PBSOption.Images = PBSOption.Image.extend( {
+	multiple: 'toggle'
 } );
 
 PBSOption.MarginsAndPaddings = Backbone.View.extend({
@@ -11626,27 +16392,82 @@ PBSOption.CustomID = Backbone.View.extend({
 
 
 
+PBSOption.Button2 = PBSBaseView.extend({
+	template: wp.template( 'pbs-option-button2' ),
+
+	events: {
+		'click input[type="button"]' : 'click'
+	},
+
+	// initialize: function(options) {
+	// 	// this.optionSettings = _.clone( options.optionSettings );
+	//
+	// 	if ( this.optionSettings.initialize ) {
+	// 		this.optionSettings.initialize( this.model.get('element'), this );
+	// 	}
+	// },
+
+	render: function() {
+
+		// Add the template if it doesn't exist yet.
+		if ( ! this.$el.html() ) {
+			var data = _.extend( {}, this.model.attributes, this.optionSettings );
+	    	this.$el.html( this.template( data ) );
+		}
+
+		if ( this.optionSettings.disabled ) {
+			if ( ! this.optionSettings.disabled( this.model.get('element'), this ) ) {
+				this.$el.find( '[type="button"]' ).attr( 'disabled', 'disabled' );
+			} else {
+				this.$el.find( '[type="button"]' ).removeAttr( 'disabled' );
+			}
+		}
+
+	    return this;
+	},
+
+	click: function(e) {
+		if ( this.optionSettings.click ) {
+			this.optionSettings.click( this.model.get('element'), e.target.value, this );
+		}
+	}
+});
+
+
+
 /* globals PBSEditor, pbsParams */
 
 
 
 window.pbsAddInspector( 'Icon', {
 
-	'label': 'Icon',
+	'label': pbsParams.labels.icon,
 
 	'footer': pbsParams.labels.icon_lite_footer, // LITE-ONLY
+
+	'onMouseEnter': function( element ) {
+
+		element._addCSSClass( 'ce-element--over' );
+
+	},
+
+	'onMouseLeave': function( element ) {
+
+		element._removeCSSClass( 'ce-element--over' );
+
+	},
 
 	'options': [
 
 		{
 
-			'name': pbsParams.labels.choose_icon,
+			'name': pbsParams.labels.icon_frame_change_title,
 
-			'tooltip': pbsParams.labels.choose_icon,
+			'button': pbsParams.labels.pick_an_icon,
 
-			'type': 'button',
+			'type': 'button2',
 
-			'class': 'ct-tool--icon',
+			'group': pbsParams.labels.general,
 
 			'click': function( element ) {
 
@@ -11670,23 +16491,11 @@ window.pbsAddInspector( 'Icon', {
 
 		{
 
-			'tooltip': pbsParams.labels.change_icon_color,
+			'name': pbsParams.labels.icon_color,
 
-			'tooltip-reset': pbsParams.labels.reset_icon_color,
+			'type': 'color',
 
-			'type': 'colorButton',
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change:fill', view.optionSettings.modelChanged );
-
-			},
-
-			'modelChanged': function() {
-
-				this.updateColor( this.model.get( 'element' )._domElement.style.fill );
-
-			},
+			'group': pbsParams.labels.general,
 
 			'value': function( element ) {
 
@@ -11694,109 +16503,9 @@ window.pbsAddInspector( 'Icon', {
 
 			},
 
-			'change': function( element, value, view ) {
+			'change': function( element, value ) {
 
 				element.style( 'fill', value );
-
-				view.model.set( 'fill', value );
-
-			}
-
-		},
-
-		{
-
-			'name': pbsParams.labels.increase_size,
-
-			'tooltip': pbsParams.labels.increase_size + ' {0}',
-
-			'tooltip-down': pbsParams.labels.decrease_size + ' {0}',
-
-			'tooltip-reset': pbsParams.labels.reset_size,
-
-			'type': 'button',
-
-			'class': 'ct-tool--font-up',
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change:width', view.render );
-
-			},
-
-			'tooltipValue': function ( element ) {
-
-				return element._domElement.style.width;
-
-			},
-
-			'isApplied': function ( element ) {
-
-				return element._domElement.style.width;
-
-			},
-
-			'click': function( element, view ) {
-
-				var margin = element._domElement.style.width;
-
-
-
-				var defaultMargin = parseInt( element.defaultStyle( 'width' ), 10 );
-
-				if ( margin === '' ) {
-
-					margin = defaultMargin;
-
-				} else {
-
-					margin = parseInt( margin, 10 );
-
-				}
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					margin = defaultMargin;
-
-				} else if ( window.PBSEditor.isCtrlDown ) {
-
-					margin--;
-
-				} else {
-
-					margin++;
-
-				}
-
-
-
-				if ( margin === defaultMargin ) {
-
-					margin = '';
-
-				} else {
-
-					margin += 'px';
-
-				}
-
-
-
-				element.style( 'width', margin );
-
-				element.style( 'height', margin );
-
-				view.model.set( 'width', margin );
-
-				view.model.set( 'height', margin );
-
-			},
-
-			'hold': function( element, view ) {
-
-				view.optionSettings.click( element, view );
 
 			}
 
@@ -12015,2504 +16724,743 @@ window.pbsAddInspector('pbs_sidebar', {
 
 
 
-/* globals pbsParams, PBSEditor */
+/* globals pbsParams, Color, ContentEdit */
 
 
 
-window.pbsAddInspector( 'DivRow', {
 
-	'label': pbsParams.labels.row,
 
-	'options': [
+var options = [];
 
-		{
+options.push( {
 
-			'name': pbsParams.labels.change_row_width,
+	'name': pbsParams.labels.row_width,
 
-			'tooltip': pbsParams.labels.change_row_width + ': {0}',
+	'desc': pbsParams.labels.desc_row_width,
 
-			'tooltip-down': pbsParams.labels.change_row_width + ': {0}',
+	'type': 'select',
 
-			'tooltip-reset': pbsParams.labels.reset_row_width,
+	'group': pbsParams.labels.general,
 
-			'id': 'width',
+	'options': {
 
-			'type': 'button',
+		'': pbsParams.labels.normal_width,
 
-			'class': 'pbs-button-row-width',
+		'full-width-retain-content': pbsParams.labels.full_width_retained_content_width,
 
-			'initialize': function( element, view ) {
+		'full-width': pbsParams.labels.full_width
 
-				view.listenTo( view.model, 'change', view.render );
+	},
 
-			},
+	'getRootRow': function( element ) {
 
-			'getRootRow': function( element ) {
+		var rootRow = element;
 
-				var rootRow = element;
 
 
+		// Get the root row element, we can only set the root row as full width
 
-				// Get the root row element, we can only set the root row as full width
+		var currElem = element._domElement;
 
-				var currElem = element._domElement;
+		while ( currElem && currElem._ceElement ) {
 
-				while ( currElem && currElem._ceElement ) {
+			if ( currElem.classList.contains( 'pbs-row' ) ) {
 
-					if ( currElem.classList.contains( 'pbs-row' ) ) {
-
-						rootRow = currElem._ceElement;
-
-					}
-
-					currElem = currElem.parentNode;
-
-				}
-
-
-
-				return rootRow;
-
-			},
-
-			'canApply': function ( element ) {
-
-				return wp.hooks.applyFilters( 'inspector.row.change_width.can_apply', true, element );
-
-			},
-
-			'tooltipValue': function ( element, view ) {
-
-				var width = view.optionSettings.getRootRow( element )._domElement.getAttribute( 'data-width' );
-
-				if ( width === 'full-width' ) {
-
-					return pbsParams.labels.full_width;
-
-				} else if ( width === 'full-width-retain-content' ) {
-
-					return pbsParams.labels.full_width_retained_content_width;
-
-				}
-
-				return pbsParams.labels.normal;
-
-			},
-
-			'isApplied': function ( element, view  ) {
-
-				return !! view.optionSettings.getRootRow( element )._domElement.getAttribute( 'data-width' );
-
-			},
-
-			'render': function( element, view ) {
-
-				// Get the root row element, we can only set the root row as full width.
-
-				var rootRow = view.optionSettings.getRootRow( element );
-
-
-
-				var val = rootRow._domElement.getAttribute('data-width');
-
-				if ( ! val ) {
-
-					val = '';
-
-				}
-
-
-
-				view.el.classList.remove('full');
-
-				view.el.classList.remove('full-retain');
-
-				if ( val === 'full-width' ) {
-
-					view.el.classList.add('full');
-
-				} else if ( val === 'full-width-retain-content' ) {
-
-					view.el.classList.add('full-retain');
-
-				}
-
-
-
-				// Set the model width so other views can detect the value.
-
-				view.model.set( view.optionSettings.id, val );
-
-			},
-
-			'click': function( element, view ) {
-
-				// Get the root row element, we can only set the root row as full width.
-
-				var rootRow = view.optionSettings.getRootRow( element );
-
-
-
-				var val = rootRow._domElement.getAttribute('data-width');
-
-				if ( ! val ) {
-
-					val = '';
-
-				}
-
-
-
-				rootRow.style('margin-left', '');
-
-				rootRow.style('margin-right', '');
-
-				rootRow.style('padding-left', '');
-
-				rootRow.style('padding-right', '');
-
-
-
-				view.el.classList.remove('full');
-
-				view.el.classList.remove('full-retain');
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					val = '';
-
-				} else if ( window.PBSEditor.isCtrlDown ) {
-
-					if ( val === 'full-width' ) {
-
-						val = 'full-width-retain-content';
-
-						view.el.classList.add('full-retain');
-
-					} else if ( val === 'full-width-retain-content' ) {
-
-						val = '';
-
-					} else {
-
-						val = 'full-width';
-
-						view.el.classList.add('full');
-
-					}
-
-				} else {
-
-					if ( val === 'full-width' ) {
-
-						val = '';
-
-					} else if ( val === 'full-width-retain-content' ) {
-
-						val = 'full-width';
-
-						view.el.classList.add('full');
-
-					} else {
-
-						val = 'full-width-retain-content';
-
-						view.el.classList.add('full-retain');
-
-					}
-
-				}
-
-
-
-				rootRow.attr('data-width', val);
-
-				window._pbsFixRowWidth( rootRow._domElement );
-
-				rootRow.taint();
-
-
-
-				view.model.set( view.optionSettings.id, val );
+				rootRow = currElem._ceElement;
 
 			}
 
-		},
-
-		{
-
-			'tooltip': pbsParams.labels.background_color,
-
-			'tooltip-reset': pbsParams.labels.reset_background_color,
-
-			'type': 'colorButton',
-
-			'group': pbsParams.labels.background,
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change:background-color', view.optionSettings.modelChanged );
-
-			},
-
-			'modelChanged': function() {
-
-				this.updateColor( this.model.get( 'element' )._domElement.style.backgroundColor );
-
-			},
-
-			'value': function( element ) {
-
-				return element._domElement.style.backgroundColor;
-
-			},
-
-			'change': function( element, value, view ) {
-
-				element.style( 'background-color', value );
-
-				view.model.set( 'background-color', value );
-
-				if ( pbsParams.is_lite ) {
-
-					element.style( 'background-image', '' );
-
-				}
-
-				wp.hooks.doAction( 'pbs.inspector.row.color.change', element );
-
-			}
-
-		},
-
-		{
-
-			'name': pbsParams.labels.background_image,
-
-			'tooltip': pbsParams.labels.background_image,
-
-			'tooltip-reset': pbsParams.labels.remove_background_image,
-
-			'type': 'button',
-
-			'class': 'pbs-button-background-image',
-
-			'group': pbsParams.labels.background,
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change', view.render );
-
-			},
-
-			'tooltipValue': function ( element, view ) {
-
-				var value = element._domElement.style['background-image'];
-
-				if ( value ) {
-
-					view.el.setAttribute( 'style', 'background-image: ' + value + ' !important;' );
-
-				} else {
-
-					view.el.setAttribute( 'style', '' );
-
-				}
-
-			},
-
-			'isApplied': function ( element ) {
-
-				return !! element._domElement.style['background-image'];
-
-			},
-
-			'click': function( element, view ) {
-
-				var imageID = element._domElement.getAttribute( 'data-bg-image-id' );
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					element.style( 'background-image', '' );
-
-					element.attr( 'data-bg-image-id', '' );
-
-					view.model.set( 'background-image', '' );
-
-					return;
-
-				}
-
-
-
-				// Remember the cursor position. We need to do this in a setTimeout since
-
-				// options do restoreState after a click.
-
-				setTimeout( function() {
-
-					if ( view._selectedElement && view._selectedElement.storeState ) {
-
-						view._selectedElement.storeState();
-
-					}
-
-				}, 1 );
-
-
-
-				PBSEditor.openMediaManager( function( attachment ) {
-
-
-
-					var currBgImage = element._domElement.style['background-image'];
-
-					var currBgColor = element._domElement.style['background-color'];
-
-
-
-					// If there's a linear gradient, just replace the URL in it.
-
-					if ( currBgImage.indexOf( 'gradient' ) !== -1 && currBgColor ) {
-
-						element.style( 'background-image', 'linear-gradient(' + currBgColor + ', ' + currBgColor + '), url(' + attachment.attributes.url + ')' );
-
-					} else {
-
-						element.style( 'background-image', 'url(' + attachment.attributes.url + ')' );
-
-					}
-
-
-
-					element.attr( 'data-bg-image-id', attachment.id );
-
-					view.model.set( 'background-image', 'url(' + attachment.attributes.url + ')' );
-
-
-
-					// Restore the caret position.
-
-					if ( view._selectedElement && view._selectedElement.restoreState ) {
-
-						view._selectedElement.restoreState();
-
-					}
-
-
-
-				}, imageID );
-
-			}
+			currElem = currElem.parentNode;
 
 		}
 
-	]
 
-} );
 
+		return rootRow;
 
+	},
 
+	'value': function ( element ) {
 
+		return element._domElement.getAttribute( 'data-width' ) || '';
 
-window.pbsAddInspector( 'DivCol', {
+		// return wp.hooks.applyFilters( 'inspector.row.change_width.can_apply', true, element );
 
-	'label': pbsParams.labels.column,
+	},
 
-	'options': [
+	'render': function( element, view ) {
 
-		{
+		// Get the root row element, we can only set the root row as full width.
 
-			'tooltip': pbsParams.labels.background_color,
+		var rootRow = view.optionSettings.getRootRow( element );
 
-			'tooltip-reset': pbsParams.labels.reset_background_color,
 
-			'type': 'colorButton',
 
-			'group': pbsParams.labels.background,
+		var val = rootRow._domElement.getAttribute('data-width');
 
-			'initialize': function( element, view ) {
+		if ( ! val ) {
 
-				view.listenTo( view.model, 'change:background-color', view.optionSettings.modelChanged );
-
-			},
-
-			'modelChanged': function() {
-
-				this.updateColor( this.model.get( 'element' )._domElement.style.backgroundColor );
-
-			},
-
-			'value': function( element ) {
-
-				return element._domElement.style.backgroundColor;
-
-			},
-
-			'change': function( element, value, view ) {
-
-				element.style( 'background-color', value );
-
-				view.model.set( 'background-color', value );
-
-				if ( pbsParams.is_lite ) {
-
-					element.style( 'background-image', '' );
-
-				}
-
-			}
-
-		},
-
-		{
-
-			'name': pbsParams.labels.background_image,
-
-			'tooltip': pbsParams.labels.background_image,
-
-			'tooltip-reset': pbsParams.labels.remove_background_image,
-
-			'type': 'button',
-
-			'class': 'pbs-button-background-image',
-
-			'group': pbsParams.labels.background,
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change', view.render );
-
-			},
-
-			'tooltipValue': function ( element, view ) {
-
-				var value = element._domElement.style['background-image'];
-
-				if ( value ) {
-
-					view.el.setAttribute( 'style', 'background-image: ' + value + ' !important;' );
-
-				} else {
-
-					view.el.setAttribute( 'style', '' );
-
-				}
-
-			},
-
-			'isApplied': function ( element ) {
-
-				return !! element._domElement.style['background-image'];
-
-			},
-
-			'click': function( element, view ) {
-
-				var imageID = element._domElement.getAttribute( 'data-bg-image-id' );
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					element.style( 'background-image', '' );
-
-					element.attr( 'data-bg-image-id', '' );
-
-					view.model.set( 'background-image', '' );
-
-					return;
-
-				}
-
-
-
-				// Remember the cursor position. We need to do this in a setTimeout since
-
-				// options do restoreState after a click.
-
-				setTimeout( function() {
-
-					if ( view._selectedElement && view._selectedElement.storeState ) {
-
-						view._selectedElement.storeState();
-
-					}
-
-				}, 1 );
-
-
-
-				PBSEditor.openMediaManager( function( attachment ) {
-
-					var currBgImage = element._domElement.style['background-image'];
-
-					var currBgColor = element._domElement.style['background-color'];
-
-
-
-					// If there's a linear gradient, just replace the URL in it.
-
-					if ( currBgImage.indexOf( 'gradient' ) !== -1 && currBgColor ) {
-
-						element.style( 'background-image', 'linear-gradient(' + currBgColor + ', ' + currBgColor + '), url(' + attachment.attributes.url + ')' );
-
-					} else {
-
-						element.style( 'background-image', 'url(' + attachment.attributes.url + ')' );
-
-					}
-
-
-
-					element.attr( 'data-bg-image-id', attachment.id );
-
-					view.model.set( 'background-image', 'url(' + attachment.attributes.url + ')' );
-
-
-
-					// Restore the caret position.
-
-					if ( view._selectedElement && view._selectedElement.restoreState ) {
-
-						view._selectedElement.restoreState();
-
-					}
-
-
-
-				}, imageID );
-
-			}
+			val = '';
 
 		}
 
-	]
 
-} );
 
+		view.el.classList.remove('full');
 
+		view.el.classList.remove('full-retain');
 
+		if ( val === 'full-width' ) {
 
-/* globals pbsParams */
+			view.el.classList.add('full');
 
+		} else if ( val === 'full-width-retain-content' ) {
 
-
-window.pbsAddInspector( 'DivRow', {
-
-	'label': pbsParams.labels.row,
-
-	'options': [
-
-		{
-
-			'name': pbsParams.labels.increase_top_spacing,
-
-			'tooltip': pbsParams.labels.increase_top_spacing + ' {0}',
-
-			'tooltip-down': pbsParams.labels.decrease_top_spacing + ' {0}',
-
-			'tooltip-reset': pbsParams.labels.reset_top_spacing,
-
-			'type': 'button',
-
-			'class': 'pbs-button-row-margin-top-increase',
-
-			'group': pbsParams.labels.spacing,
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change:margin-top', view.render );
-
-			},
-
-			'tooltipValue': function ( element ) {
-
-				return element._domElement.style['margin-top'];
-
-			},
-
-			'canApply': function ( element ) {
-
-				return wp.hooks.applyFilters( 'inspector.row.add_top_spacing.can_apply', true, element );
-
-			},
-
-			'isApplied': function ( element ) {
-
-				return element._domElement.style['margin-top'];
-
-			},
-
-			'click': function( element, view ) {
-
-				var margin = element._domElement.style['margin-top'];
-
-
-
-				view.el.classList.remove( 'ct-tool--applied' );
-
-
-
-				var defaultMargin = parseInt( element.defaultStyle( 'margin-top' ), 10 );
-
-				if ( margin === '' ) {
-
-					margin = defaultMargin;
-
-				} else {
-
-					margin = parseInt( margin, 10 );
-
-				}
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					margin = defaultMargin;
-
-				} else if ( window.PBSEditor.isCtrlDown ) {
-
-					margin--;
-
-				} else {
-
-					margin++;
-
-				}
-
-
-
-				if ( margin === defaultMargin ) {
-
-					margin = '';
-
-				} else {
-
-					margin += 'px';
-
-				}
-
-
-
-				element.style( 'margin-top', margin );
-
-				view.model.set( 'margin-top', margin );
-
-			},
-
-			'hold': function( element, view ) {
-
-				view.optionSettings.click( element, view );
-
-			}
-
-		},
-
-		{
-
-			'name': pbsParams.labels.increase_bottom_spacing,
-
-			'tooltip': pbsParams.labels.increase_bottom_spacing + ' {0}',
-
-			'tooltip-down': pbsParams.labels.decrease_bottom_spacing + ' {0}',
-
-			'tooltip-reset': pbsParams.labels.reset_bottom_spacing,
-
-			'type': 'button',
-
-			'class': 'pbs-button-row-margin-bottom-increase',
-
-			'group': pbsParams.labels.spacing,
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change:margin-bottom', view.render );
-
-			},
-
-			'tooltipValue': function ( element ) {
-
-				return element._domElement.style['margin-bottom'];
-
-			},
-
-			'canApply': function ( element ) {
-
-				return wp.hooks.applyFilters( 'inspector.row.add_bottom_spacing.can_apply', true, element );
-
-			},
-
-			'isApplied': function ( element ) {
-
-				return element._domElement.style['margin-bottom'];
-
-			},
-
-			'click': function( element, view ) {
-
-				var margin = element._domElement.style['margin-bottom'];
-
-
-
-				view.el.classList.remove( 'ct-tool--applied' );
-
-
-
-				var defaultMargin = parseInt( element.defaultStyle( 'margin-bottom' ), 10 );
-
-				if ( margin === '' ) {
-
-					margin = defaultMargin;
-
-				} else {
-
-					margin = parseInt( margin, 10 );
-
-				}
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					margin = defaultMargin;
-
-				} else if ( window.PBSEditor.isCtrlDown ) {
-
-					margin--;
-
-				} else {
-
-					margin++;
-
-				}
-
-
-
-				if ( margin === defaultMargin ) {
-
-					margin = '';
-
-				} else {
-
-					margin += 'px';
-
-				}
-
-
-
-				element.style( 'margin-bottom', margin );
-
-				view.model.set( 'margin-bottom', margin );
-
-			},
-
-			'hold': function( element, view ) {
-
-				  view.optionSettings.click( element, view );
-
-			}
-
-		},
-
-		{
-
-			'name': pbsParams.labels.increase_top_thickness,
-
-			'tooltip': pbsParams.labels.increase_top_thickness + ' {0}',
-
-			'tooltip-down': pbsParams.labels.decrease_top_thickness + ' {0}',
-
-			'tooltip-reset': pbsParams.labels.reset_top_thickness,
-
-			'type': 'button',
-
-			'class': 'pbs-button-row-padding-top',
-
-			'group': pbsParams.labels.row_thickness,
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change:margin-top', view.render );
-
-			},
-
-			'tooltipValue': function ( element ) {
-
-				return element._domElement.style['padding-top'];
-
-			},
-
-			'isApplied': function ( element ) {
-
-				return element._domElement.style['padding-top'];
-
-			},
-
-			'click': function( element, view ) {
-
-				var padding = element._domElement.style['padding-top'];
-
-
-
-				view.el.classList.remove( 'ct-tool--applied' );
-
-
-
-				var defaultPadding = parseInt( element.defaultStyle( 'padding-top' ), 10 );
-
-				if ( padding === '' ) {
-
-					padding = defaultPadding;
-
-				} else {
-
-					padding = parseInt( padding, 10 );
-
-				}
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					padding = defaultPadding;
-
-				} else if ( window.PBSEditor.isCtrlDown ) {
-
-					padding -= 5;
-
-				} else {
-
-					padding += 5;
-
-				}
-
-
-
-				if ( padding === defaultPadding ) {
-
-					padding = '';
-
-				} else {
-
-					padding += 'px';
-
-				}
-
-
-
-				element.style( 'padding-top', padding );
-
-				view.model.set( 'padding-top', padding );
-
-			},
-
-			'hold': function( element, view ) {
-
-				  view.optionSettings.click( element, view );
-
-			}
-
-		},
-
-		{
-
-			'name': pbsParams.labels.increase_bottom_thickness,
-
-			'tooltip': pbsParams.labels.increase_bottom_thickness + ' {0}',
-
-			'tooltip-down': pbsParams.labels.decrease_bottom_thickness + ' {0}',
-
-			'tooltip-reset': pbsParams.labels.reset_bottom_thickness,
-
-			'type': 'button',
-
-			'class': 'pbs-button-row-padding-bottom',
-
-			'group': pbsParams.labels.row_thickness,
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change:margin-bottom', view.render );
-
-			},
-
-			'tooltipValue': function ( element ) {
-
-				return element._domElement.style['padding-bottom'];
-
-			},
-
-			'isApplied': function ( element ) {
-
-				return element._domElement.style['padding-bottom'];
-
-			},
-
-			'click': function( element, view ) {
-
-				var padding = element._domElement.style['padding-bottom'];
-
-
-
-				view.el.classList.remove( 'ct-tool--applied' );
-
-
-
-				var defaultPadding = parseInt( element.defaultStyle( 'padding-bottom' ), 10 );
-
-				if ( padding === '' ) {
-
-					padding = defaultPadding;
-
-				} else {
-
-					padding = parseInt( padding, 10 );
-
-				}
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					padding = defaultPadding;
-
-				} else if ( window.PBSEditor.isCtrlDown ) {
-
-					padding -= 5;
-
-				} else {
-
-					padding += 5;
-
-				}
-
-
-
-				if ( padding === defaultPadding ) {
-
-					padding = '';
-
-				} else {
-
-					padding += 'px';
-
-				}
-
-
-
-				element.style( 'padding-bottom', padding );
-
-				view.model.set( 'padding-bottom', padding );
-
-			},
-
-			'hold': function( element, view ) {
-
-				  view.optionSettings.click( element, view );
-
-			}
-
-		},
-
-		{
-
-			'name': pbsParams.labels.increase_left_thickness,
-
-			'tooltip': pbsParams.labels.increase_left_thickness + ' {0}',
-
-			'tooltip-down': pbsParams.labels.decrease_left_thickness + ' {0}',
-
-			'tooltip-reset': pbsParams.labels.reset_left_thickness,
-
-			'type': 'button',
-
-			'class': 'pbs-button-row-padding-left',
-
-			'group': pbsParams.labels.row_thickness,
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change', view.render );
-
-			},
-
-			'tooltipValue': function ( element ) {
-
-				return element._domElement.style['padding-left'];
-
-			},
-
-			'isApplied': function ( element ) {
-
-				return element._domElement.style['padding-left'];
-
-			},
-
-			'canApply': function ( element ) {
-
-				// Disable the button if full-width w/ restrained content width, since the padding is computed dynamically.
-
-				if ( element._domElement.getAttribute( 'data-width' ) ) {
-
-					if ( element._domElement.getAttribute( 'data-width' ) === 'full-width-retain-content' ) {
-
-						return false;
-
-					}
-
-				}
-
-				return true;
-
-			},
-
-			'click': function( element, view ) {
-
-				var padding = element._domElement.style['padding-left'];
-
-
-
-				view.el.classList.remove( 'ct-tool--applied' );
-
-
-
-				var defaultPadding = parseInt( element.defaultStyle( 'padding-left' ), 10 );
-
-				if ( padding === '' ) {
-
-					padding = defaultPadding;
-
-				} else {
-
-					padding = parseInt( padding, 10 );
-
-				}
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					padding = defaultPadding;
-
-				} else if ( window.PBSEditor.isCtrlDown ) {
-
-					padding -= 5;
-
-				} else {
-
-					padding += 5;
-
-				}
-
-
-
-				if ( padding === defaultPadding ) {
-
-					padding = '';
-
-				} else {
-
-					padding += 'px';
-
-				}
-
-
-
-				element.style( 'padding-left', padding );
-
-				view.model.set( 'padding-left', padding );
-
-			},
-
-			'hold': function( element, view ) {
-
-				  view.optionSettings.click( element, view );
-
-			}
-
-		},
-
-		{
-
-			'name': pbsParams.labels.increase_right_thickness,
-
-			'tooltip': pbsParams.labels.increase_right_thickness + ' {0}',
-
-			'tooltip-down': pbsParams.labels.decrease_right_thickness + ' {0}',
-
-			'tooltip-reset': pbsParams.labels.reset_right_thickness,
-
-			'type': 'button',
-
-			'class': 'pbs-button-row-padding-right',
-
-			'group': pbsParams.labels.row_thickness,
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change', view.render );
-
-			},
-
-			'tooltipValue': function ( element ) {
-
-				return element._domElement.style['padding-right'];
-
-			},
-
-			'isApplied': function ( element ) {
-
-				return element._domElement.style['padding-right'];
-
-			},
-
-			'canApply': function ( element ) {
-
-				// Disable the button if full-width w/ restrained content width, since the padding is computed dynamically.
-
-				if ( element._domElement.getAttribute( 'data-width' ) ) {
-
-					if ( element._domElement.getAttribute( 'data-width' ) === 'full-width-retain-content' ) {
-
-						return false;
-
-					}
-
-				}
-
-				return true;
-
-			},
-
-			'click': function( element, view ) {
-
-				var padding = element._domElement.style['padding-right'];
-
-
-
-				view.el.classList.remove( 'ct-tool--applied' );
-
-
-
-				var defaultPadding = parseInt( element.defaultStyle( 'padding-right' ), 10 );
-
-				if ( padding === '' ) {
-
-					padding = defaultPadding;
-
-				} else {
-
-					padding = parseInt( padding, 10 );
-
-				}
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					padding = defaultPadding;
-
-				} else if ( window.PBSEditor.isCtrlDown ) {
-
-					padding -= 5;
-
-				} else {
-
-					padding += 5;
-
-				}
-
-
-
-				if ( padding === defaultPadding ) {
-
-					padding = '';
-
-				} else {
-
-					padding += 'px';
-
-				}
-
-
-
-				element.style( 'padding-right', padding );
-
-				view.model.set( 'padding-right', padding );
-
-			},
-
-			'hold': function( element, view ) {
-
-				  view.optionSettings.click( element, view );
-
-			}
+			view.el.classList.add('full-retain');
 
 		}
 
-	]
 
-} );
 
+		// Set the model width so other views can detect the value.
 
+		view.model.set( view.optionSettings.id, val );
 
+	},
 
+	'change': function( element, value, view ) {
 
+		// Get the root row element, we can only set the root row as full width.
 
+		var rootRow = view.optionSettings.getRootRow( element );
 
-window.pbsAddInspector( 'DivCol', {
 
-	'label': pbsParams.labels.column,
 
-	'options': [
+		// var val = rootRow._domElement.getAttribute('data-width');
 
-		/*
+		// if ( ! val ) {
 
-		{
+			// val = '';
 
-			'name': pbsParams.labels.increase_column_width,
+		// }
 
-			'tooltip': pbsParams.labels.increase_column_width + ' {0}',
 
-			'tooltip-down': pbsParams.labels.decrease_column_width + ' {0}',
 
-			'tooltip-reset': pbsParams.labels.reset_column_width,
+		rootRow.style('margin-left', '');
 
-			'type': 'button',
+		rootRow.style('margin-right', '');
 
-			'class': 'pbs-button-col-width-increase',
+		rootRow.style('padding-left', '');
 
-			'group': pbsParams.labels.spacing_and_widths,
+		rootRow.style('padding-right', '');
 
-			'initialize': function( element, view ) {
 
-				view.listenTo( view.model, 'change', view.render );
 
-			},
+		view.el.classList.remove('full');
 
-			'tooltipValue': function ( element ) {
+		view.el.classList.remove('full-retain');
 
-				return element._domElement.style['flex-grow'];
+		// if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
 
-			},
+			// val = '';
 
-			'canApply': function( element ) {
+		// } else if ( window.PBSEditor.isCtrlDown ) {
 
-				var col = element;
+		// 	if ( val === 'full-width' ) {
 
-				while ( col.constructor.name !== 'DivCol' ) {
+		// 		val = 'full-width-retain-content';
 
-					col = col.parent();
+		// 		view.el.classList.add('full-retain');
 
-				}
+		// 	} else if ( val === 'full-width-retain-content' ) {
 
-				return col.parent()._domElement.children.length > 1;
+		// 		val = '';
 
-			},
+		// 	} else {
 
-			'isApplied': function ( element ) {
+		// 		val = 'full-width';
 
-				return !! element._domElement.style['flex-grow'];
-
-			},
-
-			'click': function( element, view ) {
-
-				var value = element._domElement.style['flex-grow'];
-
-
-
-				if ( value === '' ) {
-
-					value = parseInt( parseFloat( element.defaultStyle( 'flex-grow' ) ) * 10, 10 );
-
-				} else {
-
-					value = parseInt( parseFloat( value ) * 10, 10 );
-
-				}
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					value = parseInt( parseFloat( element.defaultStyle( 'flex-grow' ) ) * 10, 10 );
-
-				} else if ( window.PBSEditor.isCtrlDown ) {
-
-					value -= 1;
-
-				} else {
-
-					value += 1;
-
-				}
-
-				value /= 10;
-
-
-
-				var defaultValue = parseInt( parseFloat( element.defaultStyle( 'flex-grow' ) ) * 10, 10 ) / 10;
-
-				if ( value === defaultValue ) {
-
-					value = '';
-
-				}
-
-
-
-				element.style( 'flex-grow', value );
-
-				view.model.set( 'flex-grow', value );
-
-			},
-
-			'hold': function( element, view ) {
-
-				  view.optionSettings.click( element, view );
-
-			}
-
-		},
-
-		*/
-
-		// {
-
-		// 	'name': 'Column Width Decrease',
-
-		// 	'type': 'button',
-
-		// 	'class': 'pbs-button-col-width-decrease',
-
-		// 	'group': pbsParams.labels.spacing_and_widths
-
-		// 	'initialize': function( element, view ) {
-
-		// 		view.listenTo( view.model, 'change', view.render );
-
-		// 	},
-
-		// 	'render': function( element, view ) {
-
-		// 		var value = element._domElement.style['flex-grow'];
-
-		// 		view.el.classList.remove( 'ct-tool--applied' );
-
-		//
-
-		// 		if ( value ) {
-
-		// 			view.el.classList.add( 'ct-tool--applied' );
-
-		// 			view.el.setAttribute( 'data-tooltip', this.name + ': ' + value );
-
-		// 		} else {
-
-		// 			view.el.setAttribute( 'data-tooltip', this.name );
-
-		// 		}
-
-		// 	},
-
-		// 	'click': function( element, view ) {
-
-		// 		var value = element._domElement.style['flex-grow'];
-
-		//
-
-		// 		view.el.classList.remove( 'ct-tool--applied' );
-
-		//
-
-		// 		if ( value === '' ) {
-
-		// 			value = parseInt( parseFloat( element.defaultStyle( 'flex-grow' ) ) * 10, 10 );
-
-		// 		} else {
-
-		// 			value = parseInt( parseFloat( value ) * 10, 10 );
-
-		// 		}
-
-		//
-
-		// 		if ( value > 2 ) {
-
-		// 			value -= 1;
-
-		// 		}
-
-		// 		value /= 10;
-
-		//
-
-		// 		var defaultValue = parseInt( parseFloat( element.defaultStyle( 'flex-grow' ) ) * 10, 10 ) / 10;
-
-		// 		if ( value === defaultValue ) {
-
-		// 			value = '';
-
-		// 		}
-
-		//
-
-		// 		element.style( 'flex-grow', value );
-
-		// 		view.model.set( 'flex-grow', value );
-
-		//
-
-		// 		// Update the tooltip.
-
-		// 		if ( value ) {
-
-		// 			view.el.classList.add( 'ct-tool--applied' );
-
-		// 			view.el.setAttribute( 'data-tooltip', this.name + ': ' + value );
-
-		// 		} else {
-
-		// 			view.el.setAttribute( 'data-tooltip', this.name );
-
-		// 		}
-
-		// 	},
-
-		// 	'hold': function( element, view ) {
-
-		// 		  view.optionSettings.click( element, view );
-
-		// 	},
-
-		// 	'mouseenter': function( element, view ) {
-
-		// 		view.optionSettings.render( element, view );
-
-		// 		element._domElement.classList.add('ce-element--over');
-
-		// 	},
-
-		// 	'mouseleave': function( element ) {
-
-		// 		element._domElement.classList.remove('ce-element--over');
+		// 		view.el.classList.add('full');
 
 		// 	}
 
-		// },
+		// } else {
 
-		{
+			// if ( value === 'full-width' ) {
 
-			'name': pbsParams.labels.increase_horizontal_content_padding,
+				// value = '';
 
-			'tooltip': pbsParams.labels.increase_horizontal_content_padding + ' {0}',
+			if ( value === 'full-width' ) {
 
-			'tooltip-down': pbsParams.labels.decrease_horizontal_content_padding + ' {0}',
+				// value = 'full-width';
 
-			'tooltip-reset': pbsParams.labels.reset_horizontal_content_padding,
+				view.el.classList.add( 'full' );
 
-			'type': 'button',
+			} else if ( value === 'full-width-retain-content' ) {
 
-			'class': 'pbs-button-col-padding-horizontal',
+				// value = 'full-width-retain-content';
 
-			'group': pbsParams.labels.spacing_and_widths,
-
-			'initialize': function( element, view ) {
-
-				view.listenTo( view.model, 'change:padding-left change:padding-right', view.render );
-
-			},
-
-			'tooltipValue': function ( element ) {
-
-				return element._domElement.style['padding-left'];
-
-			},
-
-			'isApplied': function ( element ) {
-
-				return !! element._domElement.style['padding-left'];
-
-			},
-
-			'click': function( element, view ) {
-
-				var padding = element._domElement.style['padding-left'];
-
-
-
-				var defaultPadding = parseInt( element.defaultStyle( 'padding-left' ), 10 );
-
-				if ( padding === '' ) {
-
-					padding = defaultPadding;
-
-				} else {
-
-					padding = parseInt( padding, 10 );
-
-				}
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					padding = defaultPadding;
-
-				} else if ( window.PBSEditor.isCtrlDown ) {
-
-					padding -= 1;
-
-				} else {
-
-					padding += 1;
-
-				}
-
-
-
-				if ( padding === defaultPadding ) {
-
-					padding = '';
-
-				} else {
-
-					padding += 'px';
-
-				}
-
-
-
-				element.style( 'padding-left', padding );
-
-				element.style( 'padding-right', padding );
-
-				view.model.set( 'padding-left', padding );
-
-				view.model.set( 'padding-right', padding );
-
-			},
-
-			'hold': function( element, view ) {
-
-				view.optionSettings.click( element, view );
+				view.el.classList.add( 'full-retain' );
 
 			}
 
-		},
+		// }
 
-		{
 
-			'name': pbsParams.labels.increase_vertical_content_padding,
 
-			'tooltip': pbsParams.labels.increase_vertical_content_padding + ' {0}',
+		rootRow.attr( 'data-width', value );
 
-			'tooltip-down': pbsParams.labels.decrease_vertical_content_padding + ' {0}',
+		window._pbsFixRowWidth( rootRow._domElement );
 
-			'tooltip-reset': pbsParams.labels.reset_vertical_content_padding,
+		rootRow.taint();
 
-			'type': 'button',
 
-			'class': 'pbs-button-col-padding-vertical',
 
-			'group': pbsParams.labels.spacing_and_widths,
+		view.model.set( view.optionSettings.id, value );
 
-			'initialize': function( element, view ) {
+	}
 
-				view.listenTo( view.model, 'change:padding-top change:padding-bottom', view.render );
+},
 
-			},
+{
 
-			'tooltipValue': function ( element ) {
+	'name': pbsParams.labels.full_height,
 
-				return element._domElement.style['padding-top'];
+	'type': 'checkbox',
 
-			},
+	'group': pbsParams.labels.general,
 
-			'isApplied': function ( element ) {
+	'value': function( element ) {
 
-				return !! element._domElement.style['padding-top'];
+		return element._domElement.style['min-height'] === '100vh';
 
-			},
+	},
 
-			'click': function( element, view ) {
+	'change': function( element, value ) {
 
-				var padding = element._domElement.style['padding-top'];
+		element.style( 'min-height', value ? '100vh' : '' );
 
+	}
 
+},
 
-				var defaultPadding = parseInt( element.defaultStyle( 'padding-top' ), 10 );
+{
 
-				if ( padding === '' ) {
+	'name': pbsParams.labels.background_color,
 
-					padding = defaultPadding;
+	'type': 'color',
 
-				} else {
+	'group': pbsParams.labels.background,
 
-					padding = parseInt( padding, 10 );
+	'initialize': function( element, view ) {
 
-				}
+		view.listenTo( view.model, 'change:background-color', view.render );
 
+	},
 
+	'value': function( element ) {
 
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
+		return element._domElement.style.backgroundColor || '';
 
-					padding = defaultPadding;
+	},
 
-				} else if ( window.PBSEditor.isCtrlDown ) {
+	'change': function( element, value ) {
 
-					padding -= 1;
 
-				} else {
 
-					padding += 1;
+		var bgImage = element._domElement.style['background-image'];
 
-				}
+		var url = bgImage.match( /url\([^\)]+\)/i ) || '';
 
 
 
-				if ( padding === defaultPadding ) {
+		element.style( 'background-color', value );
 
-					padding = '';
 
-				} else {
 
-					padding += 'px';
+		// If there's a gradient, change that also.
 
-				}
+		if ( bgImage.indexOf( 'gradient' ) !== -1 ) {
 
-
-
-				element.style( 'padding-top', padding );
-
-				element.style( 'padding-bottom', padding );
-
-				view.model.set( 'padding-top', padding );
-
-				view.model.set( 'padding-bottom', padding );
-
-			},
-
-			'hold': function( element, view ) {
-
-				  view.optionSettings.click( element, view );
-
-			}
-
-		},
-
-		{
-
-			'name': pbsParams.labels.increase_column_gap,
-
-			'tooltip': pbsParams.labels.increase_column_gap + ' {0}',
-
-			'tooltip-down': pbsParams.labels.decrease_column_gap + ' {0}',
-
-			'tooltip-reset': pbsParams.labels.reset_column_gap,
-
-			'type': 'button',
-
-			'class': 'pbs-button-column-gap',
-
-			'group': pbsParams.labels.spacing_and_widths,
-
-			'tooltipValue': function ( element ) {
-
-				var row = element.parent();
-
-				return row.hasColumnGap();
-
-			},
-
-			'isApplied': function ( element ) {
-
-				var row = element.parent();
-
-				return !! row.hasColumnGap();
-
-			},
-
-			'click': function( element, view ) {
-
-				var row = element.parent();
-
-				var margin = row.hasColumnGap();
-
-
-
-				if ( row.children.length === 1 ) {
-
-					return;
-
-				}
-
-
-
-				margin = parseInt( margin, 10 );
-
-				if ( ! margin ) {
-
-					margin = 0;
-
-				}
-
-
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-					margin = 0;
-
-				} else if ( window.PBSEditor.isCtrlDown ) {
-
-					margin -= 1;
-
-				} else {
-
-					margin += 1;
-
-				}
-
-
-
-				if ( ! margin ) {
-
-					margin = '';
-
-				} else if ( margin < 0 ) {
-
-					margin = '';
-
-				} else {
-
-					margin += 'px';
-
-				}
-
-
-
-				for ( var i = 0; i < row.children.length; i++ ) {
-
-					if ( i < row.children.length - 1 ) {
-
-						row.children[ i ].style( 'margin-right', margin );
-
-					} else {
-
-						row.children[ i ].style( 'margin-right', '' );
-
-					}
-
-				}
-
-
-
-				view.model.set( 'margin-right', margin );
-
-			},
-
-			'hold': function( element, view ) {
-
-				  view.optionSettings.click( element, view );
-
-			}
+			element.style( 'background-image', 'linear-gradient(' + value + ', ' + value + '), ' + url );
 
 		}
 
-	]
+	}
+
+},
+
+{
+
+	'name': pbsParams.labels.background_image,
+
+	'type': 'image',
+
+	'group': pbsParams.labels.background,
+
+	'value': function( element ) {
+
+		if ( element._domElement.style.backgroundImage ) {
+
+			var matches = element._domElement.style.backgroundImage.match( /url\([^,$]+/ );
+
+			if ( matches ) {
+
+				return matches[0];
+
+			}
+
+			return element._domElement.style.backgroundImage;
+
+		}
+
+		return '';
+
+	},
+
+	'change': function( element, attachmentIDs, attachmentURLs ) {
+
+		var backgrounds = '';
+
+		for ( var i = 0; i < attachmentURLs.length; i++ ) {
+
+			backgrounds += backgrounds ? ',' : '';
+
+			backgrounds += 'url(' + attachmentURLs[ i ] + ')';
+
+		}
+
+		var background = element.style( 'background-image' );
+
+		if ( background.match( /url\(/ ) ) {
+
+			background = background.replace( /url\([^\)]+\)/, backgrounds );
+
+			element.style( 'background-image', background );
+
+		} else {
+
+			element.style( 'background-image', backgrounds );
+
+		}
+
+	},
+
+	'remove': function( element, attachmentIDs, view ) {
+
+		element.style( 'background-image', '' );
+
+		view.model.set( 'background-image', '' );
+
+	}
+
+},
+
+{
+
+	'name': pbsParams.labels.border_style,
+
+	'type': 'select',
+
+	'group': pbsParams.labels.borders,
+
+	'options': {
+
+		'': pbsParams.labels.none,
+
+		'solid': pbsParams.labels.solid,
+
+		'dashed': pbsParams.labels.dashed,
+
+		'dotted': pbsParams.labels.dotted
+
+	},
+
+	'value': function ( element ) {
+
+		return element._domElement.style['border-style'];
+
+	},
+
+	'change': function( element, value, view ) {
+
+		element.style( 'border-style', value );
+
+		if ( value ) {
+
+			if ( element._domElement.style['border-width'] === '' || element._domElement.style['border-width'] === 'transparent' ) {
+
+				element.style( 'border-width', '1px' );
+
+				view.model.set( 'border-width', '1' );
+
+			}
+
+			if ( element._domElement.style['border-color'] === '' || element._domElement.style['border-color'] === '0px' ) {
+
+				element.style( 'border-color', '#000000' );
+
+				view.model.set( 'border-color', '#000000' );
+
+			}
+
+		} else {
+
+			element.style( 'border-width', '' );
+
+			element.style( 'border-color', '' );
+
+			view.model.set( 'border-width', '' );
+
+			view.model.set( 'border-color', '' );
+
+		}
+
+	}
+
+},
+
+{
+
+	'name': pbsParams.labels.border_color,
+
+	'type': 'color',
+
+	'group': pbsParams.labels.borders,
+
+	'initialize': function( element, view ) {
+
+		view.listenTo( view.model, 'change:border-color', view.render );
+
+	},
+
+	'value': function( element ) {
+
+		return element._domElement.style.borderColor || '';
+
+	},
+
+	'change': function( element, value ) {
+
+		element.style( 'border-color', value );
+
+	}
+
+},
+
+{
+
+	'name': pbsParams.labels.border_thickness,
+
+	'type': 'number',
+
+	'group': pbsParams.labels.borders,
+
+	'step': '1',
+
+	'min': '0',
+
+	'max': '20',
+
+	'initialize': function( element, view ) {
+
+		view.listenTo( view.model, 'change:border-width', view.render );
+
+	},
+
+	'value': function( element ) {
+
+		var size = parseInt( element._domElement.style['border-width'], 10 );
+
+		if ( isNaN( size ) ) {
+
+			return 0;
+
+		}
+
+		return size;
+
+	},
+
+	'change': function( element, value ) {
+
+		element.style( 'border-width', value + 'px' );
+
+	}
+
+},
+
+{
+
+	'name': pbsParams.labels.border_radius,
+
+	'type': 'number',
+
+	'group': pbsParams.labels.borders,
+
+	'step': '1',
+
+	'min': '0',
+
+	'max': '1000',
+
+	'initialize': function( element ) {
+
+		this.max = parseInt( parseInt( element._domElement.getBoundingClientRect().height, 10 ) / 2 + 1, 10 );
+
+	},
+
+	'value': function( element ) {
+
+		var size = parseInt( element._domElement.style['border-radius'], 10 );
+
+		if ( isNaN( size ) ) {
+
+			return 0;
+
+		}
+
+		return size;
+
+	},
+
+	'change': function( element, value ) {
+
+		element.style( 'border-radius', value + 'px' );
+
+	}
+
+
 
 } );
 
 
-/* globals ContentEdit, pbsParams */
 
 window.pbsAddInspector( 'DivRow', {
+
 	'label': pbsParams.labels.row,
-	'options': [
-		{
-			'name': pbsParams.labels.add_column,
-			'type': 'button',
-			'class': 'pbs-button-add-column',
-			'click': function( element ) {
-				var overElement = element._domElement.querySelector( '.ce-element--over' );
-				if ( overElement ) {
-					overElement.classList.remove('ce-element--over');
-				}
-				var root = ContentEdit.Root.get();
-				var index = element.children.length;
-				var col;
-				if ( root.focused() ) {
-					col = root.focused();
-					while ( col.constructor.name !== 'Region' && col.constructor.name !== 'DivRow' ) {
-						if ( col.constructor.name === 'DivCol' ) {
-							index = element.children.indexOf( col ) + 1;
-							break;
-						}
-						col = col.parent();
-					}
-				}
-				col = element.addNewColumn( index );
-				col.focus();
-				col._domElement.classList.add('ce-element--over');
-			},
-			'mouseenter': function( element ) {
-				element._domElement.classList.add('ce-element--over');
-			},
-			'mouseleave': function( element ) {
-				element._domElement.classList.remove('ce-element--over');
+
+	'options': options
+
+} );
+
+
+
+
+
+/**
+
+ * Remove other border styles on blur if the border style was removed.
+
+ * We need to do this or else the border will come back when focusing again.
+
+ */
+
+window.addEventListener( 'DOMContentLoaded', function() {
+
+	ContentEdit.Root.get().bind('blur', function (element) {
+
+
+
+		var row = null;
+
+
+
+		while ( element && element.constructor.name !== 'Region' ) {
+
+			if ( element.constructor.name === 'DivRow' ) {
+
+				row = element;
+
 			}
-		},
-		{
-			'name': pbsParams.labels.clear_all_row_styles,
-			'type': 'button',
-			'class': 'pbs-clear-formatting',
-			'click': function( element, view ) {
-				var i;
-				var styles = element.attr('style').replace( /(^\s*;|;\s*$)/g, '').split(';');
-				var stylesToTrigger = [];
-				for ( i = 0; i < styles.length; i++ ) {
-					if ( styles[ i ].indexOf( ':' ) !== -1 ) {
-						stylesToTrigger.push( styles[ i ].match( /\s*([^:]+)/ )[0] );
-					}
+
+			element = element.parent();
+
+		}
+
+
+
+		if ( row ) {
+
+			if ( row.style( 'border-style' ) === 'none' ) {
+
+				if ( row.style( 'border-width' ) !== '0px' ) {
+
+					row.style( 'border-width', '' );
+
 				}
 
-				element.attr( 'style', '' );
-				element.attr( 'data-width', '' );
+				if ( row.style( 'border-color' ) !== '' ) {
 
-				for ( i = 0; i < stylesToTrigger.length; i++ ) {
-					view.model.set( stylesToTrigger[ i ].trim(), '' );
+					row.style( 'border-color', '' );
+
 				}
-			},
-			'mouseenter': function( element ) {
-				element._domElement.classList.add('ce-element--over');
-			},
-			'mouseleave': function( element ) {
-				element._domElement.classList.remove('ce-element--over');
+
 			}
+
+		}
+
+
+
+	});
+
+} );
+
+
+/* globals pbsParams, Color, ContentEdit */
+
+var options = [];
+options.push(
+	{
+		'name': pbsParams.labels.background_color,
+		'type': 'color',
+		'group': pbsParams.labels.background,
+		'initialize': function( element, view ) {
+			view.listenTo( view.model, 'change:background-color', view.render );
 		},
-		{
-			'name': pbsParams.labels.clone_row,
-			'type': 'button',
-			'class': 'pbs-button-clone',
-			'click': function( element ) {
-				var newRow = element.clone();
-				window._pbsFixRowWidth( newRow._domElement );
-			},
-			'canApply': function ( element ) {
-				return wp.hooks.applyFilters( 'inspector.row.clone.can_apply', true, element );
-			},
-			'mouseenter': function( element ) {
-				element._domElement.classList.add('ce-element--over');
-			},
-			'mouseleave': function( element ) {
-				element._domElement.classList.remove('ce-element--over');
-			}
+		'value': function( element ) {
+			return element._domElement.style.backgroundColor || '';
 		},
-		{
-			'name': pbsParams.labels.delete_row,
-			'type': 'button',
-			'class': 'ct-tool--remove',
-			'click': function( element ) {
-				element.blurIfFocused();
-				var otherElement = element.nextSibling();
-				if ( ! otherElement ) {
-					otherElement = element.previousSibling();
-				}
-				element.parent().detach( element );
-				if ( otherElement ) {
-					otherElement.focus();
-				}
-			},
-			'canApply': function ( element ) {
-				return wp.hooks.applyFilters( 'inspector.row.delete.can_apply', true, element );
+		'change': function( element, value ) {
+
+			var bgImage = element._domElement.style['background-image'];
+			var url = bgImage.match( /url\([^\)]+\)/i ) || '';
+
+			element.style( 'background-color', value );
+
+			// If there's a gradient, change that also.
+			if ( bgImage.indexOf( 'gradient' ) !== -1 ) {
+				element.style( 'background-image', 'linear-gradient(' + value + ', ' + value + '), ' + url );
 			}
 		}
-	]
-} );
+	},
+	{
+		'name': pbsParams.labels.background_image,
+		'type': 'image',
+		'group': pbsParams.labels.background,
+		'value': function( element ) {
+			if ( element._domElement.style.backgroundImage ) {
+				var matches = element._domElement.style.backgroundImage.match( /url\([^,$]+/ );
+				if ( matches ) {
+					return matches[0];
+				}
+				return element._domElement.style.backgroundImage;
+			}
+			return '';
+		},
+		'change': function( element, attachmentIDs, attachmentURLs ) {
+			var backgrounds = '';
+			for ( var i = 0; i < attachmentURLs.length; i++ ) {
+				backgrounds += backgrounds ? ',' : '';
+				backgrounds += 'url(' + attachmentURLs[ i ] + ')';
+			}
+			var background = element.style( 'background-image' );
+			if ( background.match( /url\(/ ) ) {
+				background = background.replace( /url\([^\)]+\)/, backgrounds );
+				element.style( 'background-image', background );
+			} else {
+				element.style( 'background-image', backgrounds );
+			}
+		},
+		'remove': function( element, attachmentIDs, view ) {
+			element.style( 'background-image', '' );
+			view.model.set( 'background-image', '' );
+		}
+	},
+	{
+		'name': pbsParams.labels.border_style,
+		'type': 'select',
+		'group': pbsParams.labels.borders,
+		'options': {
+			'': pbsParams.labels.none,
+			'solid': pbsParams.labels.solid,
+			'dashed': pbsParams.labels.dashed,
+			'dotted': pbsParams.labels.dotted
+		},
+		'value': function ( element ) {
+			return element._domElement.style['border-style'];
+		},
+		'change': function( element, value, view ) {
+			element.style( 'border-style', value );
+			if ( value ) {
+				if ( element._domElement.style['border-width'] === '' || element._domElement.style['border-width'] === 'transparent' ) {
+					element.style( 'border-width', '1px' );
+					view.model.set( 'border-width', '1' );
+				}
+				if ( element._domElement.style['border-color'] === '' || element._domElement.style['border-color'] === '0px' ) {
+					element.style( 'border-color', '#000000' );
+					view.model.set( 'border-color', '#000000' );
+				}
+			} else {
+				element.style( 'border-width', '' );
+				element.style( 'border-color', '' );
+				view.model.set( 'border-width', '' );
+				view.model.set( 'border-color', '' );
+			}
+		}
+	},
+	{
+		'name': pbsParams.labels.border_color,
+		'type': 'color',
+		'group': pbsParams.labels.borders,
+		'initialize': function( element, view ) {
+			view.listenTo( view.model, 'change:border-color', view.render );
+		},
+		'value': function( element ) {
+			return element._domElement.style.borderColor || '';
+		},
+		'change': function( element, value ) {
+			element.style( 'border-color', value );
+		}
+	},
+	{
+		'name': pbsParams.labels.border_thickness,
+		'type': 'number',
+		'group': pbsParams.labels.borders,
+		'step': '1',
+		'min': '0',
+		'max': '20',
+		'initialize': function( element, view ) {
+			view.listenTo( view.model, 'change:border-width', view.render );
+		},
+		'value': function( element ) {
+			var size = parseInt( element._domElement.style['border-width'], 10 );
+			if ( isNaN( size ) ) {
+				return 0;
+			}
+			return size;
+		},
+		'change': function( element, value ) {
+			element.style( 'border-width', value + 'px' );
+		}
+	},
+	{
+		'name': pbsParams.labels.border_radius,
+		'type': 'number',
+		'group': pbsParams.labels.borders,
+		'step': '1',
+		'min': '0',
+		'max': '1000',
+		'initialize': function( element ) {
+			this.max = parseInt( parseInt( element._domElement.getBoundingClientRect().height, 10 ) / 2 + 1, 10 );
+		},
+		'value': function( element ) {
+			var size = parseInt( element._domElement.style['border-radius'], 10 );
+			if ( isNaN( size ) ) {
+				return 0;
+			}
+			return size;
+		},
+		'change': function( element, value ) {
+			element.style( 'border-radius', value + 'px' );
+		}
+	}
+);
 
 
 window.pbsAddInspector( 'DivCol', {
 	'label': pbsParams.labels.column,
-	'options': [
-		{
-			'name': pbsParams.labels.clear_all_column_styles,
-			'type': 'button',
-			'class': 'pbs-clear-formatting',
-			'click': function( element, view ) {
-				var existingMarginRight = element._domElement.style['margin-right'];
-				var existingMarginLeft = element._domElement.style['margin-left'];
-				var i;
-
-				var styles = element.attr('style').replace( /(^\s*;|;\s*$)/g, '').split(';');
-				var stylesToTrigger = [];
-				for ( i = 0; i < styles.length; i++ ) {
-					if ( styles[ i ].indexOf( ':' ) !== -1 ) {
-						var styleName = styles[ i ].match( /\s*([^:]+)/ )[0];
-						if ( styleName !== 'margin-right' && styleName !== 'margin-left' ) {
-							stylesToTrigger.push( styleName );
-						}
-					}
-				}
-
-				element.attr( 'style', '' );
-
-				if ( existingMarginRight ) {
-					element.style( 'margin-right', existingMarginRight );
-				}
-				if ( existingMarginLeft ) {
-					element.style( 'margin-left', existingMarginLeft );
-				}
-
-				for ( i = 0; i < stylesToTrigger.length; i++ ) {
-					view.model.set( stylesToTrigger[ i ].trim(), '' );
-				}
-			},
-			'mouseenter': function( element ) {
-				element._domElement.classList.add('ce-element--over');
-			},
-			'mouseleave': function( element ) {
-				element._domElement.classList.remove('ce-element--over');
-			}
-		},
-		// {
-		// 	'name': 'Add Column',
-		// 	'type': 'button',
-		// 	'class': 'pbs-button-add-column',
-		// 	'click': function( element ) {
-		// 		element._domElement.classList.remove('ce-element--over');
-		// 		var col = element.parent().addNewColumn( element.parent().children.indexOf( element ) + 1 );
-		// 		col.focus();
-		// 		col._domElement.classList.add('ce-element--over');
-		// 	},
-		// 	'mouseenter': function( element ) {
-		// 		element._domElement.classList.add('ce-element--over');
-		// 	},
-		// 	'mouseleave': function( element ) {
-		// 		element._domElement.classList.remove('ce-element--over');
-		// 	}
-		// },
-		{
-			'name': pbsParams.labels.clone_column,
-			'type': 'button',
-			'class': 'pbs-button-clone',
-			'click': function( element ) {
-				element._domElement.classList.remove('ce-element--over');
-				var col = element.clone();
-				col.focus();
-				col._domElement.classList.add('ce-element--over');
-			},
-			'mouseenter': function( element ) {
-				element._domElement.classList.add('ce-element--over');
-			},
-			'mouseleave': function( element ) {
-				element._domElement.classList.remove('ce-element--over');
-			}
-		},
-		{
-			'name': pbsParams.labels.delete_column,
-			'type': 'button',
-			'class': 'ct-tool--remove',
-			'click': function( element ) {
-				// Get the next column / element to focus on.
-				var parent = element.parent();
-				var parentSibling = parent.nextSibling();
-				var index = parent.children.indexOf( element );
-				if ( index === parent.children.length - 1 ) {
-					index--;
-
-					// Remove last column gap.
-					var existingGap = parent.hasColumnGap();
-					if ( existingGap ) {
-						parent.children[ index ].style( 'margin-right', '' );
-					}
-				}
-
-				element.blurIfFocused();
-				parent.detach( element );
-
-				// Focus on the next column. If not possible, focus on the next element.
-				if ( parent ) {
-					if ( parent.children.length ) {
-						parent.children[ index ].focus();
-					} else if ( parentSibling ) {
-						parentSibling.focus();
-					}
-				}
-
-				wp.hooks.doAction( 'pbs.inspector.column.delete.click', element );
-			},
-			'canApply': function ( element ) {
-				return wp.hooks.applyFilters( 'inspector.column.delete.can_apply', true, element );
-			},
-			'mouseenter': function( element ) {
-				element._domElement.classList.add('ce-element--over');
-			},
-			'mouseleave': function( element ) {
-				element._domElement.classList.remove('ce-element--over');
-			}
-		}
-	]
-} );
-
-
-/* globals ContentEdit, pbsParams */
-
-window.pbsAddInspector( 'DivRow', {
-	'label': pbsParams.labels.row,
-	'options': [
-		{
-			'tooltip': pbsParams.labels.border_color,
-			'tooltip-reset': pbsParams.labels.remove_border,
-			'type': 'colorButton',
-			'group': pbsParams.labels.borders,
-			'id': 'border-color',
-			'initialize': function( element, view ) {
-				view.listenTo( view.model, 'change:border-color', view.optionSettings.modelChanged );
-			},
-			'modelChanged': function() {
-				this.updateColor( this.model.get( 'element' )._domElement.style.borderColor );
-			},
-			'value': function( element ) {
-				return element._domElement.style.borderColor;
-			},
-			'change': function( element, value, view ) {
-				element.style( 'border-color', value );
-				if ( value === 'transparent' ) {
-					value = '';
-				}
-				if ( value ) {
-					value = element._domElement.style['border-style'];
-					if ( ! value || value === 'none' ) {
-						value = 'solid';
-						element.style( 'border-style', value );
-						view.model.set( 'border-style', value );
-					}
-					value = element._domElement.style['border-width'];
-					if ( ! value ) {
-						value = '1px';
-						element.style( 'border-width', value );
-						view.model.set( 'border-width', value );
-					}
-				} else {
-					element.style( 'border-style', '' );
-					view.model.set( 'border-style', '' );
-					element.style( 'border-width', '' );
-					view.model.set( 'border-width', '' );
-				}
-			}
-		},
-		{
-			'name': pbsParams.labels.border_style,
-			'tooltip': pbsParams.labels.border_style + ' {0}',
-			'tooltip-down': pbsParams.labels.border_style + ' {0}',
-			'tooltip-reset': pbsParams.labels.remove_border,
-			'type': 'button',
-			'class': 'pbs-button-col-border-style',
-			'group': pbsParams.labels.borders,
-			'initialize': function( element, view ) {
-				view.listenTo( view.model, 'change:border-style', view.render );
-			},
-			'tooltipValue': function ( element ) {
-				return element._domElement.style['border-style'];
-			},
-			'isApplied': function ( element ) {
-				return !! element._domElement.style['border-style'];
-			},
-			'click': function( element, view ) {
-				var value = element._domElement.style['border-style'];
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-					value = '';
-				} else if ( window.PBSEditor.isCtrlDown ) {
-					if ( value === 'dashed' ) {
-						value = 'solid';
-					} else if ( value === 'solid' ) {
-						value = '';
-					} else {
-						value = 'solid';
-					}
-				} else {
-					if ( value === '' ) {
-						value = 'solid';
-					} else if ( value === 'solid' ) {
-						value = 'dashed';
-					} else {
-						value = '';
-					}
-				}
-
-				element.style( 'border-style', value );
-				view.model.set( 'border-style', value );
-
-				if ( ! value ) {
-					return;
-				}
-
-				value = element._domElement.style['border-width'];
-				if ( ! value ) {
-					value = '1px';
-					element.style( 'border-width', value );
-					view.model.set( 'border-width', value );
-				}
-				value = element._domElement.style['border-color'];
-				if ( ! value ) {
-					value = '#000000';
-					element.style( 'border-color', value );
-					view.model.set( 'border-color', value );
-				}
-			},
-			'hold': function( element, view ) {
-				  view.optionSettings.click( element, view );
-			}
-		},
-		{
-			'name': pbsParams.labels.increase_border_thickness,
-			'tooltip': pbsParams.labels.increase_border_thickness + ' {0}',
-			'tooltip-down': pbsParams.labels.decrease_border_thickness + ' {0}',
-			'tooltip-reset': pbsParams.labels.remove_border,
-			'type': 'button',
-			'class': 'pbs-button-col-border-width',
-			'group': pbsParams.labels.borders,
-			'initialize': function( element, view ) {
-				view.listenTo( view.model, 'change:border-width', view.render );
-			},
-			'tooltipValue': function ( element ) {
-				return element._domElement.style['border-width'];
-			},
-			'isApplied': function ( element ) {
-				return element._domElement.style['border-width'];
-			},
-			'click': function( element, view ) {
-				var value = element._domElement.style['border-width'];
-
-				if ( ! value ) {
-					value = 0;
-				} else {
-					value = parseInt( value, 10 );
-				}
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-					value = '';
-				} else if ( window.PBSEditor.isCtrlDown ) {
-					value -= 1;
-				} else {
-					value += 1;
-				}
-
-				if ( value ) {
-					value += 'px';
-				} else {
-					value = '';
-				}
-
-				element.style( 'border-width', value );
-				view.model.set( 'border-width', value );
-
-				if ( ! value ) {
-					element.style( 'border-style', '' );
-					view.model.set( 'border-style', '' );
-					element.style( 'border-color', '' );
-					view.model.set( 'border-color', '' );
-					return;
-				}
-
-				value = element._domElement.style['border-style'];
-				if ( ! value || value === 'none' ) {
-					value = 'solid';
-					element.style( 'border-style', value );
-					view.model.set( 'border-style', value );
-				}
-				value = element._domElement.style['border-color'];
-				if ( ! value ) {
-					value = '#000000';
-					element.style( 'border-color', value );
-					view.model.set( 'border-color', value );
-				}
-			},
-			'hold': function( element, view ) {
-				  view.optionSettings.click( element, view );
-			}
-		},
-		{
-			'name': pbsParams.labels.increase_border_radius,
-			'tooltip': pbsParams.labels.increase_border_radius + ' {0}',
-			'tooltip-down': pbsParams.labels.decrease_border_radius + ' {0}',
-			'tooltip-reset': pbsParams.labels.remove_border_radius,
-			'type': 'button',
-			'class': 'pbs-button-col-border-radius',
-			'group': pbsParams.labels.borders,
-			'initialize': function( element, view ) {
-				view.listenTo( view.model, 'change:border-radius', view.render );
-			},
-			'tooltipValue': function ( element ) {
-				return element._domElement.style['border-radius'];
-			},
-			'isApplied': function ( element ) {
-				return element._domElement.style['border-radius'];
-			},
-			'click': function( element, view ) {
-				var value = element._domElement.style['border-radius'];
-
-				if ( ! value ) {
-					value = 0;
-				} else {
-					value = parseInt( value, 10 );
-				}
-
-				if ( window.PBSEditor.isShiftDown && window.PBSEditor.isCtrlDown ) {
-					value = 0;
-				} else if ( window.PBSEditor.isCtrlDown ) {
-					value--;
-				} else {
-					value++;
-				}
-
-				if ( ! value ) {
-					value = '';
-				} else {
-					value += 'px';
-				}
-
-				element.style( 'border-radius', value );
-				view.model.set( 'border-radius', value );
-			},
-			'hold': function( element, view ) {
-				  view.optionSettings.click( element, view );
-			}
-		}
-	]
-} );
-
-
-window.pbsAddInspector( 'DivCol', {
-	'label': pbsParams.labels.column,
-	'options': [
-		{
-			'tooltip': pbsParams.labels.border_color,
-			'tooltip-reset': pbsParams.labels.remove_border,
-			'type': 'colorButton',
-			'group': pbsParams.labels.borders,
-			'id': 'border-color',
-			'initialize': function( element, view ) {
-				view.listenTo( view.model, 'change:border-color', view.optionSettings.modelChanged );
-			},
-			'modelChanged': function() {
-				this.updateColor( this.model.get( 'element' )._domElement.style.borderColor );
-			},
-			'value': function( element ) {
-				return element._domElement.style.borderColor;
-			},
-			'change': function( element, value, view ) {
-				element.style( 'border-color', value );
-				if ( value === 'transparent' ) {
-					value = '';
-				}
-				if ( value ) {
-					value = element._domElement.style['border-style'];
-					if ( ! value || value === 'none' ) {
-						value = 'solid';
-						element.style( 'border-style', value );
-						view.model.set( 'border-style', value );
-					}
-					value = element._domElement.style['border-width'];
-					if ( ! value ) {
-						value = '1px';
-						element.style( 'border-width', value );
-						view.model.set( 'border-width', value );
-					}
-				} else {
-					element.style( 'border-style', '' );
-					view.model.set( 'border-style', '' );
-					element.style( 'border-width', '' );
-					view.model.set( 'border-width', '' );
-				}
-			}
-		},
-		{
-			'name': pbsParams.labels.border_style,
-			'tooltip': pbsParams.labels.border_style + ' {0}',
-			'tooltip-down': pbsParams.labels.border_style + ' {0}',
-			'tooltip-reset': pbsParams.labels.remove_border,
-			'type': 'button',
-			'class': 'pbs-button-col-border-style',
-			'group': pbsParams.labels.borders,
-			'initialize': function( element, view ) {
-				view.listenTo( view.model, 'change:border-style', view.render );
-			},
-			'tooltipValue': function ( element ) {
-				return element._domElement.style['border-style'];
-			},
-			'isApplied': function ( element ) {
-				return !! element._domElement.style['border-style'];
-			},
-			'click': function( element, view ) {
-				var value = element._domElement.style['border-style'];
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-					value = '';
-				} else if ( window.PBSEditor.isCtrlDown ) {
-					if ( value === 'dashed' ) {
-						value = 'solid';
-					} else if ( value === 'solid' ) {
-						value = '';
-					} else {
-						value = 'solid';
-					}
-				} else {
-					if ( value === '' ) {
-						value = 'solid';
-					} else if ( value === 'solid' ) {
-						value = 'dashed';
-					} else {
-						value = '';
-					}
-				}
-
-				element.style( 'border-style', value );
-				view.model.set( 'border-style', value );
-
-				if ( ! value ) {
-					element.style( 'border-style', '' );
-					view.model.set( 'border-style', '' );
-					element.style( 'border-color', '' );
-					view.model.set( 'border-color', '' );
-					return;
-				}
-
-				value = element._domElement.style['border-width'];
-				if ( ! value ) {
-					value = '1px';
-					element.style( 'border-width', value );
-					view.model.set( 'border-width', value );
-				}
-				value = element._domElement.style['border-color'];
-				if ( ! value ) {
-					value = '#000000';
-					element.style( 'border-color', value );
-					view.model.set( 'border-color', value );
-				}
-			},
-			'hold': function( element, view ) {
-				  view.optionSettings.click( element, view );
-			}
-		},
-		{
-			'name': pbsParams.labels.increase_border_thickness,
-			'tooltip': pbsParams.labels.increase_border_thickness + ' {0}',
-			'tooltip-down': pbsParams.labels.decrease_border_thickness + ' {0}',
-			'tooltip-reset': pbsParams.labels.remove_border,
-			'type': 'button',
-			'class': 'pbs-button-col-border-width',
-			'group': pbsParams.labels.borders,
-			'initialize': function( element, view ) {
-				view.listenTo( view.model, 'change:border-width', view.render );
-			},
-			'tooltipValue': function ( element ) {
-				return element._domElement.style['border-width'];
-			},
-			'isApplied': function ( element ) {
-				return element._domElement.style['border-width'];
-			},
-			'click': function( element, view ) {
-				var value = element._domElement.style['border-width'];
-
-				if ( ! value ) {
-					value = 0;
-				} else {
-					value = parseInt( value, 10 );
-				}
-
-				if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-					value = '';
-				} else if ( window.PBSEditor.isCtrlDown ) {
-					value -= 1;
-				} else {
-					value += 1;
-				}
-
-				if ( value ) {
-					value += 'px';
-				} else {
-					value = '';
-				}
-
-				element.style( 'border-width', value );
-				view.model.set( 'border-width', value );
-
-				if ( ! value ) {
-					return;
-				}
-
-				value = element._domElement.style['border-style'];
-				if ( ! value || value === 'none' ) {
-					value = 'solid';
-					element.style( 'border-style', value );
-					view.model.set( 'border-style', value );
-				}
-				value = element._domElement.style['border-color'];
-				if ( ! value ) {
-					value = '#000000';
-					element.style( 'border-color', value );
-					view.model.set( 'border-color', value );
-				}
-			},
-			'hold': function( element, view ) {
-				  view.optionSettings.click( element, view );
-			}
-		},
-		{
-			'name': pbsParams.labels.increase_border_radius,
-			'tooltip': pbsParams.labels.increase_border_radius + ' {0}',
-			'tooltip-down': pbsParams.labels.decrease_border_radius + ' {0}',
-			'tooltip-reset': pbsParams.labels.remove_border_radius,
-			'type': 'button',
-			'class': 'pbs-button-col-border-radius',
-			'group': pbsParams.labels.borders,
-			'initialize': function( element, view ) {
-				view.listenTo( view.model, 'change:border-radius', view.render );
-			},
-			'tooltipValue': function ( element ) {
-				return element._domElement.style['border-radius'];
-			},
-			'isApplied': function ( element ) {
-				return element._domElement.style['border-radius'];
-			},
-			'click': function( element, view ) {
-				var value = element._domElement.style['border-radius'];
-
-				if ( ! value ) {
-					value = 0;
-				} else {
-					value = parseInt( value, 10 );
-				}
-
-				if ( window.PBSEditor.isShiftDown && window.PBSEditor.isCtrlDown ) {
-					value = 0;
-				} else if ( window.PBSEditor.isCtrlDown ) {
-					value--;
-				} else {
-					value++;
-				}
-
-				if ( ! value ) {
-					value = '';
-				} else {
-					value += 'px';
-				}
-
-				element.style( 'border-radius', value );
-				view.model.set( 'border-radius', value );
-			},
-			'hold': function( element, view ) {
-				  view.optionSettings.click( element, view );
-			}
-		}
-	]
+	'options': options
 } );
 
 
@@ -14523,29 +17471,15 @@ window.pbsAddInspector( 'DivCol', {
 window.addEventListener( 'DOMContentLoaded', function() {
 	ContentEdit.Root.get().bind('blur', function (element) {
 
-		var row = null;
 		var col = null;
 
 		while ( element && element.constructor.name !== 'Region' ) {
-			if ( element.constructor.name === 'DivRow' ) {
-				row = element;
-			}
 			if ( element.constructor.name === 'DivCol' ) {
 				col = element;
 			}
 			element = element.parent();
 		}
 
-		if ( row ) {
-			if ( row.style( 'border-style' ) === 'none' ) {
-				if ( row.style( 'border-width' ) !== '0px' ) {
-					row.style( 'border-width', '' );
-				}
-				if ( row.style( 'border-color' ) !== '' ) {
-					row.style( 'border-color', '' );
-				}
-			}
-		}
 		if ( col ) {
 			if ( col.style( 'border-style' ) === 'none' ) {
 				if ( col.style( 'border-width' ) !== '0px' ) {
@@ -14587,6 +17521,11 @@ ContentTools.ToolboxUI.prototype.createShortcodeMappingOptions = function( short
 		options.first_of_type = typesDone.indexOf( options.type ) === -1;
 		typesDone.push( options.type );
 
+		// Iframes don't have attributes.
+		if ( options.type === 'iframe' ) {
+			options.attribute = '';
+		}
+
 		// Base the name of the attribute on the attribute itself if not available.
 		if ( typeof options.name === 'undefined' || ! options.name ) {
 			options.name = options.attribute;
@@ -14603,6 +17542,17 @@ ContentTools.ToolboxUI.prototype.createShortcodeMappingOptions = function( short
 				options.type = 'text';
 			} else if ( 'dropdown_post_type' === options.type ) {
 				options.type = 'text';
+			} else if ( 'boolean' === options.type ) {
+				options.type = 'text';
+			} else if ( 'number' === options.type ) {
+				options.type = 'text';
+			} else if ( 'dropdown' === options.type ) {
+				options.type = 'text';
+			} else if ( 'select' === options.type ) {
+				options.type = 'text';
+			} else if ( 'iframe' === options.type ) {
+				// Don't support the iframe in lite versions.
+				continue;
 			}
 		}
 
@@ -14647,6 +17597,19 @@ ContentTools.ToolboxUI.prototype.createShortcodeMappingOptions = function( short
 		} else if ( 'dropdown_post' === options.type ) {
 			options.type = 'select_post';
 			options.post_type = options.extra || 'post';
+		} else if ( 'dropdown_db' === options.type ) {
+			options.type = 'select_db';
+			options.db_table = options.extra_db_table || 'posts';
+			options.db_field_id = options.extra_db_value || 'ID';
+			options.db_field_label = options.extra_db_label || 'post_title';
+			options.db_where_column = options.extra_db_where_field;
+			options.db_where_value = options.extra_db_where_value;
+		} else if ( 'iframe' === options.type ) {
+			options.url = options.extra_url;
+			if ( ! options.url ) {
+				continue;
+			}
+			options.button = options.extra_button || pbsParams.labels.open;
 		} else if ( 'content' === options.type ) {
 			options.type = 'textarea';
 		}
@@ -14670,28 +17633,6 @@ ContentTools.ToolboxUI.prototype.createShortcodeMappingOptions = function( short
  	'label': pbsParams.labels.map,
 	'footer': pbsParams.labels.map_lite_footer, // LITE-ONLY
  	'options': [
-		{
-			'name': pbsParams.labels.hide_map_controls,
-			'tooltip': pbsParams.labels.hide_map_controls,
-			'tooltip-reset': pbsParams.labels.reset_map_controls,
-			'type': 'button',
-			'class': 'pbs-button-map-ui',
-			'isApplied': function ( element ) {
-				return element._domElement.getAttribute( 'data-disable-ui' );
-			},
-			'click': function( element ) {
-				var value = element._domElement.getAttribute( 'data-disable-ui' ) || false;
-
-				var enableControls = value || ( window.PBSEditor.isShiftDown && window.PBSEditor.isCtrlDown );
-				if ( enableControls ) {
-					element.attr( 'data-disable-ui', '' );
-				} else {
-					element.attr( 'data-disable-ui', '1' );
-				}
-
-				element._domElement.map.setOptions( { disableDefaultUI: ! enableControls } );
-			}
-		},
 		{
 			'name': pbsParams.labels.latitude_longitude_and_address,
 			'type': 'text',
@@ -14766,8 +17707,46 @@ ContentTools.ToolboxUI.prototype.createShortcodeMappingOptions = function( short
 					    }
 					});
 				}
-
 			}, 300 )
+		},
+		{
+			'name': pbsParams.labels.map_controls,
+			'type': 'checkbox',
+			'value': function( element ) {
+				return ! element._domElement.getAttribute( 'data-disable-ui' );
+			},
+			'change': function( element, value ) {
+				element.attr( 'data-disable-ui', value ? '1' : '' );
+				element._domElement.map.setOptions( { disableDefaultUI: ! value } );
+			}
+		},
+		{
+			'name': pbsParams.labels.map_marker,
+			'type': 'checkbox',
+			'value': function( element ) {
+				return !! element._domElement.getAttribute( 'data-marker' );
+			},
+			'change': function( element, value ) {
+
+				// Remove any existing map markers.
+				if ( element._domElement.map.marker ) {
+					element._domElement.map.marker.setMap( null );
+					delete( element._domElement.map.marker );
+				}
+
+				if ( ! value ) {
+					element.attr( 'data-marker', '' );
+					element.attr( 'data-marker-image', '' );
+				} else {
+					element.attr( 'data-marker', '1' );
+
+					// Add the marker.
+					element._domElement.map.marker = new google.maps.Marker({
+					    position: element._domElement.map.getCenter(),
+					    map: element._domElement.map
+					});
+				}
+			}
 		}
 	]
 } );
@@ -14802,33 +17781,30 @@ window.pbsAddInspector( 'Tabs', {
 	'label': pbsParams.labels.tabs,
 	'footer': pbsParams.labels.tabs_lite_footer, // LITE-ONLY
 	'options': [
-		{
-			'name': pbsParams.labels.add_tab,
-			'type': 'button',
-			'class': 'pbs-button-carousel-add-slide',
-			'click': function( element ) {
-				element.addTab();
-			}
-		},
-		{
-			'name': pbsParams.labels.remove_tab,
-			'type': 'button',
-			'class': 'pbs-button-carousel-remove-slide',
-			'click': function( element ) {
-				element.removeTab();
-			}
-		},
-		{
-			'name': pbsParams.labels.delete_tabs,
-			'type': 'button',
-			'class': 'ct-tool--remove',
-			'click': function( element ) {
-				element.blur();
-				element.parent().detach( element );
-			}
-		}
 	]
 } );
+
+
+/* globals ContentEdit, pbsParams */
+
+
+/**
+ * These are all the common options.
+ */
+var options = [
+];
+
+
+/**
+ * Add all the options above to all the proper elements (not buttons, input fields, etc).
+ */
+for ( var i = 0; i < window.pbsElementsWithInspector.length; i++ ) {
+	if ( ContentEdit[ window.pbsElementsWithInspector[ i ] ] ) {
+		window.pbsAddInspector( window.pbsElementsWithInspector[ i ], {
+			'options': options
+		} );
+	}
+}
 
 /* globals ContentTools, __extends */
 
@@ -14842,83 +17818,86 @@ ContentTools.Tools.ElementButton = ( function( _super ) {
 		return ElementButton.__super__.constructor.apply( this, arguments );
 	}
 
-	ElementButton.canApply = function( element ) {
-		if ( element.constructor.name === 'Tab' ) {
-			return false;
-		}
-    	return true;
+	ElementButton.canApply = function() {
+		return true;
+    };
+
+    ElementButton.isApplied = function() {
+		return false;
     };
 
 	return ElementButton;
 
 } )( ContentTools.Tool );
 
+
+// Stop add element buttons from being disabled.
+(function() {
+	var proxied = ContentTools.ToolUI.prototype.disabled;
+	ContentTools.ToolUI.prototype.disabled = function(disabledState) {
+		if ( this._domElement.classList.contains( 'pbs-tool-large' ) ) {
+			return;
+		}
+		return proxied.call( this, disabledState );
+    };
+
+	var proxied2 = ContentTools.ToolUI.prototype._onMouseUp;
+	ContentTools.ToolUI.prototype._onMouseUp = function(ev) {
+		if ( this._domElement.classList.contains( 'pbs-tool-large' ) ) {
+			this._mouseDown = false;
+	        return this.removeCSSClass('ct-tool--down');
+		}
+		return proxied2.call( this, ev );
+    };
+})();
+
+
+/**
+ * Display element buttons as large buttons.
+ */
+(function() {
+   var proxied = ContentTools.ToolUI.prototype.mount;
+   ContentTools.ToolUI.prototype.mount = function( domParent, before ) {
+	   var ret = proxied.call( this, domParent, before );
+
+	   if ( this.tool.buttonName ) {
+		   this._domElement.classList.add( 'pbs-tool-large' );
+		   var label = document.createElement( 'div' );
+		   label.classList.add( 'pbs-tool-title' );
+		   label.textContent = this.tool.buttonName;
+		   this._domElement.appendChild( label );
+		   //
+		//    if ( this.tool.premium && pbsParams.is_lite ) {
+		// 	   this._domElement.classList.add( 'pbs-tool-is-premium' );
+		// 	   var star = document.createElement( 'div' );
+		// 	   star.classList.add( 'pbs-tool-premium' );
+		// 	   this._domElement.appendChild( star );
+		   //
+		// 	   this._domElement.addEventListener( 'mouseover', function(ev) {
+		// 		   ev.target.setAttribute( 'data-tooltip', 'Available only in Premium.' );
+		// 	   }.bind(this) );
+		// 	   this._domElement.addEventListener( 'click', function(ev) {
+		// 		   var preview = document.createElement( 'DIV' );
+		// 		   preview.innerHTML = wp.template( 'pbs-preview-premium-element' )( {
+		// 			   'title': this.tool.title || this.tool.icon,
+		// 			   'description': this.tool.description,
+		// 			   'image': pbsParams.plugin_url + 'page_builder_sandwich/images/preview-' + this.tool.icon + '.gif'
+		// 		   } );
+		// 		   preview.addEventListener( 'click', function(ev) {
+		// 			   if ( [ 'IMG', 'DIV' ].indexOf( ev.target.tagName ) !== -1 ) {
+		// 				   preview.parentNode.removeChild( preview );
+		// 			   }
+		// 		   } );
+		// 		   document.body.appendChild( preview );
+		// 	   }.bind(this) );
+		//    }
+	   }
+
+	   return ret;
+   };
+})();
+
 /* globals ContentTools, ContentEdit, HTMLString, pbsParams */
-
-/***************************************************************************
- * Change the left/center/right align tools.
- ***************************************************************************/
-ContentTools.Tools.AlignCenter.className = '';
-ContentTools.Tools.AlignCenter.apply = function(element, selection, callback) {
-  var _ref;
-  if ((_ref = element.constructor.name) === 'ListItemText' || _ref === 'TableCellText') {
-    element = element.parent();
-  }
-  element.style('textAlign', 'center');
-  return callback(true);
-};
-
-ContentTools.Tools.AlignLeft.className = '';
-ContentTools.Tools.AlignLeft.apply = function(element, selection, callback) {
-  var _ref;
-  if ((_ref = element.constructor.name) === 'ListItemText' || _ref === 'TableCellText') {
-    element = element.parent();
-  }
-  element.style('textAlign', 'left');
-  return callback(true);
-};
-
-ContentTools.Tools.AlignRight.className = '';
-ContentTools.Tools.AlignRight.apply = function(element, selection, callback) {
-  var _ref;
-  if ((_ref = element.constructor.name) === 'ListItemText' || _ref === 'TableCellText') {
-    element = element.parent();
-  }
-  element.style('textAlign', 'right');
-  return callback(true);
-};
-ContentTools.Tools.AlignLeft.isApplied = function(element, selection) {
-	var _ref;
-	if ( ! this.canApply( element ) ) {
-		return false;
-	}
-	if ( ( _ref = element.type() ) === 'ListItemText' || _ref === 'TableCellText' ) {
-		element = element.parent();
-	}
-	return element.style( 'textAlign' ) === 'left' || element.style( 'textAlign' ) === 'start';
-};
-ContentTools.Tools.AlignCenter.isApplied = function(element, selection) {
-	var _ref;
-	if ( ! this.canApply( element ) ) {
-		return false;
-	}
-	if ( ( _ref = element.type() ) === 'ListItemText' || _ref === 'TableCellText' ) {
-		element = element.parent();
-	}
-	return element.style( 'textAlign' ) === 'center';
-};
-ContentTools.Tools.AlignRight.isApplied = function(element, selection) {
-	var _ref;
-	if ( ! this.canApply( element ) ) {
-		return false;
-	}
-	if ( ( _ref = element.type() ) === 'ListItemText' || _ref === 'TableCellText' ) {
-		element = element.parent();
-	}
-	return element.style( 'textAlign' ) === 'right' || element.style( 'textAlign' ) === 'end';
-};
-
-
 
 
 /***************************************************************************
@@ -15060,7 +18039,6 @@ ContentTools.Tools.Preformatted.canApply = function(element, selection) {
 	var proxied = ContentTools.Tools.Preformatted.apply;
 	ContentTools.Tools.Preformatted.apply = function(element, selection, callback) {
 		if ( this.isApplied( element ) ) {
-			window.PBSEditor.getToolUI( 'paragraph' ).apply( element, selection );
 			return;
 		}
 
@@ -15411,111 +18389,6 @@ ContentTools.Tool.refreshTooltip = function( value ) {
 
 
 /**
- * Display element buttons as large buttons.
- */
-(function() {
-   var proxied = ContentTools.ToolUI.prototype.mount;
-   ContentTools.ToolUI.prototype.mount = function( domParent, before ) {
-	   var ret = proxied.call( this, domParent, before );
-
-	   if ( this.tool.buttonName ) {
-		   this._domElement.classList.add( 'pbs-tool-large' );
-		   var label = document.createElement( 'div' );
-		   label.classList.add( 'pbs-tool-title' );
-		   label.textContent = this.tool.buttonName;
-		   this._domElement.appendChild( label );
-
-		   if ( this.tool.premium && pbsParams.is_lite ) {
-			   this._domElement.classList.add( 'pbs-tool-is-premium' );
-			   var star = document.createElement( 'div' );
-			   star.classList.add( 'pbs-tool-premium' );
-			   this._domElement.appendChild( star );
-
-			   this._domElement.addEventListener( 'mouseover', function(ev) {
-				   ev.target.setAttribute( 'data-tooltip', 'Available only in Premium.' );
-			   }.bind(this) );
-			   this._domElement.addEventListener( 'click', function(ev) {
-				   var preview = document.createElement( 'DIV' );
-				   preview.innerHTML = wp.template( 'pbs-preview-premium-element' )( {
-					   'title': this.tool.title || this.tool.icon,
-					   'description': this.tool.description,
-					   'image': pbsParams.plugin_url + 'page_builder_sandwich/images/preview-' + this.tool.icon + '.gif'
-				   } );
-				   preview.addEventListener( 'click', function(ev) {
-					   if ( [ 'IMG', 'DIV' ].indexOf( ev.target.tagName ) !== -1 ) {
-						   preview.parentNode.removeChild( preview );
-					   }
-				   } );
-				   document.body.appendChild( preview );
-			   }.bind(this) );
-		   }
-	   }
-
-	   return ret;
-   };
-})();
-
-
-
-/**
- * Move Undo & Redo to the adminbar.
- */
-(function() {
-	var proxied = ContentTools.ToolUI.prototype.mount;
-	ContentTools.ToolUI.prototype.mount = function( domParent, before ) {
-		var ret = proxied.call( this, domParent, before );
-
-		// Mounting forces the _domElement to be added into the toolbox.
-		// Remove them and bring back Undo into the adminbar.
-		if ( this.tool.name === 'Undo' || this.tool.name === 'Redo' ) {
-			document.querySelector('#wp-admin-bar-root-default').appendChild( this._domElement );
-		}
-
-		return ret;
-	};
-})();
-(function() {
-	var proxied = ContentTools.ToolUI.createDiv;
-	ContentTools.ToolUI.createDiv = function( classNames, attributes, content ) {
-
-		// Don't create the div for Undo & Redo, use the ones in the adminbar.
-		var elem;
-		if ( classNames.indexOf( 'ct-tool--undo' ) !== -1 ) {
-			elem = document.querySelector( '#wp-admin-bar-pbs_adminbar_undo' );
-		}
-		if ( classNames.indexOf( 'ct-tool--redo' ) !== -1 ) {
-			elem = document.querySelector( '#wp-admin-bar-pbs_adminbar_redo' );
-		}
-		if ( elem ) {
-
-			// Since the button is in the adminbar, prevent the default scroll to top movement.
-			elem.addEventListener('click', function(ev) {
-				ev.preventDefault();
-			});
-
-			if ( classNames && classNames.length > 0 ) {
-				if ( elem.getAttribute( 'class' ) ) {
-					classNames.push( elem.getAttribute( 'class' ) );
-				}
-				elem.setAttribute( 'class', classNames.join( ' ' ) );
-	        }
-	        if ( attributes ) {
-				for ( var name in attributes ) {
-					if ( attributes.hasOwnProperty( name ) ) {
-						var value = attributes[ name ];
-						elem.setAttribute( name, value );
-					}
-				}
-	        }
-			return elem;
-		}
-
-		return proxied.call( this, classNames, attributes, content );
-	};
-})();
-
-
-/**
  * Hide the table element in lite.
  */
 (function() {
@@ -15527,287 +18400,6 @@ ContentTools.Tool.refreshTooltip = function( value ) {
 	ContentTools.Tools.Table.label = pbsParams.labels.table;
 
 })();
-
-
-/**
- * Inherit Table.canApply on the ElementButton.
- */
-( function() {
-	ContentTools.Tools.Table.canApply = ContentTools.Tools.ElementButton.canApply;
-} )();
-
-/* globals ContentTools, ContentEdit, pbsParams */
-
-ContentTools.Tools.AlignRight.shortcut = 'ctrl+r';
-ContentTools.Tools.AlignCenter.shortcut = 'ctrl+e';
-ContentTools.Tools.AlignLeft.shortcut = 'ctrl+l';
-ContentTools.Tools.Italic.shortcut = 'ctrl+i';
-ContentTools.Tools.Bold.shortcut = 'ctrl+b';
-ContentTools.Tools.Link.shortcut = 'ctrl+k';
-ContentTools.Tools.Paragraph.shortcut = 'ctrl+1';
-ContentTools.Tools.UnorderedList.shortcut = 'ctrl+.';
-ContentTools.Tools.OrderedList.shortcut = 'ctrl+/';
-ContentTools.Tools.OrderedList.shortcut = 'ctrl+/';
-ContentTools.Tools.Preformatted.shortcut = 'ctrl+8';
-ContentTools.Tools.Undo.label = pbsParams.labels.undo + ' (ctrl+Z)';
-ContentTools.Tools.Redo.label = navigator.appVersion.indexOf('Mac') !== -1 ? pbsParams.labels.redo + ' (ctrl+shift+Z)' : pbsParams.labels.redo + ' (ctrl+y)';
-
-(function() {
-
-	var shortcuts = {};
-
-	var gatherShortcutKeys = function( toolboxUI ) {
-
-		// Do this if the shortcuts object is still empty.
-		if ( Object.keys( shortcuts ).length ) {
-			return;
-		}
-
-		// Loop through all the tools
-		for ( var toolUI in toolboxUI._toolUIs ) {
-			if ( ! toolboxUI._toolUIs.hasOwnProperty( toolUI ) ) {
-				continue;
-			}
-			var tool = toolboxUI._toolUIs[ toolUI ].tool;
-
-			if ( tool.shortcut ) {
-				var key = '';
-				var sc = tool.shortcut.replace( /\s/, '' ).toLowerCase();
-
-				if ( sc.indexOf( 'ctrl' ) !== -1 ) {
-					key += 'ctrl';
-				}
-				if ( sc.indexOf( 'shift' ) !== -1 ) {
-					key += key ? '+' : '';
-					key += 'shift';
-				}
-				sc = sc.replace( /(ctrl|shift|\+)/g, '' );
-				if ( ! sc ) {
-					key = '';
-				}
-				if ( key ) {
-					if ( sc === 'space' ) {
-						sc = 32;
-					} else if ( sc === 'up' ) {
-						sc = 38;
-					} else if ( sc === 'right' ) {
-						sc = 39;
-					} else if ( sc === 'down' ) {
-						sc = 40;
-					} else if ( sc === 'left' ) {
-						sc = 37;
-					} else if ( sc === 'tab' ) {
-						sc = 9;
-					} else if ( sc === 'enter' ) {
-						sc = 13;
-					} else if ( sc === '.' ) {
-						sc = 190;
-					} else if ( sc === '/' ) {
-						sc = 191;
-					} else if ( sc === '=' ) {
-						sc = 187;
-					} else if ( sc === '-' ) {
-						sc = 189;
-					} else if ( sc === 'delete' ) {
-						sc = 8;
-					}
-					if ( typeof sc === 'number' ) {
-						key += '+' + sc;
-					} else {
-						sc = sc.match( /[a-z]/ ) ? sc.toUpperCase() : sc;
-						key += '+' + sc.charCodeAt(0);
-					}
-
-					shortcuts[ key ] = tool;
-				}
-			}
-		}
-	};
-
-	var getShortcutKey = function( ev ) {
-		var key = '';
-		if ( ev.metaKey || ev.ctrlKey ) {
-			key += 'ctrl';
-		}
-		if ( ev.shiftKey ) {
-			key += key ? '+' : '';
-			key += 'shift';
-		}
-		if ( ! key ) {
-			return;
-		}
-		key += '+' + ev.keyCode;
-
-		return key;
-	};
-
-	var shortcutListener = function(ev) {
-
-		var key = getShortcutKey( ev );
-		var element = ContentEdit.Root.get().focused();
-
-		if ( wp.hooks.applyFilters( 'pbs.shortcuts', false, key, element ) ) {
-			ev.preventDefault();
-			return;
-		}
-
-		if ( ! element ) {
-			return;
-		}
-
-		// Apply the tool if the shortcut matched.
-		if ( shortcuts[ key ] ) {
-			var tool = shortcuts[ key ];
-
-			if ( ! ( element && element.isMounted() ) ) {
-				return;
-			}
-
-			var selection = null;
-			if ( element.selection ) {
-				selection = element.selection();
-			}
-
-			if ( tool.canApply( element, selection ) ) {
-				var temp1 = window.PBSEditor.isCtrlDown;
-				var temp2 = window.PBSEditor.isShiftDown;
-				window.PBSEditor.isCtrlDown = false;
-				window.PBSEditor.isShiftDown = false;
-				tool.apply( element, selection, function() {}, true );
-				window.PBSEditor.isCtrlDown = temp1;
-				window.PBSEditor.isShiftDown = temp2;
-			}
-
-			ev.preventDefault();
-			ev.stopPropagation();
-			return false;
-		}
-
-	};
-
-
-	// Because we're listening on the document keydown event, some shortcuts will might
-	// not trigger correctly and might continue with their default behavior (e.g. navigating columns),
-	// this fixes this by handling the call from the Text Element level.
-	var elementKeyDownProxy = ContentEdit.Text.prototype._onKeyDown;
-	ContentEdit.Text.prototype._onKeyDown = function( ev ) {
-		gatherShortcutKeys( this );
-
-		if ( shortcuts ) {
-			var key = getShortcutKey( ev );
-			if ( shortcuts[ key ] ) {
-				shortcutListener( ev );
-				return;
-			}
-		}
-
-		elementKeyDownProxy.call( this, ev );
-	};
-
-
-	var addDomEventListenersProxy = ContentTools.ToolboxUI.prototype._addDOMEventListeners;
-	ContentTools.ToolboxUI.prototype._addDOMEventListeners = function() {
-		// Gather all shortcut keys
-		gatherShortcutKeys( this );
-
-		document.addEventListener( 'keydown', shortcutListener );
-		return addDomEventListenersProxy.call( this );
-	};
-
-	var removeDomEventListenersProxy = ContentTools.ToolboxUI.prototype._removeDOMEventListeners;
-	ContentTools.ToolboxUI.prototype._removeDOMEventListeners = function() {
-		document.removeEventListener( 'keydown', shortcutListener );
-		return removeDomEventListenersProxy.call( this );
-	};
-
-
-	var toolUIMountProxy = ContentTools.ToolUI.prototype.mount;
-	ContentTools.ToolUI.prototype.mount = function( domParent, before ) {
-
-	  if ( typeof this.tool.shortcut !== 'undefined' ) {
-		  if ( this.tool.shortcut !== '' ) {
-
-			// Create the shortcut label, single letters are capitalized.
-			var sc = this.tool.shortcut;
-			sc = sc.replace( /\+(.)$/, function ( match ) {
-				return match.toUpperCase();
-			} );
-
-			if ( this.tool.label ) {
-				if ( ! this.tool._origLabel ) {
-					this.tool._origLabel = this.tool.label;
-				}
-				this.tool.label = this.tool._origLabel + ' (' + sc + ')';
-			}
-			if ( this.tool.labelDown ) {
-				if ( ! this.tool._origLabelDown ) {
-					this.tool._origLabelDown = this.tool.labelDown;
-				}
-				this.tool.labelDown = this.tool._origLabelDown + ' (' + sc + ')';
-			}
-			if ( this.tool.labelReset ) {
-				if ( ! this.tool._origLabelReset ) {
-					this.tool._origLabelReset = this.tool.labelReset;
-				}
-				this.tool.labelReset = this.tool._origLabelReset + ' (' + sc + ')';
-			}
-
-		  }
-	  }
-
-	  var ret = toolUIMountProxy.call( this, domParent, before );
-
-	  // At the start create the default tooltip first.
-	  this._domElement.setAttribute('data-tooltip', ContentEdit._(this.tool.label.replace( '{0}', '' )));
-
-	  return ret;
-	};
-
-})();
-
-
-/**
- * Adminbar shortcuts.
- */
-window.addEventListener( 'DOMContentLoaded', function() {
-	document.addEventListener( 'keydown', function(ev) {
-		if ( ! window.PBSEditor.isEditing() ) {
-
-			// Edit.
-			if ( ( ev.metaKey || ev.ctrlKey ) && ev.keyCode === 69 ) {
-				document.querySelector( '#wp-admin-bar-gambit_builder_edit' ).dispatchEvent( new CustomEvent( 'click' ) );
-				ev.preventDefault();
-			}
-
-		} else {
-
-			if ( ( ev.metaKey || ev.ctrlKey ) && ( ev.keyCode === 83 || ev.keyCode === 27 ) ) {
-				ev.preventDefault();
-
-				var element = ContentEdit.Root.get().focused();
-				if ( element ) {
-					element.blur();
-				}
-
-				// Save.
-				if ( ev.keyCode === 83 ) {
-					document.querySelector( '#wp-admin-bar-gambit_builder_save' ).dispatchEvent( new CustomEvent( 'click' ) );
-
-				// Cancel.
-				} else {
-					document.querySelector( '#wp-admin-bar-gambit_builder_cancel' ).dispatchEvent( new CustomEvent( 'click' ) );
-				}
-
-			} else if ( ( ev.metaKey || ev.ctrlKey ) && ev.shiftKey && ev.keyCode === 82 ) {
-
-				// New reload shortcut.
-				ev.preventDefault();
-				location.reload();
-
-			}
-		}
-	});
-} );
 
 /* globals ContentTools, ContentEdit, __extends */
 
@@ -16061,21 +18653,31 @@ ContentTools.Tools.Shortcode = (function(_super) {
 
 	Shortcode.apply = function(element, selection, callback) {
 
+		var parent = null;
+		var index = 0;
+
+		var root = ContentEdit.Root.get();
+		if ( root.focused() ) {
+			parent = root.focused().parent();
+			index = parent.children.indexOf( root.focused() ) + 1;
+		} else {
+			var mainRegion = ContentTools.EditorApp.get().regions()['main-content'];
+			if ( mainRegion.children ) {
+				parent = mainRegion.children[0].parent();
+			}
+		}
+
+		this.createNew( parent, index );
+
+		return callback( true );
+	};
+
+	Shortcode.createNew = function( parent, index ) {
+
 		PBSEditor.shortcodeFrame.open({
 			title: pbsParams.labels.insert_shortcode,
 			button: pbsParams.labels.insert_shortcode,
 			successCallback: function( view ) {
-
-				var root = ContentEdit.Root.get();
-				var elemFocused = null;
-		        if ( root.focused() ) {
-					elemFocused = root.focused();
-				} else {
-					var mainRegion = ContentTools.EditorApp.get().regions()['main-content'];
-					if ( mainRegion.children ) {
-						elemFocused = mainRegion.children[0];
-					}
-				}
 
 				var base = view.selected.getAttribute( 'data-shortcode-tag' );
 				var shortcodeRaw = this.createInsertedShortcode( base );
@@ -16089,8 +18691,7 @@ ContentTools.Tools.Shortcode = (function(_super) {
 				} else {
 					elem = new ContentEdit.Text( 'p', {}, shortcode.shortcode.string() );
 				}
-				var index = elemFocused.parent().children.indexOf( elemFocused );
-				elemFocused.parent().attach( elem, index + 1 );
+				parent.attach( elem, index );
 
 				if ( isMapped ) {
 					elem.ajaxUpdate( true );
@@ -16104,7 +18705,6 @@ ContentTools.Tools.Shortcode = (function(_super) {
 
 			}.bind( this )
 		});
-		return callback( true );
 	};
 
 	Shortcode.createInsertedShortcode = function( base ) {
@@ -16150,234 +18750,6 @@ ContentTools.Tools.Shortcode = (function(_super) {
 } )( ContentTools.Tools.ElementButton );
 
 
-/* globals ContentTools, ContentEdit, PBS, pbsSelectorMatches */
-
-/**
- * The Toolbar API
- */
-window.addEventListener( 'DOMContentLoaded', function() {
-
-	var _toolbar = new PBS.Toolbar();
-	_toolbar.init();
-
-	// Add/remove the event listeners to the editor.
-	ContentTools.EditorApp.get().bind('start', function () {
-		_toolbar.start();
-	});
-	ContentTools.EditorApp.get().bind('stop', function () {
-		_toolbar.stop();
-	});
-
-});
-
-
-PBS.Toolbar = (function() {
-    function Toolbar() {
-		this._domElement = null;
-		this.tools = [];
-    }
-
-	Toolbar.prototype.init = function() {
-		this._domElement = document.createElement('DIV');
-		this._domElement.classList.add('pbs-toolbar');
-		this._offsetAdminBar = document.querySelector('#wpadminbar').offsetHeight;
-		document.body.appendChild( this._domElement );
-
-		this._addEventListeners();
-
-
-		this._onMouseOverBound = this._onMouseOver.bind(this);
-		this._onMouseMoveBound = this._onMouseMove.bind(this);
-		this._onMouseOutBound = this._onMouseOut.bind(this);
-		this._updatePositionBound = this._updatePosition.bind(this);
-	};
-
-	Toolbar.prototype._addEventListeners = function() {
-
-		// Remove the toolbar when leaving the main parent
-		this._domElement.addEventListener('mouseout', function(e) {
-			if ( this._parent !== e.relatedTarget ) {
-				this._onMouseOut(e);
-			}
-		}.bind(this));
-
-		// When the mouse goes out of the toolbar, trigger a mouse over in another
-		// to make sure that the toolbar location gets refreshed.
-		// This fixes the bug where the toolbar does not appear again when hovering into another
-		// adjacent element with a toolbar.
-		this._domElement.addEventListener('mouseout', function(e) {
-			if ( e.relatedTarget ) {
-				e.relatedTarget.dispatchEvent( new CustomEvent( 'mouseover' ) );
-			}
-		});
-
-		// Hide the toolbar when dragging.
-		ContentEdit.Root.get().bind('drag', function () {
-		    this.hide();
-		}.bind(this));
-
-		// Hide the toolbar when dragging.
-		ContentEdit.Root.get().bind('blur', function () {
-			this.hide();
-		}.bind(this));
-	};
-
-	Toolbar.prototype._onMouseOver = function(e) {
-
-		// Only do this for elements inside the editable area.
-		var editorArea = document.querySelector('[data-editable]');
-		if ( ! editorArea.contains( e.target ) ) {
-			return;
-		}
-
-		// Don't do anything when hovering over the toolbar.
-		if ( e.relatedTarget ) {
-			if ( e.relatedTarget.classList ) {
-				if ( e.relatedTarget.classList.contains('pbs-toolbar') || e.relatedTarget.classList.contains('pbs-tool') ) {
-					return;
-				}
-			}
-		}
-
-		// Don't display the toolbar if forced.
-		if ( e.target.classList ) {
-			if ( e.target.classList.contains( 'pbs-no-toolbar' ) ) {
-				return;
-			}
-		}
-
-		// Don't show the toolbar when dragging.
-	    if ( ContentEdit.Root.get().dragging() ) {
-			return;
-		}
-
-		// Get the toolbar selectors to watch for.
-		var selectors = wp.hooks.applyFilters( 'pbs.has_toolbar_selectors', [] );
-
-		this._clearTools();
-
-		// Go through each selector and check if we are over a selector (or it's children), then display the toolbar.
-		for ( var i = 0; i < selectors.length; i++ ) {
-
-			// Check if the target matches an exact selector.
-			if ( pbsSelectorMatches( e.target, selectors[ i ] ) ) {
-				this._parent = e.target;
-				if ( this._addTools( e.target ) ) {
-					this._domElement.classList.add('pbs-show');
-					this._domElement.style.opacity = 1;
-					this._updatePosition();
-				}
-				return;
-			}
-
-			// Check whether the element matches a child of the selector.
-			var childSelector = selectors[ i ].split(',').join(' *,').concat(' *');
-
-			// If a child matches, find the parent that matches the original selector.
-			if ( pbsSelectorMatches( e.target, childSelector ) ) {
-
-				// If it matches a child, we need to find the originating parent selector,
-				// so we can make the toolbar appear on the top-center of the parent.
-				var parentElement = e.target.parentNode;
-				while ( parentElement && parentElement.tagName !== 'BODY' ) {
-					if ( pbsSelectorMatches( parentElement, selectors[ i ] ) ) {
-						this._parent = parentElement;
-						if ( this._addTools( parentElement ) ) {
-							this._domElement.classList.add('pbs-show');
-							this._domElement.style.opacity = 1;
-							this._updatePosition();
-						}
-						return;
-					}
-					parentElement = parentElement.parentNode;
-				}
-			}
-		}
-	};
-
-	Toolbar.prototype._onMouseMove = function(e) {
-		if ( this._parent ) {
-			if ( ! this._domElement.classList.contains( 'pbs-show' ) ) {
-				this._onMouseOver(e);
-			}
-			this._updatePosition();
-		}
-	};
-
-	Toolbar.prototype._onMouseOut = function(e) {
-		if ( e.relatedTarget ) {
-			if ( e.relatedTarget.classList ) {
-				if ( e.relatedTarget.classList.contains('pbs-toolbar') || e.relatedTarget.classList.contains('pbs-tool') ) {
-					return;
-				}
-			}
-		}
-		this.hide();
-	};
-
-	Toolbar.prototype._addTools = function( targetElement ) {
-		// Add the toolbar tools
-		var tools = wp.hooks.applyFilters( 'pbs.toolbar_tools', [], this._domElement, targetElement );
-		if ( ! tools.length ) {
-			return;
-		}
-
-		// Clear the toolbar
-		while ( this._domElement.firstChild ) {
-			this._domElement.removeChild( this._domElement.firstChild );
-		}
-
-		// Add the toolbar tools
-		for ( var i = 0; i < tools.length; i++ ) {
-			this._domElement.appendChild( tools[ i ] );
-			this.tools.push( tools[ i ] );
-			this.tools[ this.tools.length - 1 ].addEventListener( 'click', this._updatePositionBound );
-		}
-
-		return tools.length;
-	};
-
-	Toolbar.prototype._updatePosition = function() {
-		var rect = this._parent.getBoundingClientRect();
-		var style = getComputedStyle( document.querySelector('html') );
-		this._domElement.style.left = parseInt( rect.right - rect.width / 2 - this._domElement.offsetWidth / 2 - parseInt( style['margin-left'], 10 ), 10 ) + 'px';
-		this._domElement.style.top = parseInt( rect.top + window.pageYOffset - this._offsetAdminBar - this._domElement.offsetHeight + 1, 10 ) + 'px';
-	};
-
-	Toolbar.prototype.start = function() {
-		document.addEventListener( 'mouseover', this._onMouseOverBound );
-		document.addEventListener( 'mousemove', this._onMouseMoveBound );
-		document.addEventListener( 'mouseout', this._onMouseOutBound );
-	};
-
-	Toolbar.prototype.stop = function() {
-		document.removeEventListener( 'mouseover', this._onMouseOverBound );
-		document.removeEventListener( 'mousemove', this._onMouseMoveBound );
-		document.removeEventListener( 'mouseout', this._onMouseOutBound );
-	};
-
-	Toolbar.prototype._clearTools = function() {
-		for ( var i = 0; i < this.tools; i++ ) {
-			this.tools[ i ].removeEventListener( 'click', this._updatePositionBound );
-		}
-
-		while ( this._domElement.firstChild ) {
-			this._domElement.removeChild( this._domElement.firstChild );
-		}
-
-		this.tools = [];
-	};
-
-	Toolbar.prototype.hide = function() {
-		this._domElement.classList.remove('pbs-show');
-		this._clearTools();
-	};
-
-
-	return Toolbar;
-
-})();
-
 /* globals ContentTools, __extends, ContentEdit, pbsParams */
 
 ContentTools.Tools.Heading1 = (function(_super) {
@@ -16395,8 +18767,6 @@ ContentTools.Tools.Heading1 = (function(_super) {
 
 	Heading1.tagName = 'h1';
 
-	Heading1.shortcut = 'ctrl+1';
-
 	Heading1.canApply = function(element, selection) {
 		if ( element.constructor.name === 'ListItemText' ) {
 			return false;
@@ -16409,7 +18779,6 @@ ContentTools.Tools.Heading1 = (function(_super) {
 
 	Heading1.apply = function(element, selection, callback) {
 		if ( this.isApplied( element ) ) {
-			window.PBSEditor.getToolUI( 'paragraph' ).apply( element, selection );
 			return;
 		}
 		// If the element has no content, then add the new element after it.
@@ -16446,8 +18815,6 @@ ContentTools.Tools.Heading2 = (function(_super) {
 
 	Heading2.tagName = 'h2';
 
-	Heading2.shortcut = 'ctrl+2';
-
 	return Heading2;
 
 })(ContentTools.Tools.Heading1);
@@ -16466,8 +18833,6 @@ ContentTools.Tools.Heading3 = (function(_super) {
 	Heading3.icon = 'h3';
 
 	Heading3.tagName = 'h3';
-
-	Heading3.shortcut = 'ctrl+3';
 
 	return Heading3;
 
@@ -16489,8 +18854,6 @@ ContentTools.Tools.Heading4 = (function(_super) {
 
 	Heading4.tagName = 'h4';
 
-	Heading4.shortcut = 'ctrl+4';
-
 	return Heading4;
 
 })(ContentTools.Tools.Heading1);
@@ -16510,8 +18873,6 @@ ContentTools.Tools.Heading5 = (function(_super) {
 	Heading5.icon = 'h5';
 
 	Heading5.tagName = 'h5';
-
-	Heading5.shortcut = 'ctrl+5';
 
 	return Heading5;
 
@@ -16533,8 +18894,6 @@ ContentTools.Tools.Heading6 = (function(_super) {
 
 	Heading6.tagName = 'h6';
 
-	Heading6.shortcut = 'ctrl+6';
-
 	return Heading6;
 
 })(ContentTools.Tools.Heading1);
@@ -16555,8 +18914,6 @@ ContentTools.Tools.Blockquote = (function(_super) {
   Blockquote.icon = 'blockquote';
 
   Blockquote.tagName = 'blockquote';
-
-  Blockquote.shortcut = 'ctrl+7';
 
   return Blockquote;
 
@@ -16716,7 +19073,13 @@ ContentTools.Tools.Code = (function(_super) {
 
 	Code.tagName = 'code';
 
-	Code.shortcut = '';
+	Code.canApply = function( element, selection ) {
+		if ( ! selection ) {
+			return false;
+		}
+		var _ref = selection.get(), from = _ref[0], to = _ref[1];
+		return from !== to;
+	};
 
 	// This is the original apply function of Bold that ONLY uses tags.
 	Code.apply = function(element, selection, callback) {
@@ -16953,7 +19316,8 @@ ContentTools.Tools.Color = (function(_super) {
 
 // If another element is selected, hide the color picker
 ContentEdit.Root.get().bind('blur', function() {
-	var tool = ContentTools.EditorApp.get()._toolbox._toolUIs.color;
+	var tool = window.PBSEditor.getToolUI( 'color' );
+	// var tool = ContentTools.EditorApp.get()._toolbox._toolUIs.color;
 	if ( typeof tool !== 'undefined' ) {
 		tool.tool.hidePicker();
 	}
@@ -17043,22 +19407,27 @@ ContentTools.Tools.TwoColumn = (function(_super) {
 	OneColumn.buttonName = pbsParams.labels.one_column;
 
 	OneColumn.apply = function(element, selection, callback) {
+		var index = element.parent().children.indexOf( element ) + 1;
+		element.blur();
+		this.createNew( element.parent(), index );
+		return callback( true );
+	};
+
+	OneColumn.createNew = function( parent, index ) {
 		var row = new ContentEdit.DivRow('div');
 		var col = new ContentEdit.DivCol('div');
 		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
 
-		element.parent().attach( row, index + 1 );
+		parent.attach( row, index );
+
 		row.attach(col);
 		col.attach(p);
 
-		element.blur();
 		p.focus();
 
 		row.showOutline();
 
 		wp.hooks.doAction( 'pbs.tool.row.applied', row );
-		return callback( true );
 	};
 
 	return OneColumn;
@@ -17084,27 +19453,27 @@ ContentTools.Tools.TwoColumn = (function(_super) {
 	TwoColumn.buttonName = pbsParams.labels.two_column;
 
 	TwoColumn.apply = function(element, selection, callback) {
+		var index = element.parent().children.indexOf( element ) + 1;
+		element.blur();
+		this.createNew( element.parent(), index );
+		return callback( true );
+	};
 
+	TwoColumn.createNew = function( parent, index ) {
 		var row = new ContentEdit.DivRow('div');
 		var col = new ContentEdit.DivCol('div');
 		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
-
-		element.parent().attach( row, index + 1 );
+		parent.attach( row, index );
 		row.attach(col);
 		col.attach(p);
-
-		element.blur();
 		p.focus();
-
+		col.style( 'flex-basis', '50%' );
 		col = new ContentEdit.DivCol('div');
 		p = new ContentEdit.Text('p', {}, '');
-
 		row.attach(col);
 		col.attach(p);
-
+		col.style( 'flex-basis', '50%' );
 		row.showOutline();
-		return callback( true );
 	};
 
 	return TwoColumn;
@@ -17130,33 +19499,32 @@ ContentTools.Tools.ThreeColumn = (function(_super) {
 	ThreeColumn.buttonName = pbsParams.labels.three_column;
 
 	ThreeColumn.apply = function(element, selection, callback) {
+		var index = element.parent().children.indexOf( element ) + 1;
+		element.blur();
+		this.createNew( element.parent(), index );
+		return callback( true );
+	};
 
+	ThreeColumn.createNew = function( parent, index ) {
 		var row = new ContentEdit.DivRow('div');
 		var col = new ContentEdit.DivCol('div');
 		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
-
-		element.parent().attach( row, index + 1 );
+		parent.attach( row, index );
 		row.attach(col);
 		col.attach(p);
-
-		element.blur();
 		p.focus();
-
+		col.style( 'flex-basis', '33.33%' );
 		col = new ContentEdit.DivCol('div');
 		p = new ContentEdit.Text('p', {}, '');
-
 		row.attach(col);
 		col.attach(p);
-
+		col.style( 'flex-basis', '33.33%' );
 		col = new ContentEdit.DivCol('div');
 		p = new ContentEdit.Text('p', {}, '');
-
 		row.attach(col);
 		col.attach(p);
-
+		col.style( 'flex-basis', '33.33%' );
 		row.showOutline();
-		return callback( true );
 	};
 
 	return ThreeColumn;
@@ -17182,479 +19550,295 @@ ContentTools.Tools.FourColumn = (function(_super) {
 	FourColumn.buttonName = pbsParams.labels.four_column;
 
 	FourColumn.apply = function(element, selection, callback) {
+		var index = element.parent().children.indexOf( element ) + 1;
+		element.blur();
+		this.createNew( element.parent(), index );
+		return callback( true );
+	};
 
+	FourColumn.createNew = function( parent, index ) {
 		var row = new ContentEdit.DivRow('div');
 		var col = new ContentEdit.DivCol('div');
 		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
-
-		element.parent().attach( row, index + 1 );
+		parent.attach( row, index );
 		row.attach(col);
 		col.attach(p);
-
-		element.blur();
 		p.focus();
-
+		col.style( 'flex-basis', '25%' );
 		col = new ContentEdit.DivCol('div');
 		p = new ContentEdit.Text('p', {}, '');
-
 		row.attach(col);
 		col.attach(p);
-
+		col.style( 'flex-basis', '25%' );
 		col = new ContentEdit.DivCol('div');
 		p = new ContentEdit.Text('p', {}, '');
-
 		row.attach(col);
 		col.attach(p);
-
+		col.style( 'flex-basis', '25%' );
 		col = new ContentEdit.DivCol('div');
 		p = new ContentEdit.Text('p', {}, '');
-
 		row.attach(col);
 		col.attach(p);
-
+		col.style( 'flex-basis', '25%' );
 		row.showOutline();
-		return callback( true );
 	};
 
 	return FourColumn;
 
 } )( ContentTools.Tools.ElementButton );
 
+/* globals ContentTools, __extends, pbsParams */
 
+ContentTools.Tools.InsertElement = (function(_super) {
+	__extends(InsertElement, _super);
 
-
-/* globals ContentTools, ContentEdit, __extends, pbsParams */
-/*
-ContentTools.Tools.Row = (function(_super) {
-	__extends(Row, _super);
-
-	function Row() {
-		return Row.__super__.constructor.apply(this, arguments);
+	function InsertElement() {
+		return InsertElement.__super__.constructor.apply( this, arguments );
 	}
 
-	ContentTools.ToolShelf.stow(Row, 'row');
+	ContentTools.ToolShelf.stow( InsertElement, 'insertElement' );
 
-	Row.label = pbsParams.labels.add_row;
+	InsertElement.label = '';
 
-	Row.icon = 'row';
+	InsertElement.icon = 'insert-element';
 
-	Row.tagName = 'div';
+	InsertElement.className = '';
 
-	Row.shortcut = 'ctrl+shift+1';
-
-	Row.canApply = function() {
-		return true;
-	};
-
-	Row.apply = function(element, selection, callback) {
-
-		var row = new ContentEdit.DivRow('div');
-		var col = new ContentEdit.DivCol('div');
-		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
-
-		element.parent().attach( row, index + 1 );
-		row.attach(col);
-		col.attach(p);
-
-		element.blur();
-		p.focus();
-
-		row.showOutline();
-
-		wp.hooks.doAction( 'pbs.tool.row.applied', row );
-
+	InsertElement.apply = function(element, selection, callback) {
+		var editor = ContentTools.EditorApp.get();
+		editor._toolboxElements.toggle();
 		return callback(true);
 	};
 
-	return Row;
+	InsertElement.canApply = function() {
+		return true;
+	};
+
+	return InsertElement;
 
 })(ContentTools.Tool);
 
 
-ContentTools.Tools.Column2 = (function(_super) {
-	__extends(Column2, _super);
+/**
+ * Add a label in the add element tool.
+ */
+(function() {
+	var proxied = ContentTools.ToolUI.prototype.mount;
+	ContentTools.ToolUI.prototype.mount = function( domParent, before ) {
+		var ret = proxied.call( this, domParent, before );
+		if ( this._domElement.classList.contains( 'ct-tool--insert-element' ) ) {
 
-	function Column2() {
-		return Column2.__super__.constructor.apply(this, arguments);
-	}
+			// Add the button label.
+			this._domElement.innerHTML = '<span>' + pbsParams.labels.add_element + '</span>';
 
-	ContentTools.ToolShelf.stow(Column2, 'column2');
+			// Show the toolbar when hovering over the add element button.
+			this._toolboxElementsHoverShow = function() {
+				ContentTools.EditorApp.get()._toolboxElements.show();
+			};
+			this._domElement.addEventListener( 'mouseenter', this._toolboxElementsHoverShow );
 
-	Column2.label = pbsParams.labels.add_2_column_row;
+			// Show the toolbar when mouse moves near the edge of the screen.
+			this._toolboxElementsSideMouseEnterHandler = function( ev ) {
+				if ( ! window.PBSEditor.isEditing() ) {
+					return;
+				}
+				if ( ev.screenX <= 10 && ev.screenY > 70 ) {
+					ContentTools.EditorApp.get()._toolboxElements.show();
+				}
+			};
+			document.body.addEventListener( 'mousemove', this._toolboxElementsSideMouseEnterHandler );
 
-	Column2.icon = 'column-2';
+			// Hide the toolbar when mouse moves on the admin bar.
+			this._toolboxElementsAdminbarEnterHandler = function() {
+				ContentTools.EditorApp.get()._toolboxElements.hide();
+			};
+			document.querySelector( '#wpadminbar' ).addEventListener( 'mousemove', this._toolboxElementsAdminbarEnterHandler );
+		}
+		return ret;
+	};
+})();
 
-	Column2.tagName = 'div';
 
-	Column2.shortcut = 'ctrl+shift+2';
+( function() {
+   var proxied = ContentTools.ToolUI.prototype.unmount;
+   ContentTools.ToolUI.prototype.unmount = function( t, e ) {
+	   if ( this._domElement.classList.contains( 'ct-tool--insert-element' ) ) {
 
-	Column2.canApply = function() {
-		return true;
+		   // Removeo all events we added during mount.
+		   this._domElement.removeEventListener( 'mouseenter', this._toolboxElementsHoverShow );
+
+		   document.body.removeEventListener( 'mousemove', this._toolboxElementsSideMouseEnterHandler );
+
+		   document.querySelector( '#wpadminbar' ).removeEventListener( 'mousemove', this._toolboxElementsAdminbarEnterHandler );
+	   }
+	   return proxied.call( this, t, e );
+   };
+} )();
+
+/* globals ContentTools */
+
+( function() {
+
+	ContentTools.Tools.AlignLeft.className = '';
+
+	ContentTools.Tools.AlignLeft.apply = function( element, selection, callback ) {
+		var _ref;
+		if ( ( _ref = element.constructor.name ) === 'ListItemText' || _ref === 'TableCellText' ) {
+			element = element.parent();
+		}
+
+		if ( element.constructor.name === 'Icon' ) {
+			if ( element.hasCSSClass( 'alignleft' ) ) {
+				element.removeCSSClass( 'alignleft' );
+			} else {
+				element.removeCSSClass( 'alignleft' );
+				element.removeCSSClass( 'alignright' );
+				element.removeCSSClass( 'aligncenter' );
+				element.removeCSSClass( 'alignnone' );
+				element.addCSSClass( 'alignleft' );
+			}
+			return callback( true );
+		}
+
+		element.style( 'textAlign', 'left' );
+
+		return callback( true );
 	};
 
-	Column2.apply = function(element, selection, callback) {
+	ContentTools.Tools.AlignLeft.isApplied = function( element ) {
+		var _ref;
+		if ( ! this.canApply( element ) ) {
+			return false;
+		}
+		if ( ( _ref = element.type() ) === 'ListItemText' || _ref === 'TableCellText' ) {
+			element = element.parent();
+		}
 
-		var row = new ContentEdit.DivRow('div');
-		var col = new ContentEdit.DivCol('div');
-		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
+		if ( element.constructor.name === 'Icon' ) {
+			return element.hasCSSClass( 'alignleft' );
+		}
 
-		element.parent().attach( row, index + 1 );
-		row.attach(col);
-		col.attach(p);
-
-		element.blur();
-		p.focus();
-
-		col = new ContentEdit.DivCol('div');
-		p = new ContentEdit.Text('p', {}, '');
-
-		row.attach(col);
-		col.attach(p);
-
-		row.showOutline();
-
-		return callback(true);
+		return element.style( 'textAlign' ) === 'left' || element.style( 'textAlign' ) === 'start';
 	};
 
-	return Column2;
+	var proxiedCanApply = ContentTools.Tools.AlignLeft.canApply;
+	ContentTools.Tools.AlignLeft.canApply = function( element, selection ) {
+		if ( element.constructor.name === 'Icon' ) {
+			return true;
+		}
+		return proxiedCanApply.call( this, element, selection );
+	};
+} )();
 
-})(ContentTools.Tool);
+/* globals ContentTools */
 
+( function() {
 
-ContentTools.Tools.Column3 = (function(_super) {
-	__extends(Column3, _super);
+	ContentTools.Tools.AlignCenter.className = '';
 
-	function Column3() {
-		return Column3.__super__.constructor.apply(this, arguments);
-	}
+	ContentTools.Tools.AlignCenter.apply = function( element, selection, callback ) {
+		var _ref;
+		if ( ( _ref = element.constructor.name ) === 'ListItemText' || _ref === 'TableCellText' ) {
+			element = element.parent();
+		}
 
-	ContentTools.ToolShelf.stow(Column3, 'column3');
+		if ( element.constructor.name === 'Icon' ) {
+			if ( element.hasCSSClass( 'aligncenter' ) ) {
+				element.removeCSSClass( 'aligncenter' );
+			} else {
+				element.removeCSSClass( 'alignleft' );
+				element.removeCSSClass( 'alignright' );
+				element.removeCSSClass( 'aligncenter' );
+				element.removeCSSClass( 'alignnone' );
+				element.addCSSClass( 'aligncenter' );
+			}
+			return callback( true );
+		}
 
-	Column3.label = pbsParams.labels.add_3_column_row;
+		element.style( 'textAlign', 'center' );
 
-	Column3.icon = 'column-3';
-
-	Column3.tagName = 'div';
-
-	Column3.shortcut = 'ctrl+shift+3';
-
-	Column3.canApply = function() {
-		return true;
+		return callback( true );
 	};
 
-	Column3.apply = function(element, selection, callback) {
+	ContentTools.Tools.AlignCenter.isApplied = function( element ) {
+		var _ref;
+		if ( ! this.canApply( element ) ) {
+			return false;
+		}
+		if ( ( _ref = element.type() ) === 'ListItemText' || _ref === 'TableCellText' ) {
+			element = element.parent();
+		}
 
-		var row = new ContentEdit.DivRow('div');
-		var col = new ContentEdit.DivCol('div');
-		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
+		if ( element.constructor.name === 'Icon' ) {
+			return element.hasCSSClass( 'aligncenter' );
+		}
 
-		element.parent().attach( row, index + 1 );
-		row.attach(col);
-		col.attach(p);
-
-		element.blur();
-		p.focus();
-
-		col = new ContentEdit.DivCol('div');
-		p = new ContentEdit.Text('p', {}, '');
-
-		row.attach(col);
-		col.attach(p);
-
-		col = new ContentEdit.DivCol('div');
-		p = new ContentEdit.Text('p', {}, '');
-
-		row.attach(col);
-		col.attach(p);
-
-		row.showOutline();
-
-		return callback(true);
+		return element.style( 'textAlign' ) === 'center';
 	};
 
-	return Column3;
+	var proxiedCanApply = ContentTools.Tools.AlignCenter.canApply;
+	ContentTools.Tools.AlignCenter.canApply = function( element, selection ) {
+		if ( element.constructor.name === 'Icon' ) {
+			return true;
+		}
+		return proxiedCanApply.call( this, element, selection );
+	};
+} )();
 
-})(ContentTools.Tool);
+/* globals ContentTools */
 
+( function() {
 
-ContentTools.Tools.Column4 = (function(_super) {
-	__extends(Column4, _super);
+	ContentTools.Tools.AlignRight.className = '';
 
-	function Column4() {
-		return Column4.__super__.constructor.apply(this, arguments);
-	}
+	ContentTools.Tools.AlignRight.apply = function( element, selection, callback ) {
+		var _ref;
+		if ( ( _ref = element.constructor.name ) === 'ListItemText' || _ref === 'TableCellText' ) {
+			element = element.parent();
+		}
 
-	ContentTools.ToolShelf.stow(Column4, 'column4');
+		if ( element.constructor.name === 'Icon' ) {
+			if ( element.hasCSSClass( 'alignright' ) ) {
+				element.removeCSSClass( 'alignright' );
+			} else {
+				element.removeCSSClass( 'alignleft' );
+				element.removeCSSClass( 'alignright' );
+				element.removeCSSClass( 'aligncenter' );
+				element.removeCSSClass( 'alignnone' );
+				element.addCSSClass( 'alignright' );
+			}
+			return callback( true );
+		}
 
-	Column4.label = pbsParams.labels.add_4_column_row;
+		element.style( 'textAlign', 'right' );
 
-	Column4.icon = 'column-4';
-
-	Column4.tagName = 'div';
-
-	Column4.shortcut = 'ctrl+shift+4';
-
-	Column4.canApply = function() {
-		return true;
+		return callback( true );
 	};
 
-	Column4.apply = function(element, selection, callback) {
+	ContentTools.Tools.AlignRight.isApplied = function( element ) {
+		var _ref;
+		if ( ! this.canApply( element ) ) {
+			return false;
+		}
+		if ( ( _ref = element.type() ) === 'ListItemText' || _ref === 'TableCellText' ) {
+			element = element.parent();
+		}
 
-		var row = new ContentEdit.DivRow('div');
-		var col = new ContentEdit.DivCol('div');
-		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
+		if ( element.constructor.name === 'Icon' ) {
+			return element.hasCSSClass( 'alignright' );
+		}
 
-		element.parent().attach( row, index + 1 );
-		row.attach(col);
-		col.attach(p);
-
-		element.blur();
-		p.focus();
-
-		col = new ContentEdit.DivCol('div');
-		p = new ContentEdit.Text('p', {}, '');
-
-		row.attach(col);
-		col.attach(p);
-
-		col = new ContentEdit.DivCol('div');
-		p = new ContentEdit.Text('p', {}, '');
-
-		row.attach(col);
-		col.attach(p);
-
-		col = new ContentEdit.DivCol('div');
-		p = new ContentEdit.Text('p', {}, '');
-
-		row.attach(col);
-		col.attach(p);
-
-		row.showOutline();
-
-		return callback(true);
+		return element.style( 'textAlign' ) === 'right' || element.style( 'textAlign' ) === 'end';
 	};
 
-	return Column4;
-
-})(ContentTools.Tool);
-
-
-ContentTools.Tools.Column233 = (function(_super) {
-	__extends(Column233, _super);
-
-	function Column233() {
-		return Column233.__super__.constructor.apply(this, arguments);
-	}
-
-	ContentTools.ToolShelf.stow(Column233, 'column233');
-
-	Column233.label = pbsParams.labels.add_23_13_column_row;
-
-	Column233.icon = 'column-23-3';
-
-	Column233.tagName = 'div';
-
-	Column233.shortcut = 'ctrl+shift+5';
-
-	Column233.canApply = function() {
-		return true;
+	var proxiedCanApply = ContentTools.Tools.AlignRight.canApply;
+	ContentTools.Tools.AlignRight.canApply = function( element, selection ) {
+		if ( element.constructor.name === 'Icon' ) {
+			return true;
+		}
+		return proxiedCanApply.call( this, element, selection );
 	};
-
-	Column233.apply = function(element, selection, callback) {
-
-		var row = new ContentEdit.DivRow('div');
-		var col = new ContentEdit.DivCol('div');
-		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
-
-		element.parent().attach( row, index + 1 );
-		row.attach(col);
-		col.attach(p);
-
-		col.style( 'flex-grow', '2' );
-
-		element.blur();
-		p.focus();
-
-		col = new ContentEdit.DivCol('div');
-		p = new ContentEdit.Text('p', {}, '');
-
-		row.attach(col);
-		col.attach(p);
-
-		row.showOutline();
-
-		return callback(true);
-	};
-
-	return Column233;
-
-})(ContentTools.Tool);
-
-
-ContentTools.Tools.Column323 = (function(_super) {
-	__extends(Column323, _super);
-
-	function Column323() {
-		return Column323.__super__.constructor.apply(this, arguments);
-	}
-
-	ContentTools.ToolShelf.stow(Column323, 'column323');
-
-	Column323.label = pbsParams.labels.add_13_23_column_row;
-
-	Column323.icon = 'column-3-23';
-
-	Column323.tagName = 'div';
-
-	Column323.canApply = function() {
-		return true;
-	};
-
-	Column323.apply = function(element, selection, callback) {
-
-		var row = new ContentEdit.DivRow('div');
-		var col = new ContentEdit.DivCol('div');
-		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
-
-		element.parent().attach( row, index + 1 );
-		row.attach(col);
-		col.attach(p);
-
-		element.blur();
-		p.focus();
-
-		col = new ContentEdit.DivCol('div');
-		p = new ContentEdit.Text('p', {}, '');
-
-		row.attach(col);
-		col.attach(p);
-
-		col.style( 'flex-grow', '2' );
-
-		row.showOutline();
-
-		return callback(true);
-	};
-
-	return Column323;
-
-})(ContentTools.Tool);
-
-
-ContentTools.Tools.Column424 = (function(_super) {
-	__extends(Column424, _super);
-
-	function Column424() {
-		return Column424.__super__.constructor.apply(this, arguments);
-	}
-
-	ContentTools.ToolShelf.stow(Column424, 'column424');
-
-	Column424.label = pbsParams.labels.add_14_12_14_column_row;
-
-	Column424.icon = 'column-4-2-4';
-
-	Column424.tagName = 'div';
-
-	Column424.shortcut = 'ctrl+shift+6';
-
-	Column424.canApply = function() {
-		return true;
-	};
-
-	Column424.apply = function(element, selection, callback) {
-
-		var row = new ContentEdit.DivRow('div');
-		var col = new ContentEdit.DivCol('div');
-		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
-
-		element.parent().attach( row, index + 1 );
-		row.attach(col);
-		col.attach(p);
-
-		col = new ContentEdit.DivCol('div');
-		p = new ContentEdit.Text('p', {}, '');
-
-		row.attach(col);
-		col.attach(p);
-
-		col.style( 'flex-grow', '2' );
-
-		col = new ContentEdit.DivCol('div');
-		p = new ContentEdit.Text('p', {}, '');
-
-		row.attach(col);
-		col.attach(p);
-
-		element.blur();
-		p.focus();
-
-		row.showOutline();
-
-		return callback(true);
-	};
-
-	return Column424;
-
-})(ContentTools.Tool);
-
-
-ContentTools.Tools.ColumnCustom = (function(_super) {
-	__extends(ColumnCustom, _super);
-
-	function ColumnCustom() {
-		return ColumnCustom.__super__.constructor.apply(this, arguments);
-	}
-
-	ContentTools.ToolShelf.stow(ColumnCustom, 'column-custom');
-
-	ColumnCustom.label = pbsParams.labels.add_n_column_row;
-
-	ColumnCustom.icon = 'column-custom';
-
-	ColumnCustom.tagName = 'div';
-
-	ColumnCustom.canApply = function() {
-		return true;
-	};
-
-	ColumnCustom.apply = function(element, selection, callback) {
-
-		var row = new ContentEdit.DivRow('div');
-		var col = new ContentEdit.DivCol('div');
-		var p = new ContentEdit.Text('p', {}, '');
-		var index = element.parent().children.indexOf(element);
-
-		element.parent().attach( row, index + 1 );
-		row.attach(col);
-		col.attach(p);
-
-		element.blur();
-		p.focus();
-
-		col = new ContentEdit.DivCol('div');
-		p = new ContentEdit.Text('p', {}, '');
-
-		row.attach(col);
-		col.attach(p);
-
-		row.showOutline();
-
-		return callback(true);
-	};
-
-	return ColumnCustom;
-
-})(ContentTools.Tool);
-*/
+} )();
 
 /* globals ContentTools, __extends, pbsParams */
 
@@ -17680,6 +19864,13 @@ ContentTools.Tools.AlignJustify = (function(_super) {
 		}
 		element.style( 'textAlign', 'justify' );
 		return callback(true);
+	};
+
+	AlignJustify.canApply = function( element, selection ) {
+		if ( element.constructor.name === 'Icon' ) {
+			return false;
+		}
+		return AlignJustify.__super__.constructor.canApply.call( this, element, selection );
 	};
 
  	AlignJustify.isApplied = function(element, selection) {
@@ -17717,7 +19908,12 @@ ContentTools.Tools.Sidebar = (function(_super) {
 	Sidebar.buttonName = pbsParams.labels.sidebar;
 
 	Sidebar.apply = function(element, selection, callback) {
+		var index = element.parent().children.indexOf( element ) + 1;
+		this.createNew( element.parent(), index );
+		return callback(true);
+	};
 
+	Sidebar.createNew = function( parent, index ) {
 		var defaultSidebar = '';
 		for ( var sidebarID in pbsParams.sidebar_list ) {
 			if ( sidebarID ) {
@@ -17731,13 +19927,10 @@ ContentTools.Tools.Sidebar = (function(_super) {
 		var shortcode = wp.shortcode.next( 'pbs_sidebar', '[pbs_sidebar id="' + defaultSidebar + '"][/pbs_sidebar]', 0 );
 		var newElem = ContentEdit.Shortcode.createShortcode( shortcode );
 
-		var index = element.parent().children.indexOf( element );
-		element.parent().attach( newElem, index + 1 );
+		parent.attach( newElem, index );
 
 		newElem.ajaxUpdate( true );
 		newElem.focus();
-
-		return callback(true);
 	};
 
 	return Sidebar;
@@ -17761,8 +19954,6 @@ ContentTools.Tools.Hr = (function(_super) {
 	Hr.icon = 'hr';
 
 	Hr.tagName = 'hr';
-
-	Hr.shortcut = 'ctrl+h';
 
 	Hr.canApply = function() {
 		return true;
@@ -17816,6 +20007,19 @@ ContentTools.Tools.Icon = (function(_super) {
 			}
 		});
 		return callback( true );
+	};
+
+	Icon.createNew = function( parent, index ) {
+		PBSEditor.iconFrame.open({
+			title: pbsParams.labels.insert_icon,
+			button: pbsParams.labels.use_icon,
+			successCallback: function( view ) {
+				var newElem = new ContentEdit.Icon( 'div', {}, view.selected.innerHTML );
+				parent.attach( newElem, index );
+				newElem.focus();
+			}
+		});
+		return null;
 	};
 
 	return Icon;
@@ -18043,7 +20247,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			}
 
 			// Update the inspector.
-			window.updateInspector();
+			// window.updateInspector();
 
 			wpLink.close();
 		}
@@ -18101,30 +20305,34 @@ ContentTools.Tools.Widget = (function(_super) {
 	Widget.buttonName = pbsParams.labels.widget;
 
 	Widget.apply = function(element, selection, callback) {
+		var root = ContentEdit.Root.get();
+		var elemFocused = null;
+	    if ( root.focused() ) {
+			elemFocused = root.focused();
+		} else {
+			var mainRegion = ContentTools.EditorApp.get().regions()['main-content'];
+			if ( mainRegion.children ) {
+				elemFocused = mainRegion.children[0];
+			}
+		}
+
+		var index = elemFocused.parent().children.indexOf( elemFocused ) + 1;
+		this.createNew( elemFocused.parent(), index );
+		return callback( true );
+	};
+
+	Widget.createNew = function( parent, index ) {
 		PBSEditor.widgetFrame.open({
 			title: pbsParams.labels.insert_widget,
 			button: pbsParams.labels.insert_widget,
 			successCallback: function( view ) {
-
-				var root = ContentEdit.Root.get();
-				var elemFocused = null;
-		        if ( root.focused() ) {
-					elemFocused = root.focused();
-				} else {
-					var mainRegion = ContentTools.EditorApp.get().regions()['main-content'];
-					if ( mainRegion.children ) {
-						elemFocused = mainRegion.children[0];
-					}
-				}
-
 				var base = 'pbs_widget';
 				var widgetSlug = view.selected.getAttribute( 'data-widget-slug' );
 				var shortcodeRaw = '[pbs_widget widget="' + widgetSlug + '" ]';
 				var shortcode = wp.shortcode.next( base, shortcodeRaw, 0 );
 				var elem = ContentEdit.Shortcode.createShortcode( shortcode );
 
-				var index = elemFocused.parent().children.indexOf( elemFocused );
-				elemFocused.parent().attach( elem, index + 1 );
+				parent.attach( elem, index );
 
 				elem.focus();
 
@@ -18133,12 +20341,48 @@ ContentTools.Tools.Widget = (function(_super) {
 				}, 20 );
 			}
 		});
-		return callback( true );
 	};
 
 	return Widget;
 
 } )(ContentTools.Tools.ElementButton );
+
+/* globals ContentEdit, ContentTools, __extends, pbsParams */
+
+ContentTools.Tools.Text = ( function( _super ) {
+	__extends( Text, _super );
+
+	function Text() {
+		return Text.__super__.constructor.apply( this, arguments );
+	}
+
+	ContentTools.ToolShelf.stow( Text, 'text' );
+
+	Text.label = pbsParams.labels.text;
+
+	Text.icon = 'text';
+
+	Text.tagName = 'p';
+
+	Text.shortcut = '';
+
+	Text.buttonName = pbsParams.labels.text;
+
+	Text.apply = function( element, selection, callback ) {
+		var index = element.parent().children.indexOf( element ) + 1;
+		this.createNew( element.parent(), index );
+		return callback( true );
+	};
+
+	Text.createNew = function( parent, index ) {
+		var newElem = new ContentEdit.Text( 'p', {}, '' );
+		parent.attach( newElem, index );
+		newElem.focus();
+	};
+
+	return Text;
+
+} )( ContentTools.Tools.ElementButton );
 
 /* globals ContentEdit, ContentTools, __extends, pbsParams */
 
@@ -18184,6 +20428,16 @@ ContentTools.Tools.Html = (function(_super) {
 		return callback( true );
 	};
 
+	Html.createNew = function( parent, index ) {
+		var dummy = document.createElement( 'DIV' );
+		dummy.setAttribute( 'data-ce-tag', 'html' );
+		var elem = ContentEdit.Html.fromDOMElement( dummy );
+		parent.attach( elem, index );
+
+		elem.focus();
+		elem.openEditor();
+	};
+
 	return Html;
 
 } )( ContentTools.Tools.ElementButton );
@@ -18212,16 +20466,15 @@ ContentTools.Tools.Map = ( function( _super ) {
 	// Map.premium = true;
 
 	Map.apply = function( element, selection, callback ) {
-
-		var newElem = ContentEdit.Map.create();
-
-		var index = element.parent().children.indexOf( element );
-
-		element.parent().attach( newElem, index + 1 );
-
-		newElem.focus();
-
+		var index = element.parent().children.indexOf( element ) + 1;
+		this.createNew( element.parent(), index );
 		return callback( true );
+	};
+
+	Map.createNew = function( parent, index ) {
+		var newElem = ContentEdit.Map.create();
+		parent.attach( newElem, index );
+		newElem.focus();
 	};
 
 	return Map;
@@ -18248,6 +20501,19 @@ ContentTools.Tools.Tabs = ( function( _super ) {
 	Tabs.buttonName = pbsParams.labels.tabs;
 
 	Tabs.apply = function(element, selection, callback) {
+		// Don't allow tabs to be created inside tabs, create it after the current tabs.
+		if ( window.pbsSelectorMatches( element._domElement, '[data-ce-tag="tabs"] *' ) ) {
+			while ( element && element.constructor.name !== 'Tabs' ) {
+				element = element.parent();
+			}
+		}
+
+		var index = element.parent().children.indexOf( element ) + 1;
+		this.createNew( element.parent(), index );
+		return callback(true);
+	};
+
+	Tabs.createNew = function( parent, index ) {
 
 		var hashes = [];
 		while ( hashes.length < 4 ) {
@@ -18285,20 +20551,8 @@ ContentTools.Tools.Tabs = ( function( _super ) {
 			'</div>';
 
 		var newElem = ContentEdit.Tabs.fromDOMElement( elem );
-
-		// Don't allow tabs to be created inside tabs, create it after the current tabs.
-		if ( window.pbsSelectorMatches( element._domElement, '[data-ce-tag="tabs"] *' ) ) {
-			while ( element && element.constructor.name !== 'Tabs' ) {
-				element = element.parent();
-			}
-		}
-
-		var index = element.parent().children.indexOf( element );
-		element.parent().attach( newElem, index + 1 );
-
+		parent.attach( newElem, index );
 		newElem.focus();
-
-		return callback(true);
 	};
 
 	return Tabs;
@@ -18306,255 +20560,195 @@ ContentTools.Tools.Tabs = ( function( _super ) {
 } )( ContentTools.Tools.ElementButton );
 
 
-
 /* globals ContentTools, ContentEdit, ContentSelect, __extends, pbsParams */
 
-
-
 // The Media Manager window needs to know our post ID so that Insert from URL will work.
-
 if ( wp.media.view.settings.post ) {
-
 	wp.media.view.settings.post.id = pbsParams.post_id;
-
 }
 
-
-
 ContentTools.Tools.pbsMedia = (function(_super) {
-
 	__extends(pbsMedia, _super);
 
-
-
 	function pbsMedia() {
-
 		return pbsMedia.__super__.constructor.apply(this, arguments);
-
 	}
-
-
 
 	ContentTools.ToolShelf.stow(pbsMedia, 'pbs-media');
 
-
-
 	pbsMedia.label = pbsParams.labels.media;
-
-
 
 	pbsMedia.icon = 'image';
 
-
-
-	pbsMedia.shortcut = 'ctrl+m';
-
-
-
 	pbsMedia.buttonName = pbsParams.labels.media;
 
-
-
 	pbsMedia.apply = function(element, selection) {
-
 		if ( this._isOpen() ) {
-
 			return;
-
 		}
-
-
 
 		var root = ContentEdit.Root.get();
-
 		var elem = root.focused();
 
-
-
         ContentSelect.Range.query(elem._domElement);
-
         selection = ContentSelect.Range.query(elem._domElement);
-
 		window._tempSelection = selection;
 
-
+		this._attachToParent = elem.parent();
+		this._attachIndex = elem.parent().children.indexOf( elem ) + 1;
 
 		// We override the insert function to make this insert in CT.
-
 		window._pbsAddMediaOrigInsert = wp.media.editor.insert;
-
-		wp.media.editor.insert = this.pbsAddMediaOverrideInsert;
-
-
+		wp.media.editor.insert = this.pbsAddMediaOverrideInsert.bind( this );
 
 		wp.media.editor.open();
-
 	};
 
+	pbsMedia.createNew = function( parent, index ) {
+		this._attachToParent = parent;
+		this._attachIndex = index;
 
+		// We override the insert function to make this insert in CT.
+		window._pbsAddMediaOrigInsert = wp.media.editor.insert;
+		wp.media.editor.insert = this.pbsAddMediaOverrideInsert.bind( this );
+
+		wp.media.editor.open();
+	};
 
 	pbsMedia._isOpen = function() {
-
 		// The editor is not present at the start.
-
 		if ( ! wp.media.editor.get() ) {
-
 			return false;
-
 		}
 
-
-
 		// Check if the media manager window is visible.
-
 		var el = wp.media.editor.get().el;
-
 		return ! ( el.offsetWidth === 0 && el.offsetHeight === 0 );
-
 	};
-
-
 
 	pbsMedia.pbsAddMediaOverrideInsert = function( html ) {
 
-
-
 	    var index, newElem, root = ContentEdit.Root.get();
 
-
-
 		// Blur the currently selected element.
-
 	    if ( root.focused() ) {
 
-			var elem = root.focused();
-
-
-
 			// If adding an image, add an Image Element.
-
 			var addedImage = false;
-
 			if ( ! html.match( /^\[/ ) ) {
-
 				var dummy = document.createElement('p');
-
 				dummy.innerHTML = html;
-
 				newElem = ContentEdit.Image.fromDOMElement( dummy.firstChild );
-
 				if ( newElem ) {
-
-					index = elem.parent().children.indexOf( elem );
-
-					elem.parent().attach( newElem, index + 1 );
-
+					this._attachToParent.attach( newElem, this._attachIndex );
 					addedImage = true;
-
 					newElem.focus();
-
 				}
-
-
 
 			} else {
 
-
-
 				var base = html.match( /^\[(\w+)/ );
-
 				base = base[1];
-
 				var shortcode = wp.shortcode.next( base, html, 0 );
-
 				newElem = ContentEdit.Shortcode.createShortcode( shortcode );
-
-				index = elem.parent().children.indexOf( elem );
-
-				elem.parent().attach( newElem, index + 1 );
-
-
+				this._attachToParent.attach( newElem, this._attachIndex );
 
 				newElem.ajaxUpdate( true );
-
 				newElem.focus();
 
-
-
 			}
-
 	    }
 
-
-
 		// Revert to the original insert function.
-
 		wp.media.editor.insert = window._pbsAddMediaOrigInsert;
-
 		delete window._pbsAddMediaOrigInsert;
-
 	};
-
-
-
 
 
 	return pbsMedia;
 
-
-
 } )( ContentTools.Tools.ElementButton );
 
 
-
-
-
 /**
-
  * Open the media tool when an image gets dragged into the screen.
-
  */
-
 (function() {
-
 	var dragEnterHandler = function() {
 
-		var root = ContentEdit.Root.get();
-
-		var elem = root.focused();
-
-		if ( elem ) {
-
-			window.PBSEditor.getToolUI( 'pbs-media' ).apply( elem, null );
-
+		// Don't open ANOTHER media manager when there's one open already.
+		var mediaModals = document.querySelectorAll( '[tabindex="0"] .media-modal' );
+		var allModalsHidden = true;
+		Array.prototype.forEach.call( mediaModals, function( el ) {
+			if ( el.offsetHeight !== 0 ) {
+				allModalsHidden = false;
+			}
+		} );
+		if ( ! allModalsHidden ) {
+			return;
 		}
 
+		// Open the media manager.
+		var root = ContentEdit.Root.get();
+		var elem = root.focused();
+		if ( elem ) {
+			window.PBSEditor.getToolUI( 'pbs-media' ).apply( elem, null );
+		}
 	};
 
-
-
 	window.addEventListener( 'DOMContentLoaded', function() {
-
 		var editor = ContentTools.EditorApp.get();
-
 		editor.bind('start', function() {
-
 			document.addEventListener('dragenter', dragEnterHandler);
-
 		});
-
 		editor.bind('stop', function() {
-
 			document.removeEventListener('dragenter', dragEnterHandler);
-
 		});
-
 	});
-
 })();
 
+/* globals ContentTools */
 
-////= include _tool-toggle-advanced.js
+( function() {
+	ContentTools.Tools.Table.canApply = function() {
+		return true;
+	};
+} )();
+
+
+( function() {
+	ContentTools.Tools.Table.createNew = function( parent, index ) {
+		var app, dialog, modal, table;
+		app = ContentTools.EditorApp.get();
+		modal = new ContentTools.ModalUI();
+		table = null;
+		dialog = new ContentTools.TableDialog(table);
+		dialog.bind('cancel', (function(_this) {
+		  return function() {
+			dialog.unbind('cancel');
+			modal.hide();
+			dialog.hide();
+			return;
+		  };
+		})(this));
+		dialog.bind('save', (function(_this) {
+		  return function(tableCfg) {
+			dialog.unbind('save');
+			  table = _this._createTable(tableCfg);
+			  parent.attach(table, index);
+			  table.firstSection().children[0].children[0].children[0].focus();
+			modal.hide();
+			dialog.hide();
+			return;
+		  };
+		})(this));
+		app.attach(modal);
+		app.attach(dialog);
+		modal.show();
+		return dialog.show();
+	};
+} )();
+
 /* globals ContentTools, __extends, pbsParams */
 
 ContentTools.Tools.Underline = (function(_super) {
@@ -18674,6 +20868,9 @@ ContentTools.Tools.paragraphPicker = (function(_super) {
 				this._ceElement._domElement.firstChild.textContent = this.types[ element.tagName() ].label;
 			}
 		}
+		if ( element._domElement.tagName === 'LABEL' ) {
+			return false;
+		}
   		return element !== void 0;
 	};
 
@@ -18682,11 +20879,24 @@ ContentTools.Tools.paragraphPicker = (function(_super) {
 	};
 
 	paragraphPicker.apply = function(element, selection, callback) {
+		return this.applyTag( element, this._selectedType, selection, callback );
+	};
+
+
+	paragraphPicker.applyTag = function(element, tag, selection, callback) {
 		var app, forceAdd, paragraph, region;
 		app = ContentTools.EditorApp.get();
 		forceAdd = app.ctrlDown();
-		if (ContentTools.Tools.Heading.canApply(element) && !forceAdd) {
-			return ContentTools.Tools[ this._selectedClass ].apply( element, selection, callback );
+
+		// Reset some styles.
+
+
+		if ( ContentTools.Tools.Bold.isApplied( element, selection ) ) {
+			ContentTools.Tools.Bold.apply( element, selection, function() {} );
+		}
+
+		if ( ContentTools.Tools.Heading.canApply( element ) && ! forceAdd ) {
+			return ContentTools.Tools[ paragraphPicker.types[ tag ].className ].apply( element, selection, callback );
 		} else {
 		  if (element.parent().type() !== 'Region') {
 			element = element.closest(function(node) {
@@ -18694,7 +20904,7 @@ ContentTools.Tools.paragraphPicker = (function(_super) {
 			});
 		  }
 		  region = element.parent();
-		  paragraph = new ContentEdit.Text( this._selectedType );
+		  paragraph = new ContentEdit.Text( tag );
 		  region.attach(paragraph, region.children.indexOf(element) + 1);
 		  paragraph.focus();
 		  return callback(true);
@@ -18722,6 +20932,8 @@ ContentTools.Tools.paragraphPicker = (function(_super) {
 				this._selectedClass = ev.target.getAttribute( 'data-class' );
 				this._ceElement._mouseDown = true;
 				this._ceElement._onMouseUp();
+
+				this.hidePicker();
 			}.bind( this ) );
 
 		}
@@ -18757,7 +20969,8 @@ ContentTools.Tools.paragraphPicker = (function(_super) {
 
 // If another element is selected, hide the paragraph picker
 ContentEdit.Root.get().bind('blur', function() {
-	var tool = ContentTools.EditorApp.get()._toolbox._toolUIs.paragraph;
+	var tool = window.PBSEditor.getToolUI( 'paragraph' );
+	// var tool = ContentTools.EditorApp.get()._toolbox._toolUIs.paragraph;
 	if ( typeof tool !== 'undefined' ) {
 		tool.tool.hidePicker();
 	}
@@ -18887,3696 +21100,741 @@ ContentTools.Tools.Strikethrough = (function(_super) {
 
 
 
-/* globals pbsParams */
+/* globals PBSEditor, ContentTools, ContentEdit, pbsParams */
 
 
 
-wp.hooks.addFilter( 'pbs.has_toolbar_selectors', function( selector ) {
+/**
 
-	selector.push( '[data-ce-tag="embed"]' );
+ * All shortcut keys are defined here.
 
-	return selector;
+ */
 
-} );
+PBSEditor.shortcuts = {
 
+	'ctrl+r': function( element, selection, callback ) {
 
+		if ( ContentTools.Tools.AlignRight.canApply( element, selection ) ) {
 
-wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
+			ContentTools.Tools.AlignRight.apply( element, selection, callback );
 
-
-
-	if ( target.getAttribute( 'data-ce-tag' ) !== 'embed' ) {
-
-		return tools;
-
-	}
-
-
-
-	var o = document.createElement('DIV');
-
-	o.classList.add('pbs-tool');
-
-	o.classList.add('pbs-image-edit');
-
-	o.setAttribute('data-tooltip', pbsParams.labels.edit_embed );
-
-	o.addEventListener('click', function() {
-
-		target._ceElement._onDoubleClick();
-
-	});
-
-	tools.push( o );
-
-
-
-	o = document.createElement('DIV');
-
-	o.classList.add('pbs-tool');
-
-	o.classList.add('pbs-image-remove');
-
-	o.setAttribute('data-tooltip', pbsParams.labels.remove );
-
-	o.addEventListener('click', function() {
-
-		target._ceElement.parent().detach( target._ceElement );
-
-	});
-
-	tools.push( o );
-
-
-
-	return tools;
-
-} );
-
-
-/* globals pbsParams */
-
-wp.hooks.addFilter( 'pbs.has_toolbar_selectors', function( selector ) {
-	selector.push( '.ce-element--type-iframe' );
-	return selector;
-} );
-
-wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
-
-	if ( ! target.classList.contains( 'ce-element--type-iframe' ) ) {
-		return tools;
-	}
-
-	var o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-edit');
-	o.setAttribute('data-tooltip', pbsParams.labels.edit_embed);
-	o.addEventListener('click', function() {
-		target._ceElement._onDoubleClick();
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-remove');
-	o.setAttribute('data-tooltip', pbsParams.labels.remove);
-	o.addEventListener('click', function() {
-		target._ceElement.parent().detach( target._ceElement );
-	});
-	tools.push( o );
-
-	return tools;
-} );
-
-/* globals pbsParams */
-
-wp.hooks.addFilter( 'pbs.has_toolbar_selectors', function( selector ) {
-	selector.push( '[data-ce-tag="html"]' );
-	return selector;
-} );
-
-wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
-
-	if ( target.getAttribute( 'data-ce-tag' ) !== 'html' ) {
-		return tools;
-	}
-
-	var o = document.createElement('DIV');
-	o.classList.add('pbs-tool-label');
-	o.innerHTML = pbsParams.labels.html;
-	o.addEventListener('click', function() {
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-edit');
-	o.setAttribute('data-tooltip', pbsParams.labels.edit_html);
-	o.addEventListener('click', function() {
-		target._ceElement.openEditor();
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-remove');
-	o.setAttribute('data-tooltip', pbsParams.labels.remove);
-	o.addEventListener('click', function() {
-        if ( target._ceElement.isFocused() ) {
-			target._ceElement.blur();
-			if ( target._ceElement.nextContent() ) {
-				target._ceElement.nextContent().focus();
-			} else if ( target._ceElement.previousContent().focus() ) {
-				target._ceElement.previousContent().focus();
-			}
-		}
-		target._ceElement.parent().detach( target._ceElement );
-	});
-	tools.push( o );
-
-	return tools;
-} );
-
-/* globals pbsParams */
-
-wp.hooks.addFilter( 'pbs.has_toolbar_selectors', function( selector ) {
-	selector.push( '.ce-element--type-icon' );
-	return selector;
-} );
-
-wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
-
-	if ( ! target.classList ) {
-		return tools;
-	}
-	if ( ! target.classList.contains( 'ce-element--type-icon' ) ) {
-		return tools;
-	}
-
-	var o;
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-align-left');
-	o.setAttribute('data-tooltip', pbsParams.labels.align_left );
-	if ( target.classList.contains( 'alignleft' ) ) {
-		o.classList.add('pbs-toolbar-highlight');
-	}
-	o.addEventListener('click', function() {
-		target._ceElement.removeCSSClass( 'alignleft' );
-		target._ceElement.removeCSSClass( 'alignright' );
-		target._ceElement.removeCSSClass( 'aligncenter' );
-		target._ceElement.addCSSClass( 'alignleft' );
-		target._ceElement.taint();
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-align-center');
-	o.setAttribute('data-tooltip', pbsParams.labels.align_center );
-	if ( target.classList.contains( 'aligncenter' ) ) {
-		o.classList.add('pbs-toolbar-highlight');
-	}
-	o.addEventListener('click', function() {
-		target._ceElement.removeCSSClass( 'alignleft' );
-		target._ceElement.removeCSSClass( 'alignright' );
-		target._ceElement.removeCSSClass( 'aligncenter' );
-		target._ceElement.addCSSClass( 'aligncenter' );
-		target._ceElement.taint();
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-align-right');
-	o.setAttribute('data-tooltip', pbsParams.labels.align_right );
-	if ( target.classList.contains( 'alignright' ) ) {
-		o.classList.add('pbs-toolbar-highlight');
-	}
-	o.addEventListener('click', function() {
-		target._ceElement.removeCSSClass( 'alignleft' );
-		target._ceElement.removeCSSClass( 'alignright' );
-		target._ceElement.removeCSSClass( 'aligncenter' );
-		target._ceElement.addCSSClass( 'alignright' );
-		target._ceElement.taint();
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-edit');
-	o.setAttribute('data-tooltip', pbsParams.labels.edit);
-	o.addEventListener('click', function() {
-		target._ceElement._onDoubleClick();
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-clone');
-	o.setAttribute('data-tooltip', pbsParams.labels.clone);
-	o.addEventListener('click', function() {
-		target._ceElement.clone();
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-remove');
-	o.setAttribute('data-tooltip', pbsParams.labels.remove);
-	o.addEventListener('click', function() {
-		target._ceElement.parent().detach( target._ceElement );
-	});
-	tools.push( o );
-
-	return tools;
-} );
-
-/* globals HTMLString, pbsParams */
-
-wp.hooks.addFilter( 'pbs.has_toolbar_selectors', function( selector ) {
-	selector.push( 'img.alignright,img.alignleft,img.alignnone,img.aligncenter,img[class*="wp-image-"]' );
-	return selector;
-} );
-
-wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
-
-	if ( target.tagName !== 'IMG' && target.tagName !== 'DL' ) {
-		return tools;
-	}
-	if ( ! target.classList.contains( 'alignleft' ) && ! target.classList.contains( 'alignright' ) && ! target.classList.contains( 'aligncenter' ) && ! target.classList.contains( 'alignnone' ) ) {
-		if ( ! target.getAttribute('class') ) {
-			return tools;
-		}
-		if ( target.getAttribute('class').indexOf('wp-image-') === -1 ) {
-			return tools;
-		}
-	}
-
-	var o;
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-align-left');
-	o.setAttribute('data-tooltip', pbsParams.labels.align_left);
-	if ( target.classList.contains( 'alignleft' ) ) {
-		o.classList.add('pbs-toolbar-highlight');
-	}
-	o.addEventListener('click', function() {
-		if ( target._ceElement && target._ceElement.constructor.name === 'Image' ) {
-			target._ceElement.removeCSSClass( 'alignleft' );
-			target._ceElement.removeCSSClass( 'alignright' );
-			target._ceElement.removeCSSClass( 'aligncenter' );
-			target._ceElement.removeCSSClass( 'alignnone' );
-			target._ceElement.addCSSClass( 'alignleft' );
-			return;
-		}
-		target.classList.remove('alignleft','alignright','alignnone','aligncenter');
-		target.classList.add('alignleft');
-
-		_pbsImageTriggerParentChange( target );
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-align-center');
-	o.setAttribute('data-tooltip', pbsParams.labels.align_center );
-	if ( target.classList.contains( 'aligncenter' ) ) {
-		o.classList.add('pbs-toolbar-highlight');
-	}
-	o.addEventListener('click', function() {
-		if ( target._ceElement && target._ceElement.constructor.name === 'Image' ) {
-			target._ceElement.removeCSSClass( 'alignleft' );
-			target._ceElement.removeCSSClass( 'alignright' );
-			target._ceElement.removeCSSClass( 'aligncenter' );
-			target._ceElement.removeCSSClass( 'alignnone' );
-			target._ceElement.addCSSClass( 'aligncenter' );
-			return;
-		}
-		target.classList.remove('alignleft','alignright','alignnone','aligncenter');
-		target.classList.add('aligncenter');
-
-		_pbsImageTriggerParentChange( target );
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-align-right');
-	o.setAttribute('data-tooltip', pbsParams.labels.align_right );
-	if ( target.classList.contains( 'alignright' ) ) {
-		o.classList.add('pbs-toolbar-highlight');
-	}
-	o.addEventListener('click', function() {
-		if ( target._ceElement && target._ceElement.constructor.name === 'Image' ) {
-			target._ceElement.removeCSSClass( 'alignleft' );
-			target._ceElement.removeCSSClass( 'alignright' );
-			target._ceElement.removeCSSClass( 'aligncenter' );
-			target._ceElement.removeCSSClass( 'alignnone' );
-			target._ceElement.addCSSClass( 'alignright' );
-			return;
-		}
-		target.classList.remove('alignleft','alignright','alignnone','aligncenter');
-		target.classList.add('alignright');
-
-		_pbsImageTriggerParentChange( target );
-	});
-	tools.push( o );
-
-	// o = document.createElement('DIV');
-	// o.classList.add('pbs-tool');
-	// o.classList.add('pbs-image-align-none');
-	// o.setAttribute('data-tooltip', 'Align none');
-	// if ( target.classList.contains( 'alignnone' ) ) {
-	// 	o.classList.add('pbs-toolbar-highlight');
-	// }
-	// o.addEventListener('click', function() {
-	// 	if ( target._ceElement && target._ceElement.constructor.name === 'Image' ) {
-	// 		target._ceElement.removeCSSClass( 'alignleft' );
-	// 		target._ceElement.removeCSSClass( 'alignright' );
-	// 		target._ceElement.removeCSSClass( 'aligncenter' );
-	// 		target._ceElement.removeCSSClass( 'alignnone' );
-	// 		target._ceElement.addCSSClass( 'alignnone' );
-	// 		return;
-	// 	}
-	// 	target.classList.remove('alignleft','alignright','alignnone','aligncenter');
-	// 	target.classList.add('alignnone');
-	//
-	// 	_pbsImageTriggerParentChange( target );
-	// });
-	// tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-edit');
-	o.setAttribute('data-tooltip', pbsParams.labels.edit );
-	o.addEventListener('click', function() {
-
-		// Images
-		if ( target._ceElement ) {
-			if ( target._ceElement.openMediaManager ) {
-				target._ceElement.openMediaManager();
-				return;
-			} else {
-				target._ceElement._onDoubleClick();
-			}
 		}
 
-	});
-	tools.push( o );
+	},
 
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-remove');
-	o.setAttribute('data-tooltip', pbsParams.labels.remove );
-	o.addEventListener('click', function() {
-		var parentNode = target.parentNode;
-		if ( target._ceElement && target._ceElement.constructor.name === 'Image' ) {
-			target._ceElement.parent().detach( target._ceElement );
-			return;
+	'ctrl+u': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.Underline.canApply( element, selection ) ) {
+
+			ContentTools.Tools.Underline.apply( element, selection, callback );
+
 		}
 
-		if ( parentNode.tagName === 'A' ) {
-			parentNode = parentNode.parentNode;
-			parentNode.removeChild( target.parentNode );
-		} else {
-			parentNode.removeChild( target );
+	},
+
+	'ctrl+e': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.AlignCenter.canApply( element, selection ) ) {
+
+			ContentTools.Tools.AlignCenter.apply( element, selection, callback );
+
 		}
 
-		_pbsImageTriggerParentChange( parentNode );
+	},
 
-	});
-	tools.push( o );
+	'ctrl+l': function( element, selection, callback ) {
 
-	return tools;
-} );
+		if ( ContentTools.Tools.AlignLeft.canApply( element, selection ) ) {
 
+			ContentTools.Tools.AlignLeft.apply( element, selection, callback );
 
-wp.hooks.addFilter( 'pbs.has_toolbar_selectors', function( selector ) {
-	selector.push( '[data-base="caption"]' );
-	return selector;
-} );
-
-
-wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
-
-	if ( target.getAttribute('data-base') !== 'caption' ) {
-		return tools;
-	}
-
-	var o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-align-left');
-	o.setAttribute('data-tooltip', pbsParams.labels.align_left );
-	if ( target._ceElement.model.get('align') === 'alignleft' ) {
-		o.classList.add('pbs-toolbar-highlight');
-	}
-	o.addEventListener('click', function() {
-		target._ceElement.setSCAttr( 'align', 'alignleft' );
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-align-center');
-	o.setAttribute('data-tooltip', pbsParams.labels.align_center );
-	if ( target._ceElement.model.get('align') === 'aligncenter' ) {
-		o.classList.add('pbs-toolbar-highlight');
-	}
-	o.addEventListener('click', function() {
-		target._ceElement.setSCAttr( 'align', 'aligncenter' );
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-align-right');
-	o.setAttribute('data-tooltip', pbsParams.labels.align_right );
-	if ( target._ceElement.model.get('align') === 'alignright' ) {
-		o.classList.add('pbs-toolbar-highlight');
-	}
-	o.addEventListener('click', function() {
-		target._ceElement.setSCAttr( 'align', 'alignright' );
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-align-none');
-	o.setAttribute('data-tooltip', pbsParams.labels.align_none );
-	if ( target._ceElement.model.get('align') === 'alignnone' ) {
-		o.classList.add('pbs-toolbar-highlight');
-	}
-	o.addEventListener('click', function() {
-		target._ceElement.setSCAttr( 'align', 'alignnone' );
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-edit');
-	o.setAttribute('data-tooltip', pbsParams.labels.edit );
-	o.addEventListener('click', function() {
-
-		target._ceElement._onDoubleClick();
-
-
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-remove');
-	o.setAttribute('data-tooltip', pbsParams.labels.remove );
-	o.addEventListener('click', function() {
-		target._ceElement.parent().detach( target._ceElement );
-	});
-	tools.push( o );
-
-	return tools;
-}, 999);
-
-
-
-
-
-// TODO add gallery shortcode toolbar
-
-
-
-// Triggers the parent Text Element to update itself (undo will start working).
-var _pbsImageTriggerParentChange = function( domElement ) {
-	var currElement = domElement;
-	while ( currElement ) {
-		if ( currElement._ceElement ) {
-			var ctElem = currElement._ceElement;
-			if ( ctElem.content ) {
-				ctElem.content = new HTMLString.String( currElement.innerHTML, ctElem.content.preserveWhitespace() );
-				ctElem.updateInnerHTML();
-				ctElem.taint();
-				break;
-			}
 		}
-		currElement = currElement.parentNode;
+
+	},
+
+	'ctrl+j': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.AlignJustify.canApply( element, selection ) ) {
+
+			ContentTools.Tools.AlignJustify.apply( element, selection, callback );
+
+		}
+
+	},
+
+	'ctrl+i': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.Italic.canApply( element, selection ) ) {
+
+			ContentTools.Tools.Italic.apply( element, selection, callback );
+
+		}
+
+	},
+
+	'ctrl+b': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.Bold.canApply( element, selection ) ) {
+
+			ContentTools.Tools.Bold.apply( element, selection, callback );
+
+		}
+
+	},
+
+	'ctrl+k': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.Link.canApply( element, selection ) ) {
+
+			ContentTools.Tools.Link.apply( element, selection, callback );
+
+		}
+
+	},
+
+	'ctrl+shift+k': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.Button.canApply( element, selection ) ) {
+
+			ContentTools.Tools.Button.apply( element, selection, callback );
+
+		}
+
+	},
+
+	'ctrl+p': function( element, selection, callback ) {
+
+		ContentTools.Tools.paragraphPicker.applyTag( element, 'p', selection, callback );
+
+	},
+
+	'ctrl+1': function( element, selection, callback ) {
+
+		ContentTools.Tools.paragraphPicker.applyTag( element, 'h1', selection, callback );
+
+	},
+
+	'ctrl+2': function( element, selection, callback ) {
+
+		ContentTools.Tools.paragraphPicker.applyTag( element, 'h2', selection, callback );
+
+	},
+
+	'ctrl+3': function( element, selection, callback ) {
+
+		ContentTools.Tools.paragraphPicker.applyTag( element, 'h3', selection, callback );
+
+	},
+
+	'ctrl+4': function( element, selection, callback ) {
+
+		ContentTools.Tools.paragraphPicker.applyTag( element, 'h4', selection, callback );
+
+	},
+
+	'ctrl+.': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.UnorderedList.canApply( element, selection ) ) {
+
+			ContentTools.Tools.UnorderedList.apply( element, selection, callback );
+
+		}
+
+	},
+
+	'ctrl+/': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.OrderedList.canApply( element, selection ) ) {
+
+			ContentTools.Tools.OrderedList.apply( element, selection, callback );
+
+		}
+
+	},
+
+	'ctrl+=': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.FontUp.canApply( element, selection ) ) {
+
+			ContentTools.Tools.FontUp.apply( element, selection, callback, 'up' );
+
+		}
+
+	},
+
+	'ctrl+-': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.FontUp.canApply( element, selection ) ) {
+
+			ContentTools.Tools.FontUp.apply( element, selection, callback, 'down' );
+
+		}
+
+	},
+
+	'ctrl+o': function( element, selection, callback ) {
+
+		if ( ContentTools.Tools.Code.canApply( element, selection ) ) {
+
+			ContentTools.Tools.Code.apply( element, selection, callback );
+
+		}
+
+	},
+
+	'ctrl+z': function() {
+
+		ContentTools.Tools.Undo.apply( null, null, function() {} );
+
+	},
+
+	'ctrl+m': function( element, selection, callback ) {
+
+		ContentTools.Tools.pbsMedia.apply( element, selection, callback );
+
 	}
+
 };
 
-/* globals ContentSelect, ContentTools, pbsParams */
+var redoKey = navigator.appVersion.indexOf('Mac') !== -1 ? 'ctrl+shift+z' : 'ctrl+y';
 
-wp.hooks.addFilter( 'pbs.has_toolbar_selectors', function( selector ) {
-	selector.push( 'a[href]:not(.pbs-button)' );
-	return selector;
-} );
+PBSEditor.shortcuts[ redoKey ] = function() {
 
-wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
+	ContentTools.Tools.Redo.apply( null, null, function() {} );
 
-	if ( target.tagName !== 'A' ) {
-		return tools;
-	}
-	if ( target.classList.contains( 'pbs-button' ) ) {
-		return tools;
-	}
-	if ( ! target.getAttribute( 'href' ) ) {
-		return tools;
-	}
-	if ( target.innerHTML.match( /<img/g ) ) {
-		return tools;
-	}
+};
 
-	var o = document.createElement('DIV');
-	o.classList.add('pbs-tool-label');
-	o.classList.add('pbs-tool-label-link');
-	o.innerHTML = target.getAttribute( 'href' );
-	tools.push( o );
 
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-link-visit');
-	o.setAttribute('data-tooltip', pbsParams.labels.visit_link );
-	o.addEventListener('click', function() {
-		window.open( target.getAttribute( 'href' ), '_linktool');
-	});
-	tools.push( o );
 
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-edit');
-	o.setAttribute('data-tooltip', pbsParams.labels.edit_link );
-	o.addEventListener('click', function() {
 
-		// Find ce-element parent
-		var domElement = target;
-		while ( ! domElement._ceElement ) {
-			domElement = domElement.parentNode;
+
+/**
+
+ * Adjust the toolbar labels from here.
+
+ */
+
+ContentTools.Tools.paragraphPicker.label += ' (ctrl+p/1/2/3)';
+
+ContentTools.Tools.Bold.label += ' (ctrl+b)';
+
+ContentTools.Tools.Italic.label += ' (ctrl+i)';
+
+ContentTools.Tools.Underline.label += ' (ctrl+u)';
+
+ContentTools.Tools.Link.label += ' (ctrl+k)';
+
+ContentTools.Tools.AlignLeft.label += ' (ctrl+l)';
+
+ContentTools.Tools.AlignCenter.label += ' (ctrl+e)';
+
+ContentTools.Tools.AlignRight.label += ' (ctrl+r)';
+
+ContentTools.Tools.AlignJustify.label += ' (ctrl+j)';
+
+
+ContentTools.Tools.Code.label += ' (ctrl+o)';
+
+ContentTools.Tools.UnorderedList.label += ' (ctrl+.)';
+
+ContentTools.Tools.OrderedList.label += ' (ctrl+/)';
+
+ContentTools.Tools.Undo.label += ' (ctrl+z)';
+
+ContentTools.Tools.Redo.label += ' (' + redoKey + ')';
+
+
+
+
+
+/**
+
+ * Fix the shortcuts so that we can get the keycode combination.
+
+ */
+
+PBSEditor._shortcuts = {};
+
+for ( var code in PBSEditor.shortcuts ) {
+
+	if ( PBSEditor.shortcuts.hasOwnProperty( code ) ) {
+
+
+
+		// Split into modifier + key.
+
+		var matches = code.match( /(^.*\+)([^+]*)$/ );
+
+		if ( ! matches.length ) {
+
+			continue;
+
 		}
 
-		// Select the link.
-		var index = domElement._ceElement.content.indexOf( target.innerHTML );
-		var selection = new ContentSelect.Range( index, index );
-		selection.select( domElement );
 
-		// Open the link editor.
-		window.PBSEditor.getToolUI( 'link' ).apply( domElement._ceElement, selection, function() { } );
-	});
-	tools.push( o );
 
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-link-unlink');
-	o.setAttribute('data-tooltip', pbsParams.labels.unlink );
-	o.addEventListener('click', function() {
+		// "Ctrl+" or "ctrl+shift".
 
-		// Find ce-element parent
-		var domElement = target;
-		while ( ! domElement._ceElement ) {
-			domElement = domElement.parentNode;
+		var key = matches[1];
+
+
+
+		// The key.
+
+		var sc = matches[2];
+
+		if ( sc === 'space' ) {
+
+			sc = 32;
+
+		} else if ( sc === 'up' ) {
+
+			sc = 38;
+
+		} else if ( sc === 'right' ) {
+
+			sc = 39;
+
+		} else if ( sc === 'down' ) {
+
+			sc = 40;
+
+		} else if ( sc === 'left' ) {
+
+			sc = 37;
+
+		} else if ( sc === 'tab' ) {
+
+			sc = 9;
+
+		} else if ( sc === 'enter' ) {
+
+			sc = 13;
+
+		} else if ( sc === '.' ) {
+
+			sc = 190;
+
+		} else if ( sc === '/' ) {
+
+			sc = 191;
+
+		} else if ( sc === '=' ) {
+
+			sc = 187;
+
+		} else if ( sc === '-' ) {
+
+			sc = 189;
+
+		} else if ( sc === 'delete' ) {
+
+			sc = 8;
+
 		}
 
-		// Get the link position.
-		var index = domElement._ceElement.content.indexOf( target.innerHTML );
+		if ( typeof sc === 'number' ) {
 
-		// The start should be the start of the link block.
-		var selected = ContentTools.Tools.Link.getSelectedLink( domElement._ceElement, index, index );
-		var from = selected.from;
-		var to = selected.to;
+			key += sc;
 
-		// Remove the link.
-		domElement._ceElement.content = domElement._ceElement.content.unformat( from, to, 'a' );
-		domElement._ceElement.updateInnerHTML();
-		domElement._ceElement.taint();
-	});
-	tools.push( o );
-
-	return tools;
-} );
-
-
-/* globals pbsParams, PBSInspectorOptions */
-
-wp.hooks.addFilter( 'pbs.has_toolbar_selectors', function( selector ) {
-	selector.push( '[data-shortcode]' );
-	return selector;
-} );
-
-wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
-
-	if ( ! target.getAttribute( 'data-shortcode' ) ) {
-		return tools;
-	}
-	if ( target.getAttribute('data-base') === 'caption' ) {
-		return tools;
-	}
-	if ( ! wp.hooks.applyFilters( 'pbs.toolbar.tools.allow', true, target ) ) {
-		return tools;
-	}
-
-	var o = document.createElement('DIV');
-	// o.classList.add('pbs-image-edit');
-	// o.setAttribute('data-tooltip', 'Edit Shortcode');
-	o.classList.add('pbs-tool-label');
-	o.innerHTML = wp.hooks.applyFilters( 'pbs.toolbar.shortcode.label', target.getAttribute('data-base') );
-
-	// Use the label of the shortcode if it is provided.
-	if ( PBSInspectorOptions.Shortcode[ target.getAttribute('data-base') ] ) {
-		if ( PBSInspectorOptions.Shortcode[ target.getAttribute('data-base') ].label ) {
-			o.innerHTML = wp.hooks.applyFilters( 'pbs.toolbar.shortcode.label', PBSInspectorOptions.Shortcode[ target.getAttribute('data-base') ].label );
-		}
-	}
-
-	o.addEventListener('click', function() {
-	});
-	tools.push( o );
-
-	// var o = document.createElement('DIV');
-	// o.classList.add('pbs-tool');
-	// o.classList.add('pbs-image-move');
-	// o.setAttribute('data-tooltip', 'Move');
-	// o.addEventListener('mousedown', function(e) {
-	// 	// Start dragging
-	// 	target._ceElement.drag(e.x, e.y);
-	// 	//
-	// 	target.addEventListener( 'mouseup', _toolbarShortcodeDragCancelled );
-	// });
-	// tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-edit');
-	o.setAttribute('data-tooltip', pbsParams.labels.edit_shortcode );
-	o.addEventListener('click', function() {
-		target._ceElement.convertToText();
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-clone');
-	o.setAttribute('data-tooltip', pbsParams.labels.clone );
-	o.addEventListener('click', function() {
-		target._ceElement.clone();
-	});
-	tools.push( o );
-
-	o = document.createElement('DIV');
-	o.classList.add('pbs-tool');
-	o.classList.add('pbs-image-remove');
-	o.setAttribute('data-tooltip', pbsParams.labels.remove );
-	o.addEventListener('click', function() {
-		if ( target._ceElement ) {
-
-	        if ( target._ceElement.isFocused() ) {
-				target._ceElement.blur();
-			}
-
-			target._ceElement.parent().detach( target._ceElement );
-		} else if ( target.parentNode._ceElement ) {
-
-	        if ( target.parentNode._ceElement.isFocused() ) {
-				target.parentNode._ceElement.blur();
-			}
-
-			target.parentNode._ceElement.parent().detach( target.parentNode._ceElement );
 		} else {
-			target.parentNode.removeChild( target );
+
+			sc = sc.match( /[a-z]/ ) ? sc.toUpperCase() : sc;
+
+			key += sc.charCodeAt(0);
+
 		}
-	});
-	tools.push( o );
 
-	return tools;
-} );
 
-/* globals pbsParams */
 
-wp.hooks.addFilter( 'pbs.has_toolbar_selectors', function( selector ) {
-	selector.push( '[data-ce-tag="map"]' );
-	return selector;
-} );
+		PBSEditor._shortcuts[ key ] = PBSEditor.shortcuts[ code ];
 
-wp.hooks.addFilter( 'pbs.toolbar_tools', function( tools, toolbar, target ) {
-
-	if ( target.getAttribute( 'data-ce-tag' ) !== 'map' ) {
-		return tools;
 	}
 
-	var o = document.createElement('DIV');
-	o.classList.add('pbs-tool-label');
-	o.innerHTML = pbsParams.labels.map;
-	o.addEventListener('click', function() {
+}
+
+PBSEditor.shortcuts = PBSEditor._shortcuts;
+
+PBSEditor._shortcuts = null;
+
+
+
+
+
+(function() {
+
+
+
+	var getShortcutKey = function( ev ) {
+
+		var key = '';
+
+		if ( ev.metaKey || ev.ctrlKey ) {
+
+			key += 'ctrl';
+
+		}
+
+		if ( ev.shiftKey ) {
+
+			key += key ? '+' : '';
+
+			key += 'shift';
+
+		}
+
+		if ( ! key ) {
+
+			return;
+
+		}
+
+		key += '+' + ev.keyCode;
+
+
+
+		return key;
+
+	};
+
+
+
+	var shortcutListener = function(ev) {
+
+
+
+		var key = getShortcutKey( ev );
+
+		var element = ContentEdit.Root.get().focused();
+
+
+
+		if ( wp.hooks.applyFilters( 'pbs.shortcuts', false, key, element ) ) {
+
+			ev.preventDefault();
+
+			return;
+
+		}
+
+
+
+		if ( ! element ) {
+
+			return;
+
+		}
+
+
+
+		if ( PBSEditor.shortcuts[ key ] ) {
+
+
+
+			var selection = null;
+
+			if ( element.selection ) {
+
+				selection = element.selection();
+
+			}
+
+
+
+			ev.preventDefault();
+
+
+
+			PBSEditor.shortcuts[ key ]( element, selection, function() {} );
+
+
+
+			ev.preventDefault();
+
+			ev.stopPropagation();
+
+			return;
+
+		}
+
+	};
+
+
+
+
+
+	// Because we're listening on the document keydown event, some shortcuts will might
+
+	// not trigger correctly and might continue with their default behavior (e.g. navigating columns),
+
+	// this fixes this by handling the call from the Text Element level.
+
+	// var elementKeyDownProxy = ContentEdit.Text.prototype._onKeyDown;
+
+	// ContentEdit.Text.prototype._onKeyDown = function( ev ) {
+
+	// 	shortcutListener( ev );
+
+	//
+
+	// 	elementKeyDownProxy.call( this, ev );
+
+	// };
+
+
+
+
+
+	var addDomEventListenersProxy = ContentTools.ToolboxBarUI.prototype._addDOMEventListeners;
+
+	ContentTools.ToolboxBarUI.prototype._addDOMEventListeners = function() {
+
+		document.addEventListener( 'keydown', shortcutListener );
+
+		return addDomEventListenersProxy.call( this );
+
+	};
+
+
+
+	var removeDomEventListenersProxy = ContentTools.ToolboxBarUI.prototype._removeDOMEventListeners;
+
+	ContentTools.ToolboxBarUI.prototype._removeDOMEventListeners = function() {
+
+		document.removeEventListener( 'keydown', shortcutListener );
+
+		return removeDomEventListenersProxy.call( this );
+
+	};
+
+})();
+
+
+
+
+
+/**
+
+ * Adminbar shortcuts.
+
+ */
+
+window.addEventListener( 'DOMContentLoaded', function() {
+
+	document.addEventListener( 'keydown', function(ev) {
+
+		if ( ! window.PBSEditor.isEditing() ) {
+
+
+
+			// Edit.
+
+			if ( ( ev.metaKey || ev.ctrlKey ) && ev.keyCode === 69 ) {
+
+				document.querySelector( '#wp-admin-bar-gambit_builder_edit' ).dispatchEvent( new CustomEvent( 'click' ) );
+
+				ev.preventDefault();
+
+			}
+
+
+
+		} else {
+
+
+
+			if ( ( ev.metaKey || ev.ctrlKey ) && ( ev.keyCode === 83 || ev.keyCode === 27 ) ) {
+
+				ev.preventDefault();
+
+
+
+				var element = ContentEdit.Root.get().focused();
+
+				if ( element ) {
+
+					element.blur();
+
+				}
+
+
+
+				// Save.
+
+				if ( ev.keyCode === 83 ) {
+
+					document.querySelector( '#wp-admin-bar-gambit_builder_save' ).dispatchEvent( new CustomEvent( 'click' ) );
+
+
+
+				// Cancel.
+
+				} else {
+
+					document.querySelector( '#wp-admin-bar-gambit_builder_cancel' ).dispatchEvent( new CustomEvent( 'click' ) );
+
+				}
+
+
+
+			} else if ( ( ev.metaKey || ev.ctrlKey ) && ev.shiftKey && ev.keyCode === 82 ) {
+
+
+
+				// New reload shortcut.
+
+				ev.preventDefault();
+
+				location.reload();
+
+
+
+			}
+
+		}
+
 	});
-	tools.push( o );
 
-	o = document.createElement('DIV');
-	o.classList.add( 'pbs-tool' );
-	o.classList.add( 'pbs-image-remove' );
-	o.setAttribute( 'data-tooltip', pbsParams.labels.remove );
-	o.addEventListener( 'click', function() {
-		target._ceElement.parent().detach( target._ceElement );
-	} );
-	tools.push( o );
-
-	return tools;
 } );
+
+
 
 
 /* globals ContentTools, __extends, pbsParams */
 
 
+
+
+
 /**
+
  * The main "Get Premium" button class.
+
  */
+
 ContentTools.Tools.GetPremium = (function(_super) {
+
 	__extends(GetPremium, _super);
+
 	function GetPremium() {
+
 		return GetPremium.__super__.constructor.apply(this, arguments);
+
 	}
+
 	ContentTools.ToolShelf.stow(GetPremium, 'get-premium');
+
 	GetPremium.type = 'get-premium';
+
 	return GetPremium;
+
 })(ContentTools.Tool);
 
 
+
+
+
 /**
+
  * Add the special behavior of the "Get Premium" button.
+
  */
+
 (function() {
+
 	var proxied = ContentTools.ToolUI.prototype.mount;
+
 	ContentTools.ToolUI.prototype.mount = function( domParent, before ) {
+
 		var ret = proxied.call( this, domParent, before );
 
+
+
 		if ( this.tool.type === 'get-premium' ) {
+
 			this._domElement.classList.remove( 'ct-tool' );
+
 			this._domElement.classList.add( 'pbs-get-more-features' );
+
 			this._domElement.classList.add( 'pbs-get-more-features-dark' );
+
 			this._domElement.innerHTML = '<a href="https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=inspector-top&utm_campaign=Page%20Builder%20Sandwich" target="_blank">' + pbsParams.labels.get_the_premium_plugin + '</a>';
+
 		}
 
+
+
 		return ret;
+
 	};
+
 })();
 
 
+
+
+
 /**
+
  * Create "Get Premium" buttons on the end of inspector areas.
+
  */
+
 // wp.hooks.addAction( 'pbs.inspector.add_section', function( container, label ) {
+
 // 	var getMore = document.createElement( 'div' );
+
 // 	getMore.classList.add( 'pbs-get-more-features' );
+
 // 	// if ( label.toLowerCase() === 'row' ) {
+
 // 	// 	getMore.innerHTML = '<a href="https://pagebuildersandwich.com/?utm_source=lite-plugin&utm_medium=inspector-row&utm_campaign=Page%20Builder%20Sandwich" target="_blank">Get more tools like full-width rows, image, parallax, and video backgrounds</a>';
+
 // 	// } else if ( label.toLowerCase() === 'column' ) {
+
 // 	// 	getMore.innerHTML = '<a href="https://pagebuildersandwich.com/?utm_source=lite-plugin&utm_medium=inspector-column&utm_campaign=Page%20Builder%20Sandwich" target="_blank">Get more column styling tools with the Premium Plugin</a>';
+
 // 	// } else {
+
 // 		getMore.innerHTML = '<a href="https://pagebuildersandwich.com/?utm_source=lite-plugin&utm_medium=inspector-' + label.toLowerCase() + '&utm_campaign=Page%20Builder%20Sandwich" target="_blank">Get the Premium Plugin to get more ' + label + ' tools and features</a>';
+
 // 	// }
+
 // 	container.appendChild( getMore );
+
 // } );
 
 
+
+
+
 /**
+
  * Click handler for the "Get Premium" Admin bar button.
+
  */
+
 document.addEventListener( 'DOMContentLoaded', function() {
+
 	document.querySelector( '#wp-admin-bar-pbs_go_premium' ).addEventListener( 'click', function() {
+
 		var win = window.open( 'https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=adminbar&utm_campaign=Page%20Builder%20Sandwich', '_blank');
+
   		win.focus();
+
 	});
+
 });
 
-/**! hopscotch - v0.2.5
-*
-* Copyright 2015 LinkedIn Corp. All rights reserved.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
-(function(context, factory) {
-  'use strict';
 
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define([], factory);
-  } else if (typeof exports === 'object') {
-    // Node/CommonJS
-    module.exports = factory();
-  } else {
-    var namespace = 'hopscotch';
-    // Browser globals
-    if (context[namespace]) {
-      // Hopscotch already exists.
-      return;
-    }
-    context[namespace] = factory();
-  }
-}(this, (function() {
-  var Hopscotch,
-      HopscotchBubble,
-      HopscotchCalloutManager,
-      HopscotchI18N,
-      customI18N,
-      customRenderer,
-      customEscape,
-      templateToUse = 'bubble_default',
-      Sizzle = window.Sizzle || null,
-      utils,
-      callbacks,
-      helpers,
-      winLoadHandler,
-      defaultOpts,
-      winHopscotch,
-      undefinedStr      = 'undefined',
-      waitingToStart    = false, // is a tour waiting for the document to finish
-                                 // loading so that it can start?
-      hasJquery         = (typeof jQuery !== undefinedStr),
-      hasSessionStorage = false,
-      isStorageWritable = false,
-      document          = window.document,
-      validIdRegEx      = /^[a-zA-Z]+[a-zA-Z0-9_-]*$/,
-      rtlMatches        = {
-        left: 'right',
-        right: 'left'
-      };
-
-  // If cookies are disabled, accessing sessionStorage can throw an error.
-  // sessionStorage could also throw an error in Safari on write (even though it exists).
-  // So, we'll try writing to sessionStorage to verify it's available.
-  try {
-    if(typeof window.sessionStorage !== undefinedStr){
-      hasSessionStorage = true;
-      sessionStorage.setItem('hopscotch.test.storage', 'ok');
-      sessionStorage.removeItem('hopscotch.test.storage');
-      isStorageWritable = true;
-    }
-  } catch (err) {}
-
-  defaultOpts       = {
-    smoothScroll:    true,
-    scrollDuration:  1000,
-    scrollTopMargin: 200,
-    showCloseButton: true,
-    showPrevButton:  false,
-    showNextButton:  true,
-    bubbleWidth:     280,
-    bubblePadding:   15,
-    arrowWidth:      20,
-    skipIfNoElement: true,
-    isRtl:           false,
-    cookieName:      'hopscotch.tour.state'
-  };
-
-  if (!Array.isArray) {
-    Array.isArray = function(obj) {
-      return Object.prototype.toString.call(obj) === '[object Array]';
-    };
-  }
-
-  /**
-   * Called when the page is done loading.
-   *
-   * @private
-   */
-  winLoadHandler = function() {
-    if (waitingToStart) {
-      winHopscotch.startTour();
-    }
-  };
-
-  /**
-   * utils
-   * =====
-   * A set of utility functions, mostly for standardizing to manipulate
-   * and extract information from the DOM. Basically these are things I
-   * would normally use jQuery for, but I don't want to require it for
-   * this framework.
-   *
-   * @private
-   */
-  utils = {
-    /**
-     * addClass
-     * ========
-     * Adds one or more classes to a DOM element.
-     *
-     * @private
-     */
-    addClass: function(domEl, classToAdd) {
-      var domClasses,
-          classToAddArr,
-          setClass,
-          i,
-          len;
-
-      if (!domEl.className) {
-        domEl.className = classToAdd;
-      }
-      else {
-        classToAddArr = classToAdd.split(/\s+/);
-        domClasses = ' ' + domEl.className + ' ';
-        for (i = 0, len = classToAddArr.length; i < len; ++i) {
-          if (domClasses.indexOf(' ' + classToAddArr[i] + ' ') < 0) {
-            domClasses += classToAddArr[i] + ' ';
-          }
-        }
-        domEl.className = domClasses.replace(/^\s+|\s+$/g,'');
-      }
-    },
-
-    /**
-     * removeClass
-     * ===========
-     * Remove one or more classes from a DOM element.
-     *
-     * @private
-     */
-    removeClass: function(domEl, classToRemove) {
-      var domClasses,
-          classToRemoveArr,
-          currClass,
-          i,
-          len;
-
-      classToRemoveArr = classToRemove.split(/\s+/);
-      domClasses = ' ' + domEl.className + ' ';
-      for (i = 0, len = classToRemoveArr.length; i < len; ++i) {
-        domClasses = domClasses.replace(' ' + classToRemoveArr[i] + ' ', ' ');
-      }
-      domEl.className = domClasses.replace(/^\s+|\s+$/g,'');
-    },
-
-    /**
-     * hasClass
-     * ========
-     * Determine if a given DOM element has a class.
-     */
-    hasClass: function(domEl, classToCheck){
-      var classes;
-
-      if(!domEl.className){ return false; }
-      classes = ' ' + domEl.className + ' ';
-      return (classes.indexOf(' ' + classToCheck + ' ') !== -1);
-    },
-
-    /**
-     * @private
-     */
-    getPixelValue: function(val) {
-      var valType = typeof val;
-      if (valType === 'number') { return val; }
-      if (valType === 'string') { return parseInt(val, 10); }
-      return 0;
-    },
-
-    /**
-     * Inspired by Python... returns val if it's defined, otherwise returns the default.
-     *
-     * @private
-     */
-    valOrDefault: function(val, valDefault) {
-      return typeof val !== undefinedStr ? val : valDefault;
-    },
-
-    /**
-     * Invokes a single callback represented by an array.
-     * Example input: ["my_fn", "arg1", 2, "arg3"]
-     * @private
-     */
-    invokeCallbackArrayHelper: function(arr) {
-      // Logic for a single callback
-      var fn;
-      if (Array.isArray(arr)) {
-        fn = helpers[arr[0]];
-        if (typeof fn === 'function') {
-          return fn.apply(this, arr.slice(1));
-        }
-      }
-    },
-
-    /**
-     * Invokes one or more callbacks. Array should have at most one level of nesting.
-     * Example input:
-     * ["my_fn", "arg1", 2, "arg3"]
-     * [["my_fn_1", "arg1", "arg2"], ["my_fn_2", "arg2-1", "arg2-2"]]
-     * [["my_fn_1", "arg1", "arg2"], function() { ... }]
-     * @private
-     */
-    invokeCallbackArray: function(arr) {
-      var i, len;
-
-      if (Array.isArray(arr)) {
-        if (typeof arr[0] === 'string') {
-          // Assume there are no nested arrays. This is the one and only callback.
-          return utils.invokeCallbackArrayHelper(arr);
-        }
-        else { // assume an array
-          for (i = 0, len = arr.length; i < len; ++i) {
-            utils.invokeCallback(arr[i]);
-          }
-        }
-      }
-    },
-
-    /**
-     * Helper function for invoking a callback, whether defined as a function literal
-     * or an array that references a registered helper function.
-     * @private
-     */
-    invokeCallback: function(cb) {
-      if (typeof cb === 'function') {
-        return cb();
-      }
-      if (typeof cb === 'string' && helpers[cb]) { // name of a helper
-        return helpers[cb]();
-      }
-      else { // assuming array
-        return utils.invokeCallbackArray(cb);
-      }
-    },
-
-    /**
-     * If stepCb (the step-specific helper callback) is passed in, then invoke
-     * it first. Then invoke tour-wide helper.
-     *
-     * @private
-     */
-    invokeEventCallbacks: function(evtType, stepCb) {
-      var cbArr = callbacks[evtType],
-          callback,
-          fn,
-          i,
-          len;
-
-      if (stepCb) {
-        return this.invokeCallback(stepCb);
-      }
-
-      for (i=0, len=cbArr.length; i<len; ++i) {
-        this.invokeCallback(cbArr[i].cb);
-      }
-    },
-
-    /**
-     * @private
-     */
-    getScrollTop: function() {
-      var scrollTop;
-      if (typeof window.pageYOffset !== undefinedStr) {
-        scrollTop = window.pageYOffset;
-      }
-      else {
-        // Most likely IE <=8, which doesn't support pageYOffset
-        scrollTop = document.documentElement.scrollTop;
-      }
-      return scrollTop;
-    },
-
-    /**
-     * @private
-     */
-    getScrollLeft: function() {
-      var scrollLeft;
-      if (typeof window.pageXOffset !== undefinedStr) {
-        scrollLeft = window.pageXOffset;
-      }
-      else {
-        // Most likely IE <=8, which doesn't support pageXOffset
-        scrollLeft = document.documentElement.scrollLeft;
-      }
-      return scrollLeft;
-    },
-
-    /**
-     * @private
-     */
-    getWindowHeight: function() {
-      return window.innerHeight || document.documentElement.clientHeight;
-    },
-
-    /**
-     * @private
-     */
-    addEvtListener: function(el, evtName, fn) {
-      if(el) {
-        return el.addEventListener ? el.addEventListener(evtName, fn, false) : el.attachEvent('on' + evtName, fn);
-      }
-    },
-
-    /**
-     * @private
-     */
-    removeEvtListener: function(el, evtName, fn) {
-      if(el) {
-        return el.removeEventListener ? el.removeEventListener(evtName, fn, false) : el.detachEvent('on' + evtName, fn);
-      }
-    },
-
-    documentIsReady: function() {
-      return document.readyState === 'complete';
-    },
-
-    /**
-     * @private
-     */
-    evtPreventDefault: function(evt) {
-      if (evt.preventDefault) {
-        evt.preventDefault();
-      }
-      else if (event) {
-        event.returnValue = false;
-      }
-    },
-
-    /**
-     * @private
-     */
-    extend: function(obj1, obj2) {
-      var prop;
-      for (prop in obj2) {
-        if (obj2.hasOwnProperty(prop)) {
-          obj1[prop] = obj2[prop];
-        }
-      }
-    },
-
-    /**
-     * Helper function to get a single target DOM element. We will try to
-     * locate the DOM element through several ways, in the following order:
-     *
-     * 1) Passing the string into document.querySelector
-     * 2) Passing the string to jQuery, if it exists
-     * 3) Passing the string to Sizzle, if it exists
-     * 4) Calling document.getElementById if it is a plain id
-     *
-     * Default case is to assume the string is a plain id and call
-     * document.getElementById on it.
-     *
-     * @private
-     */
-    getStepTargetHelper: function(target){
-      var result = document.getElementById(target);
-
-      //Backwards compatibility: assume the string is an id
-      if (result) {
-        return result;
-      }
-      if (hasJquery) {
-        result = jQuery(target);
-        return result.length ? result[0] : null;
-      }
-      if (Sizzle) {
-        result = new Sizzle(target);
-        return result.length ? result[0] : null;
-      }
-      if (document.querySelector) {
-        try {
-          return document.querySelector(target);
-        } catch (err) {}
-      }
-      // Regex test for id. Following the HTML 4 spec for valid id formats.
-      // (http://www.w3.org/TR/html4/types.html#type-id)
-      if (/^#[a-zA-Z][\w-_:.]*$/.test(target)) {
-        return document.getElementById(target.substring(1));
-      }
-
-      return null;
-    },
-
-    /**
-     * Given a step, returns the target DOM element associated with it. It is
-     * recommended to only assign one target per step. However, there are
-     * some use cases which require multiple step targets to be supplied. In
-     * this event, we will use the first target in the array that we can
-     * locate on the page. See the comments for getStepTargetHelper for more
-     * information.
-     *
-     * @private
-     */
-    getStepTarget: function(step) {
-      var queriedTarget;
-
-      if (!step || !step.target) {
-        return null;
-      }
-
-      if (typeof step.target === 'string') {
-        //Just one target to test. Check and return its results.
-        return utils.getStepTargetHelper(step.target);
-      }
-      else if (Array.isArray(step.target)) {
-        // Multiple items to check. Check each and return the first success.
-        // Assuming they are all strings.
-        var i,
-            len;
-
-        for (i = 0, len = step.target.length; i < len; i++){
-          if (typeof step.target[i] === 'string') {
-            queriedTarget = utils.getStepTargetHelper(step.target[i]);
-
-            if (queriedTarget) {
-              return queriedTarget;
-            }
-          }
-        }
-        return null;
-      }
-
-      // Assume that the step.target is a DOM element
-      return step.target;
-    },
-
-    /**
-     * Convenience method for getting an i18n string. Returns custom i18n value
-     * or the default i18n value if no custom value exists.
-     *
-     * @private
-     */
-    getI18NString: function(key) {
-      return customI18N[key] || HopscotchI18N[key];
-    },
-
-    // Tour session persistence for multi-page tours. Uses HTML5 sessionStorage if available, then
-    // falls back to using cookies.
-    //
-    // The following cookie-related logic is borrowed from:
-    // http://www.quirksmode.org/js/cookies.html
-
-    /**
-     * @private
-     */
-    setState: function(name,value,days) {
-      var expires = '',
-          date;
-
-      if (hasSessionStorage && isStorageWritable) {
-        try{
-          sessionStorage.setItem(name, value);
-        }
-        catch(err){
-          isStorageWritable = false;
-          this.setState(name, value, days);
-        }
-      }
-      else {
-        if(hasSessionStorage){
-          //Clear out existing sessionStorage key so the new value we set to cookie gets read.
-          //(If we're here, we've run into an error while trying to write to sessionStorage).
-          sessionStorage.removeItem(name);
-        }
-        if (days) {
-          date = new Date();
-          date.setTime(date.getTime()+(days*24*60*60*1000));
-          expires = '; expires='+date.toGMTString();
-        }
-        document.cookie = name+'='+value+expires+'; path=/';
-      }
-    },
-
-    /**
-     * @private
-     */
-    getState: function(name) {
-      var nameEQ = name + '=',
-          ca = document.cookie.split(';'),
-          i,
-          c,
-          state;
-
-      //return value from session storage if we have it
-      if (hasSessionStorage) {
-        state = sessionStorage.getItem(name);
-        if(state){
-          return state;
-        }
-      }
-
-      //else, try cookies
-      for(i=0;i < ca.length;i++) {
-        c = ca[i];
-        while (c.charAt(0)===' ') {c = c.substring(1,c.length);}
-        if (c.indexOf(nameEQ) === 0) {
-          state = c.substring(nameEQ.length,c.length);
-          break;
-        }
-      }
-
-      return state;
-    },
-
-    /**
-     * @private
-     */
-    clearState: function(name) {
-      if (hasSessionStorage) {
-        sessionStorage.removeItem(name);
-      }
-      else {
-        this.setState(name,'',-1);
-      }
-    },
-
-    /**
-     * Originally called it orientation, but placement is more intuitive.
-     * Allowing both for now for backwards compatibility.
-     * @private
-     */
-    normalizePlacement: function(step) {
-      if (!step.placement && step.orientation) {
-        step.placement = step.orientation;
-      }
-    },
-
-    /**
-     * If step is right-to-left enabled, flip the placement and xOffset, but only once.
-     * @private
-     */
-    flipPlacement: function(step){
-      if(step.isRtl && !step._isFlipped){
-        var props = ['orientation', 'placement'], prop, i;
-        if(step.xOffset){
-          step.xOffset = -1 * this.getPixelValue(step.xOffset);
-        }
-        for(i in props){
-          prop = props[i];
-          if(step.hasOwnProperty(prop) && rtlMatches.hasOwnProperty(step[prop])) {
-            step[prop] = rtlMatches[step[prop]];
-          }
-        }
-        step._isFlipped = true;
-      }
-    }
-  };
-
-  utils.addEvtListener(window, 'load', winLoadHandler);
-
-  callbacks = {
-    next:  [],
-    prev:  [],
-    start: [],
-    end:   [],
-    show:  [],
-    error: [],
-    close: []
-  };
-
-  /**
-   * helpers
-   * =======
-   * A map of functions to be used as callback listeners. Functions are
-   * added to and removed from the map using the functions
-   * Hopscotch.registerHelper() and Hopscotch.unregisterHelper().
-   */
-  helpers = {};
-
-  HopscotchI18N = {
-    stepNums: null,
-    nextBtn: 'Next',
-    prevBtn: 'Back',
-    doneBtn: 'Done',
-    skipBtn: 'Skip',
-    closeTooltip: 'Close'
-  };
-
-  customI18N = {}; // Developer's custom i18n strings goes here.
-
-  /**
-   * HopscotchBubble
-   *
-   * @class The HopscotchBubble class represents the view of a bubble. This class is also used for Hopscotch callouts.
-   */
-  HopscotchBubble = function(opt) {
-    this.init(opt);
-  };
-
-  HopscotchBubble.prototype = {
-    isShowing: false,
-
-    currStep: undefined,
-
-    /**
-     * setPosition
-     *
-     * Sets the position of the bubble using the bounding rectangle of the
-     * target element and the orientation and offset information specified by
-     * the JSON.
-     */
-    setPosition: function(step) {
-      var bubbleBoundingHeight,
-          bubbleBoundingWidth,
-          boundingRect,
-          top,
-          left,
-          arrowOffset,
-          verticalLeftPosition,
-          targetEl     = utils.getStepTarget(step),
-          el           = this.element,
-          arrowEl      = this.arrowEl,
-          arrowPos     = step.isRtl ? 'right' : 'left';
-
-      utils.flipPlacement(step);
-      utils.normalizePlacement(step);
-
-      bubbleBoundingWidth = el.offsetWidth;
-      bubbleBoundingHeight = el.offsetHeight;
-      utils.removeClass(el, 'fade-in-down fade-in-up fade-in-left fade-in-right');
-
-      // SET POSITION
-      boundingRect = targetEl.getBoundingClientRect();
-
-      verticalLeftPosition = step.isRtl ? boundingRect.right - bubbleBoundingWidth : boundingRect.left;
-
-      if (step.placement === 'top') {
-        top = (boundingRect.top - bubbleBoundingHeight) - this.opt.arrowWidth;
-        left = verticalLeftPosition;
-      }
-      else if (step.placement === 'bottom') {
-        top = boundingRect.bottom + this.opt.arrowWidth;
-        left = verticalLeftPosition;
-      }
-      else if (step.placement === 'left') {
-        top = boundingRect.top;
-        left = boundingRect.left - bubbleBoundingWidth - this.opt.arrowWidth;
-      }
-      else if (step.placement === 'right') {
-        top = boundingRect.top;
-        left = boundingRect.right + this.opt.arrowWidth;
-      }
-      else {
-        throw new Error('Bubble placement failed because step.placement is invalid or undefined!');
-      }
-
-      // SET (OR RESET) ARROW OFFSETS
-      if (step.arrowOffset !== 'center') {
-        arrowOffset = utils.getPixelValue(step.arrowOffset);
-      }
-      else {
-        arrowOffset = step.arrowOffset;
-      }
-      if (!arrowOffset) {
-        arrowEl.style.top = '';
-        arrowEl.style[arrowPos] = '';
-      }
-      else if (step.placement === 'top' || step.placement === 'bottom') {
-        arrowEl.style.top = '';
-        if (arrowOffset === 'center') {
-          arrowEl.style[arrowPos] = Math.floor((bubbleBoundingWidth / 2) - arrowEl.offsetWidth/2) + 'px';
-        }
-        else {
-          // Numeric pixel value
-          arrowEl.style[arrowPos] = arrowOffset + 'px';
-        }
-      }
-      else if (step.placement === 'left' || step.placement === 'right') {
-        arrowEl.style[arrowPos] = '';
-        if (arrowOffset === 'center') {
-          arrowEl.style.top = Math.floor((bubbleBoundingHeight / 2) - arrowEl.offsetHeight/2) + 'px';
-        }
-        else {
-          // Numeric pixel value
-          arrowEl.style.top = arrowOffset + 'px';
-        }
-      }
-
-      // HORIZONTAL OFFSET
-      if (step.xOffset === 'center') {
-        left = (boundingRect.left + targetEl.offsetWidth/2) - (bubbleBoundingWidth / 2);
-      }
-      else {
-        left += utils.getPixelValue(step.xOffset);
-      }
-      // VERTICAL OFFSET
-      if (step.yOffset === 'center') {
-        top = (boundingRect.top + targetEl.offsetHeight/2) - (bubbleBoundingHeight / 2);
-      }
-      else {
-        top += utils.getPixelValue(step.yOffset);
-      }
-
-      // ADJUST TOP FOR SCROLL POSITION
-      if (!step.fixedElement) {
-        top += utils.getScrollTop();
-        left += utils.getScrollLeft();
-      }
-
-      // ACCOUNT FOR FIXED POSITION ELEMENTS
-      el.style.position = (step.fixedElement ? 'fixed' : 'absolute');
-
-      el.style.top = top + 'px';
-      el.style.left = left + 'px';
-    },
-
-    /**
-     * Renders the bubble according to the step JSON.
-     *
-     * @param {Object} step Information defining how the bubble should look.
-     * @param {Number} idx The index of the step in the tour. Not used for callouts.
-     * @param {Function} callback Function to be invoked after rendering is finished.
-     */
-    render: function(step, idx, callback) {
-      var el = this.element,
-          tourSpecificRenderer,
-          customTourData,
-          unsafe,
-          currTour,
-          totalSteps,
-          totalStepsI18n,
-          nextBtnText,
-          isLast,
-          opts;
-
-      // Cache current step information.
-      if (step) {
-        this.currStep = step;
-      }
-      else if (this.currStep) {
-        step = this.currStep;
-      }
-
-      // Check current tour for total number of steps and custom render data
-      if(this.opt.isTourBubble){
-        currTour = winHopscotch.getCurrTour();
-        if(currTour){
-          customTourData = currTour.customData;
-          tourSpecificRenderer = currTour.customRenderer;
-          step.isRtl = step.hasOwnProperty('isRtl') ? step.isRtl :
-            (currTour.hasOwnProperty('isRtl') ? currTour.isRtl : this.opt.isRtl);
-          unsafe = currTour.unsafe;
-          if(Array.isArray(currTour.steps)){
-            totalSteps = currTour.steps.length;
-            totalStepsI18n = this._getStepI18nNum(this._getStepNum(totalSteps - 1));
-            isLast = (this._getStepNum(idx) === this._getStepNum(totalSteps - 1));
-          }
-        }
-      }else{
-        customTourData = step.customData;
-        tourSpecificRenderer = step.customRenderer;
-        unsafe = step.unsafe;
-        step.isRtl = step.hasOwnProperty('isRtl') ? step.isRtl : this.opt.isRtl;
-      }
-
-      // Determine label for next button
-      if(isLast){
-        nextBtnText = utils.getI18NString('doneBtn');
-      } else if(step.showSkip) {
-        nextBtnText = utils.getI18NString('skipBtn');
-      } else {
-        nextBtnText = utils.getI18NString('nextBtn');
-      }
-
-      utils.flipPlacement(step);
-      utils.normalizePlacement(step);
-
-      this.placement = step.placement;
-
-      // Setup the configuration options we want to pass along to the template
-      opts = {
-        i18n: {
-          prevBtn: utils.getI18NString('prevBtn'),
-          nextBtn: nextBtnText,
-          closeTooltip: utils.getI18NString('closeTooltip'),
-          stepNum: this._getStepI18nNum(this._getStepNum(idx)),
-          numSteps: totalStepsI18n
-        },
-        buttons:{
-          showPrev: (utils.valOrDefault(step.showPrevButton, this.opt.showPrevButton) && (this._getStepNum(idx) > 0)),
-          showNext: utils.valOrDefault(step.showNextButton, this.opt.showNextButton),
-          showCTA: utils.valOrDefault((step.showCTAButton && step.ctaLabel), false),
-          ctaLabel: step.ctaLabel,
-          showClose: utils.valOrDefault(this.opt.showCloseButton, true)
-        },
-        step:{
-          num: idx,
-          isLast: utils.valOrDefault(isLast, false),
-          title: (step.title || ''),
-          content: (step.content || ''),
-          isRtl: step.isRtl,
-          placement: step.placement,
-          padding: utils.valOrDefault(step.padding, this.opt.bubblePadding),
-          width: utils.getPixelValue(step.width) || this.opt.bubbleWidth,
-          customData: (step.customData || {})
-        },
-        tour:{
-          isTour: this.opt.isTourBubble,
-          numSteps: totalSteps,
-          unsafe: utils.valOrDefault(unsafe, false),
-          customData: (customTourData || {})
-        }
-      };
-
-      // Render the bubble's content.
-      // Use tour renderer if available, then the global customRenderer if defined.
-      if(typeof tourSpecificRenderer === 'function'){
-        el.innerHTML = tourSpecificRenderer(opts);
-      }
-      else if(typeof tourSpecificRenderer === 'string'){
-        if(!winHopscotch.templates || (typeof winHopscotch.templates[tourSpecificRenderer] !== 'function')){
-          throw new Error('Bubble rendering failed - template "' + tourSpecificRenderer + '" is not a function.');
-        }
-        el.innerHTML = winHopscotch.templates[tourSpecificRenderer](opts);
-      }
-      else if(customRenderer){
-        el.innerHTML = customRenderer(opts);
-      }
-      else{
-        if(!winHopscotch.templates || (typeof winHopscotch.templates[templateToUse] !== 'function')){
-          throw new Error('Bubble rendering failed - template "' + templateToUse + '" is not a function.');
-        }
-        el.innerHTML = winHopscotch.templates[templateToUse](opts);
-      }
-
-      // Find arrow among new child elements.
-      children = el.children;
-      numChildren = children.length;
-      for (i = 0; i < numChildren; i++){
-        node = children[i];
-
-        if(utils.hasClass(node, 'hopscotch-arrow')){
-          this.arrowEl = node;
-        }
-      }
-
-      // Set z-index and arrow placement
-      el.style.zIndex = (typeof step.zindex === 'number') ? step.zindex : '';
-      this._setArrow(step.placement);
-
-      // Set bubble positioning
-      // Make sure we're using visibility:hidden instead of display:none for height/width calculations.
-      this.hide(false);
-      this.setPosition(step);
-
-      // only want to adjust window scroll for non-fixed elements
-      if (callback) {
-        callback(!step.fixedElement);
-      }
-
-      return this;
-    },
-    /**
-     * Get step number considering steps that were skipped because their target wasn't found
-     *
-     * @private
-     */
-    _getStepNum: function(idx) {
-      var skippedStepsCount = 0,
-          stepIdx,
-          skippedSteps = winHopscotch.getSkippedStepsIndexes(),
-          i,
-          len = skippedSteps.length;
-      //count number of steps skipped before current step
-      for(i = 0; i < len; i++) {
-        stepIdx = skippedSteps[i];
-        if(stepIdx<idx) {
-          skippedStepsCount++;
-        }
-      }
-      return idx - skippedStepsCount;
-    },
-    /**
-     * Get the I18N step number for the current step.
-     *
-     * @private
-     */
-    _getStepI18nNum: function(idx) {
-      var stepNumI18N = utils.getI18NString('stepNums');
-      if (stepNumI18N && idx < stepNumI18N.length) {
-        idx = stepNumI18N[idx];
-      }
-      else {
-        idx = idx + 1;
-      }
-      return idx;
-    },
-
-    /**
-     * Sets which side the arrow is on.
-     *
-     * @private
-     */
-    _setArrow: function(placement) {
-      utils.removeClass(this.arrowEl, 'down up right left');
-
-      // Whatever the orientation is, we want to arrow to appear
-      // "opposite" of the orientation. E.g., a top orientation
-      // requires a bottom arrow.
-      if (placement === 'top') {
-        utils.addClass(this.arrowEl, 'down');
-      }
-      else if (placement === 'bottom') {
-        utils.addClass(this.arrowEl, 'up');
-      }
-      else if (placement === 'left') {
-        utils.addClass(this.arrowEl, 'right');
-      }
-      else if (placement === 'right') {
-        utils.addClass(this.arrowEl, 'left');
-      }
-    },
-
-    /**
-     * @private
-     */
-    _getArrowDirection: function() {
-      if (this.placement === 'top') {
-        return 'down';
-      }
-      if (this.placement === 'bottom') {
-        return 'up';
-      }
-      if (this.placement === 'left') {
-        return 'right';
-      }
-      if (this.placement === 'right') {
-        return 'left';
-      }
-    },
-
-    show: function() {
-      var self      = this,
-          fadeClass = 'fade-in-' + this._getArrowDirection(),
-          fadeDur   = 1000;
-
-      utils.removeClass(this.element, 'hide');
-      utils.addClass(this.element, fadeClass);
-      setTimeout(function() {
-        utils.removeClass(self.element, 'invisible');
-      }, 50);
-      setTimeout(function() {
-        utils.removeClass(self.element, fadeClass);
-      }, fadeDur);
-      this.isShowing = true;
-      return this;
-    },
-
-    hide: function(remove) {
-      var el = this.element;
-
-      remove = utils.valOrDefault(remove, true);
-      el.style.top = '';
-      el.style.left = '';
-
-      // display: none
-      if (remove) {
-        utils.addClass(el, 'hide');
-        utils.removeClass(el, 'invisible');
-      }
-      // opacity: 0
-      else {
-        utils.removeClass(el, 'hide');
-        utils.addClass(el, 'invisible');
-      }
-      utils.removeClass(el, 'animate fade-in-up fade-in-down fade-in-right fade-in-left');
-      this.isShowing = false;
-      return this;
-    },
-
-    destroy: function() {
-      var el = this.element;
-
-      if (el) {
-        el.parentNode.removeChild(el);
-      }
-      utils.removeEvtListener(el, 'click', this.clickCb);
-    },
-
-    _handleBubbleClick: function(evt){
-      var action;
-
-      // Override evt for IE8 as IE8 doesn't pass event but binds it to window
-      evt = evt || window.event; // get window.event if argument is falsy (in IE)
-
-      // get srcElement if target is falsy (IE)
-      var targetElement = evt.target || evt.srcElement;
-
-      //Recursively look up the parent tree until we find a match
-      //with one of the classes we're looking for, or the triggering element.
-      function findMatchRecur(el){
-        /* We're going to make the assumption that we're not binding
-         * multiple event classes to the same element.
-         * (next + previous = wait... err... what?)
-         *
-         * In the odd event we end up with an element with multiple
-         * possible matches, the following priority order is applied:
-         * hopscotch-cta, hopscotch-next, hopscotch-prev, hopscotch-close
-         */
-         if(el === evt.currentTarget){ return null; }
-         if(utils.hasClass(el, 'hopscotch-cta')){ return 'cta'; }
-         if(utils.hasClass(el, 'hopscotch-next')){ return 'next'; }
-         if(utils.hasClass(el, 'hopscotch-prev')){ return 'prev'; }
-         if(utils.hasClass(el, 'hopscotch-close')){ return 'close'; }
-         /*else*/ return findMatchRecur(el.parentElement);
-      }
-
-      action = findMatchRecur(targetElement);
-
-      //Now that we know what action we should take, let's take it.
-      if (action === 'cta'){
-        if (!this.opt.isTourBubble) {
-          // This is a callout. Close the callout when CTA is clicked.
-          winHopscotch.getCalloutManager().removeCallout(this.currStep.id);
-        }
-        // Call onCTA callback if one is provided
-        if (this.currStep.onCTA) {
-          utils.invokeCallback(this.currStep.onCTA);
-        }
-      }
-      else if (action === 'next'){
-        winHopscotch.nextStep(true);
-      }
-      else if (action === 'prev'){
-        winHopscotch.prevStep(true);
-      }
-      else if (action === 'close'){
-        if (this.opt.isTourBubble){
-          var currStepNum   = winHopscotch.getCurrStepNum(),
-              currTour      = winHopscotch.getCurrTour(),
-              doEndCallback = (currStepNum === currTour.steps.length-1);
-
-          utils.invokeEventCallbacks('close');
-
-          winHopscotch.endTour(true, doEndCallback);
-        } else {
-          if (this.opt.onClose) {
-            utils.invokeCallback(this.opt.onClose);
-          }
-          if (this.opt.id && !this.opt.isTourBubble) {
-            // Remove via the HopscotchCalloutManager.
-            // removeCallout() calls HopscotchBubble.destroy internally.
-            winHopscotch.getCalloutManager().removeCallout(this.opt.id);
-          }
-          else {
-            this.destroy();
-          }
-        }
-
-        utils.evtPreventDefault(evt);
-      }
-      //Otherwise, do nothing. We didn't click on anything relevant.
-    },
-
-    init: function(initOpt) {
-      var el              = document.createElement('div'),
-          self            = this,
-          resizeCooldown  = false, // for updating after window resize
-          onWinResize,
-          appendToBody,
-          children,
-          numChildren,
-          node,
-          i,
-          currTour,
-          opt;
-
-      //Register DOM element for this bubble.
-      this.element = el;
-
-      //Merge bubble options with defaults.
-      opt = {
-        showPrevButton: defaultOpts.showPrevButton,
-        showNextButton: defaultOpts.showNextButton,
-        bubbleWidth:    defaultOpts.bubbleWidth,
-        bubblePadding:  defaultOpts.bubblePadding,
-        arrowWidth:     defaultOpts.arrowWidth,
-        isRtl:          defaultOpts.isRtl,
-        showNumber:     true,
-        isTourBubble:   true
-      };
-      initOpt = (typeof initOpt === undefinedStr ? {} : initOpt);
-      utils.extend(opt, initOpt);
-      this.opt = opt;
-
-      //Apply classes to bubble. Add "animated" for fade css animation
-      el.className = 'hopscotch-bubble animated';
-      if (!opt.isTourBubble) {
-        utils.addClass(el, 'hopscotch-callout no-number');
-      } else {
-        currTour = winHopscotch.getCurrTour();
-        if(currTour){
-          utils.addClass(el, 'tour-' + currTour.id);
-        }
-      }
-
-      /**
-       * Not pretty, but IE8 doesn't support Function.bind(), so I'm
-       * relying on closures to keep a handle of "this".
-       * Reset position of bubble when window is resized
-       *
-       * @private
-       */
-      onWinResize = function() {
-        if (resizeCooldown || !self.isShowing) {
-          return;
-        }
-
-        resizeCooldown = true;
-        setTimeout(function() {
-          self.setPosition(self.currStep);
-          resizeCooldown = false;
-        }, 100);
-      };
-
-      //Add listener to reset bubble position on window resize
-      utils.addEvtListener(window, 'resize', onWinResize);
-
-      //Create our click callback handler and keep a
-      //reference to it for later.
-      this.clickCb = function(evt){
-        self._handleBubbleClick(evt);
-      };
-      utils.addEvtListener(el, 'click', this.clickCb);
-
-      //Hide the bubble by default
-      this.hide();
-
-      //Finally, append our new bubble to body once the DOM is ready.
-      if (utils.documentIsReady()) {
-        document.body.appendChild(el);
-      }
-      else {
-        // Moz, webkit, Opera
-        if (document.addEventListener) {
-          appendToBody = function() {
-            document.removeEventListener('DOMContentLoaded', appendToBody);
-            window.removeEventListener('load', appendToBody);
-
-            document.body.appendChild(el);
-          };
-
-          document.addEventListener('DOMContentLoaded', appendToBody, false);
-        }
-        // IE
-        else {
-          appendToBody = function() {
-            if (document.readyState === 'complete') {
-              document.detachEvent('onreadystatechange', appendToBody);
-              window.detachEvent('onload', appendToBody);
-              document.body.appendChild(el);
-            }
-          };
-
-          document.attachEvent('onreadystatechange', appendToBody);
-        }
-        utils.addEvtListener(window, 'load', appendToBody);
-      }
-    }
-  };
-
-  /**
-   * HopscotchCalloutManager
-   *
-   * @class Manages the creation and destruction of single callouts.
-   * @constructor
-   */
-  HopscotchCalloutManager = function() {
-    var callouts = {},
-        calloutOpts = {};
-
-    /**
-     * createCallout
-     *
-     * Creates a standalone callout. This callout has the same API
-     * as a Hopscotch tour bubble.
-     *
-     * @param {Object} opt The options for the callout. For the most
-     * part, these are the same options as you would find in a tour
-     * step.
-     */
-    this.createCallout = function(opt) {
-      var callout;
-
-      if (opt.id) {
-        if(!validIdRegEx.test(opt.id)) {
-          throw new Error('Callout ID is using an invalid format. Use alphanumeric, underscores, and/or hyphens only. First character must be a letter.');
-        }
-        if (callouts[opt.id]) {
-          throw new Error('Callout by that id already exists. Please choose a unique id.');
-        }
-        if (!utils.getStepTarget(opt)) {
-          throw new Error('Must specify existing target element via \'target\' option.');
-        }
-        opt.showNextButton = opt.showPrevButton = false;
-        opt.isTourBubble = false;
-        callout = new HopscotchBubble(opt);
-        callouts[opt.id] = callout;
-        calloutOpts[opt.id] = opt;
-        callout.render(opt, null, function() {
-          callout.show();
-          if (opt.onShow) {
-            utils.invokeCallback(opt.onShow);
-          }
-        });
-      }
-      else {
-        throw new Error('Must specify a callout id.');
-      }
-      return callout;
-    };
-
-    /**
-     * getCallout
-     *
-     * Returns a callout by its id.
-     *
-     * @param {String} id The id of the callout to fetch.
-     * @returns {Object} HopscotchBubble
-     */
-    this.getCallout = function(id) {
-      return callouts[id];
-    };
-
-    /**
-     * removeAllCallouts
-     *
-     * Removes all existing callouts.
-     */
-    this.removeAllCallouts = function() {
-      var calloutId;
-
-      for (calloutId in callouts) {
-        if (callouts.hasOwnProperty(calloutId)) {
-          this.removeCallout(calloutId);
-        }
-      }
-    };
-
-    /**
-     * removeCallout
-     *
-     * Removes an existing callout by id.
-     *
-     * @param {String} id The id of the callout to remove.
-     */
-    this.removeCallout = function(id) {
-      var callout = callouts[id];
-
-      callouts[id] = null;
-      calloutOpts[id] = null;
-      if (!callout) { return; }
-
-      callout.destroy();
-    };
-
-    /**
-     * refreshCalloutPositions
-     *
-     * Refresh the positions for all callouts known by the
-     * callout manager. Typically you'll use
-     * hopscotch.refreshBubblePosition() to refresh ALL
-     * bubbles instead of calling this directly.
-     */
-    this.refreshCalloutPositions = function(){
-      var calloutId,
-          callout,
-          opts;
-
-      for (calloutId in callouts) {
-        if (callouts.hasOwnProperty(calloutId) && calloutOpts.hasOwnProperty(calloutId)) {
-          callout = callouts[calloutId];
-          opts = calloutOpts[calloutId];
-          if(callout && opts){
-            callout.setPosition(opts);
-          }
-        }
-      }
-    };
-  };
-
-  /**
-   * Hopscotch
-   *
-   * @class Creates the Hopscotch object. Used to manage tour progress and configurations.
-   * @constructor
-   * @param {Object} initOptions Options to be passed to `configure()`.
-   */
-  Hopscotch = function(initOptions) {
-    var self       = this, // for targetClickNextFn
-        bubble,
-        calloutMgr,
-        opt,
-        currTour,
-        currStepNum,
-        skippedSteps = {},
-        cookieTourId,
-        cookieTourStep,
-        cookieSkippedSteps = [],
-        _configure,
-
-    /**
-     * getBubble
-     *
-     * Singleton accessor function for retrieving or creating bubble object.
-     *
-     * @private
-     * @param setOptions {Boolean} when true, transfers configuration options to the bubble
-     * @returns {Object} HopscotchBubble
-     */
-    getBubble = function(setOptions) {
-      if (!bubble || !bubble.element || !bubble.element.parentNode) {
-        bubble = new HopscotchBubble(opt);
-      }
-      if (setOptions) {
-        utils.extend(bubble.opt, {
-          bubblePadding:   getOption('bubblePadding'),
-          bubbleWidth:     getOption('bubbleWidth'),
-          showNextButton:  getOption('showNextButton'),
-          showPrevButton:  getOption('showPrevButton'),
-          showCloseButton: getOption('showCloseButton'),
-          arrowWidth:      getOption('arrowWidth'),
-          isRtl:           getOption('isRtl')
-        });
-      }
-      return bubble;
-    },
-
-    /**
-     * Destroy the bubble currently associated with Hopscotch.
-     * This is done when we end the current tour.
-     *
-     * @private
-     */
-    destroyBubble = function() {
-      if(bubble){
-        bubble.destroy();
-        bubble = null;
-      }
-    },
-
-    /**
-     * Convenience method for getting an option. Returns custom config option
-     * or the default config option if no custom value exists.
-     *
-     * @private
-     * @param name {String} config option name
-     * @returns {Object} config option value
-     */
-    getOption = function(name) {
-      if (typeof opt === 'undefined') {
-        return defaultOpts[name];
-      }
-      return utils.valOrDefault(opt[name], defaultOpts[name]);
-    },
-
-    /**
-     * getCurrStep
-     *
-     * @private
-     * @returns {Object} the step object corresponding to the current value of currStepNum
-     */
-    getCurrStep = function() {
-      var step;
-
-      if (!currTour || currStepNum < 0 || currStepNum >= currTour.steps.length) {
-        step = null;
-      }
-      else {
-        step = currTour.steps[currStepNum];
-      }
-
-      return step;
-    },
-
-    /**
-     * Used for nextOnTargetClick
-     *
-     * @private
-     */
-    targetClickNextFn = function() {
-      self.nextStep();
-    },
-
-    /**
-     * adjustWindowScroll
-     *
-     * Checks if the bubble or target element is partially or completely
-     * outside of the viewport. If it is, adjust the window scroll position
-     * to bring it back into the viewport.
-     *
-     * @private
-     * @param {Function} cb Callback to invoke after done scrolling.
-     */
-    adjustWindowScroll = function(cb) {
-      var bubble         = getBubble(),
-
-          // Calculate the bubble element top and bottom position
-          bubbleEl       = bubble.element,
-          bubbleTop      = utils.getPixelValue(bubbleEl.style.top),
-          bubbleBottom   = bubbleTop + utils.getPixelValue(bubbleEl.offsetHeight),
-
-          // Calculate the target element top and bottom position
-          targetEl       = utils.getStepTarget(getCurrStep()),
-          targetBounds   = targetEl.getBoundingClientRect(),
-          targetElTop    = targetBounds.top + utils.getScrollTop(),
-          targetElBottom = targetBounds.bottom + utils.getScrollTop(),
-
-          // The higher of the two: bubble or target
-          targetTop      = (bubbleTop < targetElTop) ? bubbleTop : targetElTop,
-          // The lower of the two: bubble or target
-          targetBottom   = (bubbleBottom > targetElBottom) ? bubbleBottom : targetElBottom,
-
-          // Calculate the current viewport top and bottom
-          windowTop      = utils.getScrollTop(),
-          windowBottom   = windowTop + utils.getWindowHeight(),
-
-          // This is our final target scroll value.
-          scrollToVal    = targetTop - getOption('scrollTopMargin'),
-
-          scrollEl,
-          yuiAnim,
-          yuiEase,
-          direction,
-          scrollIncr,
-          scrollTimeout,
-          scrollTimeoutFn;
-
-      // Target and bubble are both visible in viewport
-      if (targetTop >= windowTop && (targetTop <= windowTop + getOption('scrollTopMargin') || targetBottom <= windowBottom)) {
-        if (cb) { cb(); } // HopscotchBubble.show
-      }
-
-      // Abrupt scroll to scroll target
-      else if (!getOption('smoothScroll')) {
-        window.scrollTo(0, scrollToVal);
-
-        if (cb) { cb(); } // HopscotchBubble.show
-      }
-
-      // Smooth scroll to scroll target
-      else {
-        // Use YUI if it exists
-        if (typeof YAHOO             !== undefinedStr &&
-            typeof YAHOO.env         !== undefinedStr &&
-            typeof YAHOO.env.ua      !== undefinedStr &&
-            typeof YAHOO.util        !== undefinedStr &&
-            typeof YAHOO.util.Scroll !== undefinedStr) {
-          scrollEl = YAHOO.env.ua.webkit ? document.body : document.documentElement;
-          yuiEase = YAHOO.util.Easing ? YAHOO.util.Easing.easeOut : undefined;
-          yuiAnim = new YAHOO.util.Scroll(scrollEl, {
-            scroll: { to: [0, scrollToVal] }
-          }, getOption('scrollDuration')/1000, yuiEase);
-          yuiAnim.onComplete.subscribe(cb);
-          yuiAnim.animate();
-        }
-
-        // Use jQuery if it exists
-        else if (hasJquery) {
-          jQuery('body, html').animate({ scrollTop: scrollToVal }, getOption('scrollDuration'), cb);
-        }
-
-        // Use my crummy setInterval scroll solution if we're using plain, vanilla Javascript.
-        else {
-          if (scrollToVal < 0) {
-            scrollToVal = 0;
-          }
-
-          // 48 * 10 == 480ms scroll duration
-          // make it slightly less than CSS transition duration because of
-          // setInterval overhead.
-          // To increase or decrease duration, change the divisor of scrollIncr.
-          direction = (windowTop > targetTop) ? -1 : 1; // -1 means scrolling up, 1 means down
-          scrollIncr = Math.abs(windowTop - scrollToVal) / (getOption('scrollDuration')/10);
-          scrollTimeoutFn = function() {
-            var scrollTop = utils.getScrollTop(),
-                scrollTarget = scrollTop + (direction * scrollIncr);
-
-            if ((direction > 0 && scrollTarget >= scrollToVal) ||
-                (direction < 0 && scrollTarget <= scrollToVal)) {
-              // Overshot our target. Just manually set to equal the target
-              // and clear the interval
-              scrollTarget = scrollToVal;
-              if (cb) { cb(); } // HopscotchBubble.show
-              window.scrollTo(0, scrollTarget);
-              return;
-            }
-
-            window.scrollTo(0, scrollTarget);
-
-            if (utils.getScrollTop() === scrollTop) {
-              // Couldn't scroll any further.
-              if (cb) { cb(); } // HopscotchBubble.show
-              return;
-            }
-
-            // If we reached this point, that means there's still more to scroll.
-            setTimeout(scrollTimeoutFn, 10);
-          };
-
-          scrollTimeoutFn();
-        }
-      }
-    },
-
-    /**
-     * goToStepWithTarget
-     *
-     * Helper function to increment the step number until a step is found where
-     * the step target exists or until we reach the end/beginning of the tour.
-     *
-     * @private
-     * @param {Number} direction Either 1 for incrementing or -1 for decrementing
-     * @param {Function} cb The callback function to be invoked when the step has been found
-     */
-    goToStepWithTarget = function(direction, cb) {
-      var target,
-          step,
-          goToStepFn;
-
-      if (currStepNum + direction >= 0 &&
-          currStepNum + direction < currTour.steps.length) {
-
-        currStepNum += direction;
-        step = getCurrStep();
-
-        goToStepFn = function() {
-          target = utils.getStepTarget(step);
-
-          if (target) {
-            //this step was previously skipped, but now its target exists,
-            //remove this step from skipped steps set
-            if(skippedSteps[currStepNum]) {
-              delete skippedSteps[currStepNum];
-            }
-            // We're done! Return the step number via the callback.
-            cb(currStepNum);
-          }
-          else {
-            //mark this step as skipped, since its target wasn't found
-            skippedSteps[currStepNum] = true;
-            // Haven't found a valid target yet. Recursively call
-            // goToStepWithTarget.
-            utils.invokeEventCallbacks('error');
-            goToStepWithTarget(direction, cb);
-          }
-        };
-
-        if (step.delay) {
-          setTimeout(goToStepFn, step.delay);
-        }
-        else {
-          goToStepFn();
-        }
-      }
-      else {
-        cb(-1); // signal that we didn't find any step with a valid target
-      }
-    },
-
-    /**
-     * changeStep
-     *
-     * Helper function to change step by going forwards or backwards 1.
-     * nextStep and prevStep are publicly accessible wrappers for this function.
-     *
-     * @private
-     * @param {Boolean} doCallbacks Flag for invoking onNext or onPrev callbacks
-     * @param {Number} direction Either 1 for "next" or -1 for "prev"
-     */
-    changeStep = function(doCallbacks, direction) {
-      var bubble = getBubble(),
-          self = this,
-          step,
-          origStep,
-          wasMultiPage,
-          changeStepCb;
-
-      bubble.hide();
-
-      doCallbacks = utils.valOrDefault(doCallbacks, true);
-
-      step = getCurrStep();
-
-      if (step.nextOnTargetClick) {
-        // Detach the listener when tour is moving to a different step
-        utils.removeEvtListener(utils.getStepTarget(step), 'click', targetClickNextFn);
-      }
-
-      origStep = step;
-      if (direction > 0) {
-        wasMultiPage = origStep.multipage;
-      }
-      else {
-        wasMultiPage = (currStepNum > 0 && currTour.steps[currStepNum-1].multipage);
-      }
-
-      /**
-       * Callback for goToStepWithTarget
-       *
-       * @private
-       */
-      changeStepCb = function(stepNum) {
-        var doShowFollowingStep;
-
-        if (stepNum === -1) {
-          // Wasn't able to find a step with an existing element. End tour.
-          return this.endTour(true);
-        }
-
-        if (doCallbacks) {
-          if (direction > 0) {
-            doShowFollowingStep = utils.invokeEventCallbacks('next', origStep.onNext);
-          }
-          else {
-            doShowFollowingStep = utils.invokeEventCallbacks('prev', origStep.onPrev);
-          }
-        }
-
-        // If the state of the tour is updated in a callback, assume the client
-        // doesn't want to go to next step since they specifically updated.
-        if (stepNum !== currStepNum) {
-          return;
-        }
-
-        if (wasMultiPage) {
-          // Update state for the next page
-           setStateHelper();
-
-          // Next step is on a different page, so no need to attempt to render it.
-          return;
-        }
-
-        doShowFollowingStep = utils.valOrDefault(doShowFollowingStep, true);
-
-        // If the onNext/onPrev callback returned false, halt the tour and
-        // don't show the next step.
-        if (doShowFollowingStep) {
-          this.showStep(stepNum);
-        }
-        else {
-          // Halt tour (but don't clear state)
-          this.endTour(false);
-        }
-      };
-
-      if (!wasMultiPage && getOption('skipIfNoElement')) {
-        goToStepWithTarget(direction, function(stepNum) {
-          changeStepCb.call(self, stepNum);
-        });
-      }
-      else if (currStepNum + direction >= 0 && currStepNum + direction < currTour.steps.length) {
-        // only try incrementing once, and invoke error callback if no target is found
-        currStepNum += direction;
-        step = getCurrStep();
-        if (!utils.getStepTarget(step) && !wasMultiPage) {
-          utils.invokeEventCallbacks('error');
-          return this.endTour(true, false);
-        }
-        changeStepCb.call(this, currStepNum);
-      } else if (currStepNum + direction === currTour.steps.length) {
-        return this.endTour();
-      }
-
-      return this;
-    },
-
-    /**
-     * loadTour
-     *
-     * Loads, but does not display, tour.
-     *
-     * @private
-     * @param tour The tour JSON object
-     */
-    loadTour = function(tour) {
-      var tmpOpt = {},
-          prop,
-          tourState,
-          tourStateValues;
-
-      // Set tour-specific configurations
-      for (prop in tour) {
-        if (tour.hasOwnProperty(prop) &&
-            prop !== 'id' &&
-            prop !== 'steps') {
-          tmpOpt[prop] = tour[prop];
-        }
-      }
-
-      //this.resetDefaultOptions(); // reset all options so there are no surprises
-      // TODO check number of config properties of tour
-      _configure.call(this, tmpOpt, true);
-
-      // Get existing tour state, if it exists.
-      tourState = utils.getState(getOption('cookieName'));
-      if (tourState) {
-        tourStateValues     = tourState.split(':');
-        cookieTourId        = tourStateValues[0]; // selecting tour is not supported by this framework.
-        cookieTourStep      = tourStateValues[1];
-
-        if(tourStateValues.length > 2) {
-          cookieSkippedSteps = tourStateValues[2].split(',');
-        }
-
-        cookieTourStep    = parseInt(cookieTourStep, 10);
-      }
-
-      return this;
-    },
-
-    /**
-     * Find the first step to show for a tour. (What is the first step with a
-     * target on the page?)
-     */
-    findStartingStep = function(startStepNum, savedSkippedSteps, cb) {
-      var step,
-          target;
-
-      currStepNum = startStepNum || 0;
-      skippedSteps = savedSkippedSteps || {};
-      step        = getCurrStep();
-      target      = utils.getStepTarget(step);
-
-      if (target) {
-        // First step had an existing target.
-        cb(currStepNum);
-        return;
-      }
-
-      if (!target) {
-        // Previous target doesn't exist either. The user may have just
-        // clicked on a link that wasn't part of the tour. Another possibility is that
-        // the user clicked on the correct link, but the target is just missing for
-        // whatever reason. In either case, we should just advance until we find a step
-        // that has a target on the page or end the tour if we can't find such a step.
-        utils.invokeEventCallbacks('error');
-
-        //this step was skipped, since its target does not exist
-        skippedSteps[currStepNum] = true;
-
-        if (getOption('skipIfNoElement')) {
-          goToStepWithTarget(1, cb);
-          return;
-        }
-        else {
-          currStepNum = -1;
-          cb(currStepNum);
-        }
-      }
-    },
-
-    showStepHelper = function(stepNum) {
-      var step         = currTour.steps[stepNum],
-          bubble       = getBubble(),
-          targetEl     = utils.getStepTarget(step);
-
-      function showBubble() {
-        bubble.show();
-        utils.invokeEventCallbacks('show', step.onShow);
-      }
-
-      if (currStepNum !== stepNum && getCurrStep().nextOnTargetClick) {
-        // Detach the listener when tour is moving to a different step
-        utils.removeEvtListener(utils.getStepTarget(getCurrStep()), 'click', targetClickNextFn);
-      }
-
-      // Update bubble for current step
-      currStepNum = stepNum;
-
-      bubble.hide(false);
-
-      bubble.render(step, stepNum, function(adjustScroll) {
-        // when done adjusting window scroll, call showBubble helper fn
-        if (adjustScroll) {
-          adjustWindowScroll(showBubble);
-        }
-        else {
-          showBubble();
-        }
-
-        // If we want to advance to next step when user clicks on target.
-        if (step.nextOnTargetClick) {
-          utils.addEvtListener(targetEl, 'click', targetClickNextFn);
-        }
-      });
-
-      setStateHelper();
-    },
-
-    setStateHelper = function() {
-      var cookieVal = currTour.id + ':' + currStepNum,
-        skipedStepIndexes = winHopscotch.getSkippedStepsIndexes();
-
-      if(skipedStepIndexes && skipedStepIndexes.length > 0) {
-        cookieVal += ':' + skipedStepIndexes.join(',');
-      }
-
-      utils.setState(getOption('cookieName'), cookieVal, 1);
-    },
-
-    /**
-     * init
-     *
-     * Initializes the Hopscotch object.
-     *
-     * @private
-     */
-    init = function(initOptions) {
-      if (initOptions) {
-        //initOptions.cookieName = initOptions.cookieName || 'hopscotch.tour.state';
-        this.configure(initOptions);
-      }
-    };
-
-    /**
-     * getCalloutManager
-     *
-     * Gets the callout manager.
-     *
-     * @returns {Object} HopscotchCalloutManager
-     *
-     */
-    this.getCalloutManager = function() {
-      if (typeof calloutMgr === undefinedStr) {
-        calloutMgr = new HopscotchCalloutManager();
-      }
-
-      return calloutMgr;
-    };
-
-    /**
-     * startTour
-     *
-     * Begins the tour.
-     *
-     * @param {Object} tour The tour JSON object
-     * @stepNum {Number} stepNum __Optional__ The step number to start from
-     * @returns {Object} Hopscotch
-     *
-     */
-    this.startTour = function(tour, stepNum) {
-      var bubble,
-          currStepNum,
-          skippedSteps = {},
-          self = this;
-
-      // loadTour if we are calling startTour directly. (When we call startTour
-      // from window onLoad handler, we'll use currTour)
-      if (!currTour) {
-        
-        // Sanity check! Is there a tour?
-        if(!tour){
-          throw new Error('Tour data is required for startTour.');
-        }
-
-        // Check validity of tour ID. If invalid, throw an error.
-        if(!tour.id || !validIdRegEx.test(tour.id)) {
-          throw new Error('Tour ID is using an invalid format. Use alphanumeric, underscores, and/or hyphens only. First character must be a letter.');
-        }
-
-        currTour = tour;
-        loadTour.call(this, tour);
-
-      }
-
-      if (typeof stepNum !== undefinedStr) {
-        if (stepNum >= currTour.steps.length) {
-          throw new Error('Specified step number out of bounds.');
-        }
-        currStepNum = stepNum;
-      }
-
-      // If document isn't ready, wait for it to finish loading.
-      // (so that we can calculate positioning accurately)
-      if (!utils.documentIsReady()) {
-        waitingToStart = true;
-        return this;
-      }
-
-      if (typeof currStepNum === "undefined" && currTour.id === cookieTourId && typeof cookieTourStep !== undefinedStr) {
-        currStepNum = cookieTourStep;
-        if(cookieSkippedSteps.length > 0){
-          for(var i = 0, len = cookieSkippedSteps.length; i < len; i++) {
-            skippedSteps[cookieSkippedSteps[i]] = true;
-          }
-        }
-      }
-      else if (!currStepNum) {
-        currStepNum = 0;
-      }
-
-      // Find the current step we should begin the tour on, and then actually start the tour.
-      findStartingStep(currStepNum, skippedSteps, function(stepNum) {
-        var target = (stepNum !== -1) && utils.getStepTarget(currTour.steps[stepNum]);
-
-        if (!target) {
-          // Should we trigger onEnd callback? Let's err on the side of caution
-          // and not trigger it. Don't want weird stuff happening on a page that
-          // wasn't meant for the tour. Up to the developer to fix their tour.
-          self.endTour(false, false);
-          return;
-        }
-
-        utils.invokeEventCallbacks('start');
-
-        bubble = getBubble();
-        // TODO: do we still need this call to .hide()? No longer using opt.animate...
-        // Leaving it in for now to play it safe
-        bubble.hide(false); // make invisible for boundingRect calculations when opt.animate == true
-
-        self.isActive = true;
-
-        if (!utils.getStepTarget(getCurrStep())) {
-          // First step element doesn't exist
-          utils.invokeEventCallbacks('error');
-          if (getOption('skipIfNoElement')) {
-            self.nextStep(false);
-          }
-        }
-        else {
-          self.showStep(stepNum);
-        }
-      });
-
-      return this;
-    };
-
-    /**
-     * showStep
-     *
-     * Skips to a specific step and renders the corresponding bubble.
-     *
-     * @stepNum {Number} stepNum The step number to show
-     * @returns {Object} Hopscotch
-     */
-    this.showStep = function(stepNum) {
-      var step = currTour.steps[stepNum];
-      if(!utils.getStepTarget(step)) {
-        return;
-      }
-
-      if (step.delay) {
-        setTimeout(function() {
-          showStepHelper(stepNum);
-        }, step.delay);
-      }
-      else {
-        showStepHelper(stepNum);
-      }
-      return this;
-    };
-
-    /**
-     * prevStep
-     *
-     * Jump to the previous step.
-     *
-     * @param {Boolean} doCallbacks Flag for invoking onPrev callback. Defaults to true.
-     * @returns {Object} Hopscotch
-     */
-    this.prevStep = function(doCallbacks) {
-      changeStep.call(this, doCallbacks, -1);
-      return this;
-    };
-
-    /**
-     * nextStep
-     *
-     * Jump to the next step.
-     *
-     * @param {Boolean} doCallbacks Flag for invoking onNext callback. Defaults to true.
-     * @returns {Object} Hopscotch
-     */
-    this.nextStep = function(doCallbacks) {
-      changeStep.call(this, doCallbacks, 1);
-      return this;
-    };
-
-    /**
-     * endTour
-     *
-     * Cancels out of an active tour.
-     *
-     * @param {Boolean} clearState Flag for clearing state. Defaults to true.
-     * @param {Boolean} doCallbacks Flag for invoking 'onEnd' callbacks. Defaults to true.
-     * @returns {Object} Hopscotch
-     */
-    this.endTour = function(clearState, doCallbacks) {
-      var bubble     = getBubble(),
-        currentStep;
-
-      clearState     = utils.valOrDefault(clearState, true);
-      doCallbacks    = utils.valOrDefault(doCallbacks, true);
-
-      //remove event listener if current step had it added
-      if(currTour) {
-        currentStep = getCurrStep();
-        if(currentStep && currentStep.nextOnTargetClick) {
-          utils.removeEvtListener(utils.getStepTarget(currentStep), 'click', targetClickNextFn);
-        }
-      }
-
-      currStepNum    = 0;
-      cookieTourStep = undefined;
-
-      bubble.hide();
-      if (clearState) {
-        utils.clearState(getOption('cookieName'));
-      }
-      if (this.isActive) {
-        this.isActive = false;
-
-        if (currTour && doCallbacks) {
-          utils.invokeEventCallbacks('end');
-        }
-      }
-
-      this.removeCallbacks(null, true);
-      this.resetDefaultOptions();
-      destroyBubble();
-
-      currTour = null;
-
-      return this;
-    };
-
-    /**
-     * getCurrTour
-     *
-     * @return {Object} The currently loaded tour.
-     */
-    this.getCurrTour = function() {
-      return currTour;
-    };
-
-    /**
-     * getCurrTarget
-     *
-     * @return {Object} The currently visible target.
-     */
-    this.getCurrTarget = function() {
-      return utils.getStepTarget(getCurrStep());
-    };
-
-    /**
-     * getCurrStepNum
-     *
-     * @return {number} The current zero-based step number.
-     */
-    this.getCurrStepNum = function() {
-      return currStepNum;
-    };
-
-    /**
-     * getSkippedStepsIndexes
-     *
-     * @return {Array} Array of skipped step indexes
-     */
-    this.getSkippedStepsIndexes = function() {
-      var skippedStepsIdxArray = [],
-         stepIds;
-
-      for(stepIds in skippedSteps){
-        skippedStepsIdxArray.push(stepIds);
-      }
-
-      return skippedStepsIdxArray;
-    };
-
-    /**
-     * refreshBubblePosition
-     *
-     * Tell hopscotch that the position of the current tour element changed
-     * and the bubble therefore needs to be redrawn. Also refreshes position
-     * of all Hopscotch Callouts on the page.
-     *
-     * @returns {Object} Hopscotch
-     */
-    this.refreshBubblePosition = function() {
-      var currStep = getCurrStep();
-      if(currStep){
-        getBubble().setPosition(currStep);
-      }
-      this.getCalloutManager().refreshCalloutPositions();
-      return this;
-    };
-
-    /**
-     * listen
-     *
-     * Adds a callback for one of the event types. Valid event types are:
-     *
-     * @param {string} evtType "start", "end", "next", "prev", "show", "close", or "error"
-     * @param {Function} cb The callback to add.
-     * @param {Boolean} isTourCb Flag indicating callback is from a tour definition.
-     *    For internal use only!
-     * @returns {Object} Hopscotch
-     */
-    this.listen = function(evtType, cb, isTourCb) {
-      if (evtType) {
-        callbacks[evtType].push({ cb: cb, fromTour: isTourCb });
-      }
-      return this;
-    };
-
-    /**
-     * unlisten
-     *
-     * Removes a callback for one of the event types, e.g. 'start', 'next', etc.
-     *
-     * @param {string} evtType "start", "end", "next", "prev", "show", "close", or "error"
-     * @param {Function} cb The callback to remove.
-     * @returns {Object} Hopscotch
-     */
-    this.unlisten = function(evtType, cb) {
-      var evtCallbacks = callbacks[evtType],
-          i,
-          len;
-
-      for (i = 0, len = evtCallbacks.length; i < len; ++i) {
-        if (evtCallbacks[i] === cb) {
-          evtCallbacks.splice(i, 1);
-        }
-      }
-      return this;
-    };
-
-    /**
-     * removeCallbacks
-     *
-     * Remove callbacks for hopscotch events. If tourOnly is set to true, only
-     * removes callbacks specified by a tour (callbacks set by external calls
-     * to hopscotch.configure or hopscotch.listen will not be removed). If
-     * evtName is null or undefined, callbacks for all events will be removed.
-     *
-     * @param {string} evtName Optional Event name for which we should remove callbacks
-     * @param {boolean} tourOnly Optional flag to indicate we should only remove callbacks added
-     *    by a tour. Defaults to false.
-     * @returns {Object} Hopscotch
-     */
-    this.removeCallbacks = function(evtName, tourOnly) {
-      var cbArr,
-          i,
-          len,
-          evt;
-
-      // If evtName is null or undefined, remove callbacks for all events.
-      for (evt in callbacks) {
-        if (!evtName || evtName === evt) {
-          if (tourOnly) {
-            cbArr = callbacks[evt];
-            for (i=0, len=cbArr.length; i < len; ++i) {
-              if (cbArr[i].fromTour) {
-                cbArr.splice(i--, 1);
-                --len;
-              }
-            }
-          }
-          else {
-            callbacks[evt] = [];
-          }
-        }
-      }
-      return this;
-    };
-
-    /**
-     * registerHelper
-     * ==============
-     * Registers a helper function to be used as a callback function.
-     *
-     * @param {String} id The id of the function.
-     * @param {Function} id The callback function.
-     */
-    this.registerHelper = function(id, fn) {
-      if (typeof id === 'string' && typeof fn === 'function') {
-        helpers[id] = fn;
-      }
-    };
-
-    this.unregisterHelper = function(id) {
-      helpers[id] = null;
-    };
-
-    this.invokeHelper = function(id) {
-      var args = [],
-          i,
-          len;
-
-      for (i = 1, len = arguments.length; i < len; ++i) {
-        args.push(arguments[i]);
-      }
-      if (helpers[id]) {
-        helpers[id].call(null, args);
-      }
-    };
-
-    /**
-     * setCookieName
-     *
-     * Sets the cookie name (or sessionStorage name, if supported) used for multi-page
-     * tour persistence.
-     *
-     * @param {String} name The cookie name
-     * @returns {Object} Hopscotch
-     */
-    this.setCookieName = function(name) {
-      opt.cookieName = name;
-      return this;
-    };
-
-    /**
-     * resetDefaultOptions
-     *
-     * Resets all configuration options to default.
-     *
-     * @returns {Object} Hopscotch
-     */
-    this.resetDefaultOptions = function() {
-      opt = {};
-      return this;
-    };
-
-    /**
-     * resetDefaultI18N
-     *
-     * Resets all i18n.
-     *
-     * @returns {Object} Hopscotch
-     */
-    this.resetDefaultI18N = function() {
-      customI18N = {};
-      return this;
-    };
-
-    /**
-     * hasState
-     *
-     * Returns state from a previous tour run, if it exists.
-     *
-     * @returns {String} State of previous tour run, or empty string if none exists.
-     */
-    this.getState = function() {
-      return utils.getState(getOption('cookieName'));
-    };
-
-    /**
-     * _configure
-     *
-     * @see this.configure
-     * @private
-     * @param options
-     * @param {Boolean} isTourOptions Should be set to true when setting options from a tour definition.
-     */
-    _configure = function(options, isTourOptions) {
-      var bubble,
-          events = ['next', 'prev', 'start', 'end', 'show', 'error', 'close'],
-          eventPropName,
-          callbackProp,
-          i,
-          len;
-
-      if (!opt) {
-        this.resetDefaultOptions();
-      }
-
-      utils.extend(opt, options);
-
-      if (options) {
-        utils.extend(customI18N, options.i18n);
-      }
-
-      for (i = 0, len = events.length; i < len; ++i) {
-        // At this point, options[eventPropName] may have changed from an array
-        // to a function.
-        eventPropName = 'on' + events[i].charAt(0).toUpperCase() + events[i].substring(1);
-        if (options[eventPropName]) {
-          this.listen(events[i],
-                      options[eventPropName],
-                      isTourOptions);
-        }
-      }
-
-      bubble = getBubble(true);
-
-      return this;
-    };
-
-    /**
-     * configure
-     *
-     * <pre>
-     * VALID OPTIONS INCLUDE...
-     *
-     * - bubbleWidth:     Number   - Default bubble width. Defaults to 280.
-     * - bubblePadding:   Number   - DEPRECATED. Default bubble padding. Defaults to 15.
-     * - smoothScroll:    Boolean  - should the page scroll smoothly to the next
-     *                               step? Defaults to TRUE.
-     * - scrollDuration:  Number   - Duration of page scroll. Only relevant when
-     *                               smoothScroll is set to true. Defaults to
-     *                               1000ms.
-     * - scrollTopMargin: NUMBER   - When the page scrolls, how much space should there
-     *                               be between the bubble/targetElement and the top
-     *                               of the viewport? Defaults to 200.
-     * - showCloseButton: Boolean  - should the tour bubble show a close (X) button?
-     *                               Defaults to TRUE.
-     * - showPrevButton:  Boolean  - should the bubble have the Previous button?
-     *                               Defaults to FALSE.
-     * - showNextButton:  Boolean  - should the bubble have the Next button?
-     *                               Defaults to TRUE.
-     * - arrowWidth:      Number   - Default arrow width. (space between the bubble
-     *                               and the targetEl) Used for bubble position
-     *                               calculation. Only use this option if you are
-     *                               using your own custom CSS. Defaults to 20.
-     * - skipIfNoElement  Boolean  - If a specified target element is not found,
-     *                               should we skip to the next step? Defaults to
-     *                               TRUE.
-     * - onNext:          Function - A callback to be invoked after every click on
-     *                               a "Next" button.
-     * - isRtl:           Boolean  - Set to true when instantiating in a right-to-left
-     *                               language environment, or if mirrored positioning is
-     *                               needed.
-     *                               Defaults to FALSE.
-     *
-     * - i18n:            Object   - For i18n purposes. Allows you to change the
-     *                               text of button labels and step numbers.
-     * - i18n.stepNums:   Array\<String\> - Provide a list of strings to be shown as
-     *                               the step number, based on index of array. Unicode
-     *                               characters are supported. (e.g., ['&#x4e00;',
-     *                               '&#x4e8c;', '&#x4e09;']) If there are more steps
-     *                               than provided numbers, Arabic numerals
-     *                               ('4', '5', '6', etc.) will be used as default.
-     * // =========
-     * // CALLBACKS
-     * // =========
-     * - onNext:          Function - Invoked after every click on a "Next" button.
-     * - onPrev:          Function - Invoked after every click on a "Prev" button.
-     * - onStart:         Function - Invoked when the tour is started.
-     * - onEnd:           Function - Invoked when the tour ends.
-     * - onClose:         Function - Invoked when the user closes the tour before finishing.
-     * - onError:         Function - Invoked when the specified target element doesn't exist on the page.
-     *
-     * // ====
-     * // I18N
-     * // ====
-     * i18n:              OBJECT      - For i18n purposes. Allows you to change the text
-     *                                  of button labels and step numbers.
-     * i18n.nextBtn:      STRING      - Label for next button
-     * i18n.prevBtn:      STRING      - Label for prev button
-     * i18n.doneBtn:      STRING      - Label for done button
-     * i18n.skipBtn:      STRING      - Label for skip button
-     * i18n.closeTooltip: STRING      - Text for close button tooltip
-     * i18n.stepNums:   ARRAY<STRING> - Provide a list of strings to be shown as
-     *                                  the step number, based on index of array. Unicode
-     *                                  characters are supported. (e.g., ['&#x4e00;',
-     *                                  '&#x4e8c;', '&#x4e09;']) If there are more steps
-     *                                  than provided numbers, Arabic numerals
-     *                                  ('4', '5', '6', etc.) will be used as default.
-     * </pre>
-     *
-     * @example hopscotch.configure({ scrollDuration: 1000, scrollTopMargin: 150 });
-     * @example
-     * hopscotch.configure({
-     *   scrollTopMargin: 150,
-     *   onStart: function() {
-     *     alert("Have fun!");
-     *   },
-     *   i18n: {
-     *     nextBtn: 'Forward',
-     *     prevBtn: 'Previous'
-     *     closeTooltip: 'Quit'
-     *   }
-     * });
-     *
-     * @param {Object} options A hash of configuration options.
-     * @returns {Object} Hopscotch
-     */
-    this.configure = function(options) {
-      return _configure.call(this, options, false);
-    };
-
-    /**
-     * Set the template that should be used for rendering Hopscotch bubbles.
-     * If a string, it's assumed your template is available in the
-     * hopscotch.templates namespace.
-     *
-     * @param {String|Function(obj)} The template to use for rendering.
-     * @returns {Object} The Hopscotch object (for chaining).
-     */
-    this.setRenderer = function(render){
-      var typeOfRender = typeof render;
-
-      if(typeOfRender === 'string'){
-        templateToUse = render;
-        customRenderer = undefined;
-      }
-      else if(typeOfRender === 'function'){
-        customRenderer = render;
-      }
-      return this;
-    };
-
-    /**
-     * Sets the escaping method to be used by JST templates.
-     *
-     * @param {Function} - The escape method to use.
-     * @returns {Object} The Hopscotch object (for chaining).
-     */
-    this.setEscaper = function(esc){
-      if (typeof esc === 'function'){
-        customEscape = esc;
-      }
-      return this;
-    };
-
-    init.call(this, initOptions);
-  };
-
-  winHopscotch = new Hopscotch();
-
-// Template includes, placed inside a closure to ensure we don't
-// end up declaring our shim globally.
-(function(){
-var _ = {};
-/*
- * Adapted from the Underscore.js framework. Check it out at
- * https://github.com/jashkenas/underscore
- */
-_.escape = function(str){
-  if(customEscape){ return customEscape(str); }
-  
-  if(str == null) return '';
-  return ('' + str).replace(new RegExp('[&<>"\']', 'g'), function(match){
-    if(match == '&'){ return '&amp;' }
-    if(match == '<'){ return '&lt;' }
-    if(match == '>'){ return '&gt;' }
-    if(match == '"'){ return '&quot;' }
-    if(match == "'"){ return '&#x27;' }
-  });
-}
-this["templates"] = this["templates"] || {};
-
-this["templates"]["bubble_default"] = function(obj) {
-obj || (obj = {});
-var __t, __p = '', __e = _.escape, __j = Array.prototype.join;
-function print() { __p += __j.call(arguments, '') }
-with (obj) {
-
-
-  function optEscape(str, unsafe){
-    if(unsafe){
-      return _.escape(str);
-    }
-    return str;
-  }
-;
-__p += '\n<div class="hopscotch-bubble-container" style="width: ' +
-((__t = ( step.width )) == null ? '' : __t) +
-'px; padding: ' +
-((__t = ( step.padding )) == null ? '' : __t) +
-'px;">\n  ';
- if(tour.isTour){ ;
-__p += '<span class="hopscotch-bubble-number">' +
-((__t = ( i18n.stepNum )) == null ? '' : __t) +
-'</span>';
- } ;
-__p += '\n  <div class="hopscotch-bubble-content">\n    ';
- if(step.title !== ''){ ;
-__p += '<h3 class="hopscotch-title">' +
-((__t = ( optEscape(step.title, tour.unsafe) )) == null ? '' : __t) +
-'</h3>';
- } ;
-__p += '\n    ';
- if(step.content  !== ''){ ;
-__p += '<div class="hopscotch-content">' +
-((__t = ( optEscape(step.content, tour.unsafe) )) == null ? '' : __t) +
-'</div>';
- } ;
-__p += '\n  </div>\n  <div class="hopscotch-actions">\n    ';
- if(buttons.showPrev){ ;
-__p += '<button class="hopscotch-nav-button prev hopscotch-prev">' +
-((__t = ( i18n.prevBtn )) == null ? '' : __t) +
-'</button>';
- } ;
-__p += '\n    ';
- if(buttons.showCTA){ ;
-__p += '<button class="hopscotch-nav-button next hopscotch-cta">' +
-((__t = ( buttons.ctaLabel )) == null ? '' : __t) +
-'</button>';
- } ;
-__p += '\n    ';
- if(buttons.showNext){ ;
-__p += '<button class="hopscotch-nav-button next hopscotch-next">' +
-((__t = ( i18n.nextBtn )) == null ? '' : __t) +
-'</button>';
- } ;
-__p += '\n  </div>\n  ';
- if(buttons.showClose){ ;
-__p += '<button class="hopscotch-bubble-close hopscotch-close">' +
-((__t = ( i18n.closeTooltip )) == null ? '' : __t) +
-'</button>';
- } ;
-__p += '\n</div>\n<div class="hopscotch-bubble-arrow-container hopscotch-arrow">\n  <div class="hopscotch-bubble-arrow-border"></div>\n  <div class="hopscotch-bubble-arrow"></div>\n</div>';
-
-}
-return __p
-};
-}.call(winHopscotch));
-
-  return winHopscotch;
-
-})));
-/* globals pbsParams, hopscotch, ContentTools, ContentEdit */
+////= include ../inc/hopscotch/hopscotch.js
+/* globals pbsParams, ContentTools */
 
 
 /**
  * Plays the tour. Should be only called when the editor is running.
  */
 window.pbsPlayTour = function() {
-
-	var helloListener = function() {
-		if ( ! hopscotch.getCurrTour() ) {
-			return;
-		}
-		if ( hopscotch.getCurrTour().id === 'editor-tour' && hopscotch.getCurrStepNum() === 0 ) {
-			var root = ContentEdit.Root.get();
-			if ( root.focused() ) {
-				if ( root.focused().content ) {
-					if ( root.focused().content.text().match( /sandwich/i ) ) {
-						hopscotch.nextStep();
-					}
-				}
-			}
-		}
-	};
-
-	var nextStepHandler = function() {
-		hopscotch.nextStep();
-	};
-
-	var newRowHandler = function( row ) {
-		row._addCSSClass( 'pbs_tour_new_row' );
-		hopscotch.nextStep();
-	};
-
-	hopscotch.endTour();
-
-	// Add dummy content area for the tour.
-	var mainRegion = ContentTools.EditorApp.get().regions()['main-content'];
-	var createEmptyParagraph = true;
-	if ( mainRegion.children.length > 0 ) {
-		if ( mainRegion.children[0].constructor.name === 'Text' ) {
-			if ( mainRegion.children[0].content.isWhitespace() ) {
-				createEmptyParagraph = false;
-			}
-		}
-	}
-
-	// Create the starting area for the tour.
-	if ( createEmptyParagraph ) {
-		var startingParagraph = new ContentEdit.Text( 'p' );
-		mainRegion.attach( startingParagraph, 0 );
-		startingParagraph.focus();
-	}
-
-	var tour2 = {
-		id: 'editor-tour',
-  		i18n: {
-  			doneBtn: pbsParams.labels.next
-  		},
-		steps: []
-	};
-
-	tour2.steps.push( {
-		title: pbsParams.labels.tour_content_area_title,
-		content: pbsParams.labels.tour_content_area_body,
-		delay: 500,
-		target: '.ce-element--type-text',
-		placement: 'bottom',
-		onShow: function() {
-			window.pbsOnlyOpenSection();
-			document.querySelector( '.ce-element--type-text' )._ceElement.focus();
-			document.addEventListener( 'keyup', helloListener );
-		},
-		onNext: function() {
-			document.removeEventListener( 'keyup', helloListener );
-		}
-	} );
-
-	tour2.steps.push( {
-		title: pbsParams.labels.tour_inspector_title,
-		content: pbsParams.labels.tour_inspector_body,
-		target: document.querySelector( '.ct-toolbox' ),
-		placement: 'right',
-		fixedElement: true,
-		yOffset: 30,
-		onShow: function() {
-			window.pbsOnlyOpenSection( 'pbs-text-formatting-group' );
-			document.querySelector( '.pbs-text-formatting-group' ).addEventListener( 'mouseover', nextStepHandler );
-			// document.querySelector( '.pbs-text-formatting-group' ).style.animation = 'pbs-tour-glow-red infinite 2s';
-		},
-		onNext: function() {
-			document.querySelector( '.pbs-text-formatting-group' ).removeEventListener( 'mouseover', nextStepHandler );
-			// document.querySelector( '.pbs-text-formatting-group' ).style.animation = '';
-		},
-		onEnd: function() {
-			// document.querySelector( '.pbs-text-formatting-group' ).style.animation = '';
-		}
-	} );
-
-	if ( ! pbsParams.is_lite ) {
-		tour2.steps.push( {
-			title: 'Let&apos;s Try It Out',
-			content: 'For starters, go ahead and click on this <strong>Increase Font Size</strong> button to make your text larger.<br><br>You can also hold down the ' + ( navigator.appVersion.indexOf('Mac') !== -1 ? 'Command' : 'CTRL' ) + ' key while clicking to decrease instead.<br><br><em>Try it out now.</em>',
-			target: document.querySelector('.ct-tool--font-up'),
-			onShow: function() {
-				document.querySelector( '.ct-tool--font-up' ).addEventListener( 'mousedown', nextStepHandler );
-				document.querySelector( '.ct-tool--font-up' ).style.animation = 'pbs-tour-glow-red infinite 2s';
-			},
-			onNext: function() {
-				document.querySelector( '.ct-tool--font-up' ).removeEventListener( 'mousedown', nextStepHandler );
-				document.querySelector( '.ct-tool--font-up' ).style.animation = '';
-			},
-			onEnd: function() {
-				document.querySelector( '.ct-tool--font-up' ).style.animation = '';
-			},
-			placement: 'right',
-			fixedElement: true,
-			yOffset: -15
-		} );
-	} else {
-		tour2.steps.push( {
-			title: 'Let&apos;s Try It Out',
-			content: 'For starters, go ahead and click on this <strong>Bold</strong> button to make your text bold.<br><br><em>Try it out now.</em>',
-			target: document.querySelector('.ct-tool--bold'),
-			onShow: function() {
-				document.querySelector( '.ct-tool--bold' ).addEventListener( 'mousedown', nextStepHandler );
-			},
-			onNext: function() {
-				document.querySelector( '.ct-tool--bold' ).removeEventListener( 'mousedown', nextStepHandler );
-			},
-			placement: 'right',
-			fixedElement: true,
-			yOffset: -15
-		} );
-	}
-
-	if ( ! pbsParams.is_lite ) {
-		tour2.steps.push( {
-			title: 'Keep Clicking That Button',
-			content: 'You&apos;ll be able to see your changes live. Hold down your mouse button to continuously increase the font size.<br><br>You can also try decreasing the size by holding the ' + ( navigator.appVersion.indexOf('Mac') !== -1 ? 'Command' : 'CTRL' ) + ' key while clicking the button. Or hold SHIFT+' + ( navigator.appVersion.indexOf('Mac') !== -1 ? 'Command' : 'CTRL' ) + ' keys to reset it to the original size.<br><br><em>Now try and click on the text color tool. It&apos;s the upper-left most button in the inspector.</em>',
-			target: '.ce-element--type-text',
-			placement: 'bottom',
-			onShow: function() {
-				document.querySelector( '.ct-tool--color' ).addEventListener( 'click', nextStepHandler );
-				document.querySelector( '.ct-tool--color' ).style.animation = 'pbs-tour-glow-red infinite 2s';
-			},
-			onNext: function() {
-				document.querySelector( '.ct-tool--color' ).removeEventListener( 'click', nextStepHandler );
-				document.querySelector( '.ct-tool--color' ).style.animation = '';
-			},
-			onEnd: function() {
-				document.querySelector( '.ct-tool--color' ).style.animation = '';
-			}
-		} );
-	} else {
-		tour2.steps.push( {
-			title: 'You&apos;ll Be Able to See Your Changes Live',
-			content: 'Clicking on the bold button again would remove the style.<br><br><em>Now try and click on the text color tool. It&apos;s the upper-left most button in the inspector.</em>',
-			target: '.ce-element--type-text',
-			placement: 'bottom',
-			onShow: function() {
-				document.querySelector( '.ct-tool--color' ).addEventListener( 'click', nextStepHandler );
-				document.querySelector( '.ct-tool--color' ).style.animation = 'pbs-tour-glow-red infinite 2s';
-			},
-			onNext: function() {
-				document.querySelector( '.ct-tool--color' ).removeEventListener( 'click', nextStepHandler );
-				document.querySelector( '.ct-tool--color' ).style.animation = '';
-			},
-			onEnd: function() {
-				document.querySelector( '.ct-tool--color' ).style.animation = '';
-			}
-		} );
-	}
-
-	tour2.steps.push( {
-		title: 'Use This Color Picker to Change Colors',
-		content: 'Clicking on different tools do different things. Color tools bring up color pickers, and some buttons toggle between different values.<br><br><em>Now drag the circular handle to change the color of your heading to proceed. Pick any color you like</em>',
-		target: document.querySelector( '.ct-tool--color > *' ),
-		placement: 'right',
-		fixedElement: true,
-		yOffset: 0,
-		onShow: function() {
-			wp.hooks.addAction( 'pbs.tool.color.applied', _.once( nextStepHandler ) );
-		}
-	} );
-	tour2.steps.push( {
-		title: 'How to Undo',
-		content: 'Hmmm, hold on. I&apos;m not sure I like that color. Let&apos;s go back to the previous one. You can use the undo shortcut ' + ( navigator.appVersion.indexOf('Mac') !== -1 ? 'Command+Z' : 'CTRL+Z' ) + ' to revert your changes.<br><br><em>Try undoing the color changes to proceed.</em>',
-		target: '.ce-element--type-text',
-		placement: 'bottom',
-		delay: 500,
-		onShow: function() {
-			wp.hooks.addAction( 'pbs.undo', _.once( nextStepHandler ) );
-		},
-		onNext: function() {
-			window.pbsOnlyOpenSection( 'pbs-interactive-elements-group' );
-		}
-	} );
-	tour2.steps.push( {
-		title: 'Rows & Columns',
-		content: 'You can also organize your content into different sections by adding rows & columns. You can place your content inside them and style the rows and columns to get a unique look.<br><br><em>Try adding a row with a single column now by clicking on the <strong>Add Row</strong> button.</em>',
-		target: document.querySelector( '.ct-tool--onecolumn' ),
-		placement: 'right',
-		delay: 700,
-		fixedElement: true,
-		yOffset: 30,
-		onShow: function() {
-			wp.hooks.addAction( 'pbs.tool.row.applied', _.once( newRowHandler ) );
-			document.querySelector( '.ct-tool--onecolumn' ).style.animation = 'pbs-tour-glow-red infinite 2s';
-		},
-		onNext: function() {
-			document.querySelector( '.ct-tool--onecolumn' ).style.animation = '';
-			// wp.hooks.removeAction( 'pbs.tool.row.applied', nextStepHandler );
-		},
-		onEnd: function() {
-			document.querySelector( '.ct-tool--onecolumn' ).style.animation = '';
-		}
-	} );
-	tour2.steps.push( {
-		title: 'Rows Are Outlined',
-		content: 'This is the row you just created. You can start typing right away to add content to it. But first let&apos;s try dragging the text above inside this row.<br><br><em>Click and hold your mouse on the &quot;Sandwich&quot; text we typed in earlier to start dragging it. (Tip: hold your mouse button for a long period)</em>',
-		target: '.pbs_tour_new_row',
-		placement: 'bottom',
-		onShow: function() {
-			document.querySelector( '.ce-element--type-text' ).addEventListener( 'mousedown', nextStepHandler );
-		},
-		onNext: function() {
-			document.querySelector( '.pbs_tour_new_row' ).classList.remove( 'pbs_tour_new_row' );
-			document.querySelector( '.ce-element--type-text' ).removeEventListener( 'mousedown', nextStepHandler );
-		}
-	} );
-	tour2.steps.push( {
-		title: 'Now Drag This into the Row',
-		content: 'Drag it inside the row, the area you are dragging to will become highlighted with arrows. If the entire row is highlighted, this will drop your item before or after the row. If the items inside the row get highlighted, then it will be dropped <strong>inside</strong> the row.<br><br><em>Drop the text inside the row to continue.</em>',
-		target: '.ce-element--type-text',
-		placement: 'bottom',
-		onShow: function() {
-			document.addEventListener( 'mouseup', nextStepHandler );
-		},
-		onNext: function() {
-			document.removeEventListener( 'mouseup', nextStepHandler );
-			jQuery('.ct-toolbox').animate( {
-				scrollTop: document.querySelector( '.pbs-row-group' ).offsetTop - 40
-			}, 600 );
-		}
-	} );
-	tour2.steps.push( {
-		title: 'Properties Area',
-		content: 'Since our row is currently selected, additional properties are shown in the inspector. These new buttons will help you further style your row.<br><br>Additional buttons are also available when other elements are selected.<br><br><em>Try it out now, add a border on your row by clicking on the <strong>border style</strong> button. Do this to proceed.</em>',
-		target: '.pbs-row-group',
-		delay: 700,
-		placement: 'right',
-		fixedElement: true,
-		yOffset: 30,
-		onShow: function() {
-			var oneStepHandler = _.once( nextStepHandler );
-			document.querySelector( '.pbs-button-col-border-style' ).addEventListener( 'mouseup', oneStepHandler );
-			document.querySelector( '.pbs-button-col-border-width' ).addEventListener( 'mouseup', oneStepHandler );
-			document.querySelector( '.pbs-button-col-border-style' ).style.animation = 'pbs-tour-glow-white infinite 2s';
-		},
-		onNext: function() {
-			jQuery('.ct-toolbox').animate( {
-				scrollTop: document.querySelector( '.pbs-interactive-elements-group' ).offsetTop - 40
-			}, 600 );
-			document.querySelector( '.pbs-button-col-border-style' ).style.animation = '';
-		},
-		onEnd: function() {
-			document.querySelector( '.pbs-button-col-border-style' ).style.animation = '';
-		}
-	} );
-	tour2.steps.push( {
-		title: 'More Elements',
-		content: 'Aside from text, rows and columns, there are other elements that you can add to your content like images, buttons and carousels.<br><br>' + ( pbsParams.is_lite ? 'Some elements are only available in the premium version of the plugin.<br><br>' : '' ) + '<em>' + ( pbsParams.is_lite ? 'Click on next to proceed.' : 'Click on the carousel button to add a carousel to proceed.' ) + '</em>',
-		target: '.pbs-interactive-elements-group',
-		delay: 700,
-		placement: 'right',
-		fixedElement: true,
-		yOffset: 30,
-		onShow: function() {
-			if ( document.querySelector( '.ct-tool--carousel' ) ) {
-				document.querySelector( '.ct-tool--carousel' ).addEventListener( 'mouseup', nextStepHandler );
-				document.querySelector( '.ct-tool--carousel' ).style.animation = 'pbs-tour-glow-red infinite 2s';
-			}
-		},
-		onNext: function() {
-			if ( document.querySelector( '.ct-tool--carousel' ) ) {
-				document.querySelector( '.ct-tool--carousel' ).removeEventListener( 'mouseup', nextStepHandler );
-				document.querySelector( '.ct-tool--carousel' ).style.animation = '';
-			}
-		},
-		onEnd: function() {
-			document.querySelector( '.ct-tool--carousel' ).style.animation = '';
-		}
-	} );
-	tour2.steps.push( {
-		title: 'Using Interactive Elements',
-		content: 'Some elements like this carousel are interactive. For carousels, in order to edit the other slides, you&apos;ll have to click on the bullets to navigate to them.<br><br><em>Click on the <strong>other bullets</strong> on this carousel to proceed.</em>',
-		target: '.ce-element--type-carousel',
-		placement: 'bottom',
-		onShow: function() {
-			var oneStepHandler = _.once( nextStepHandler );
-			setTimeout(function() {
-				document.querySelectorAll( '.ce-element--type-carousel .glide__bullet' )[1].addEventListener( 'mouseup', oneStepHandler );
-				document.querySelectorAll( '.ce-element--type-carousel .glide__bullet' )[2].addEventListener( 'mouseup', oneStepHandler );
-				document.querySelectorAll( '.ce-element--type-carousel .glide__bullet' )[2].style.animation = 'pbs-tour-glow-red infinite 2s';
-			}, 100 );
-		},
-		onNext: function() {
-			document.querySelectorAll( '.ce-element--type-carousel .glide__bullet' )[2].style.animation = '';
-		},
-		onEnd: function() {
-			document.querySelectorAll( '.ce-element--type-carousel .glide__bullet' )[2].style.animation = '';
-		}
-	} );
-
-	tour2.steps.push( {
-		title: 'Need Help?',
-		content: 'If you need additional help, click on this help button to bring up the online documentation.<br><br>You can also find tips on the button on the right.',
-		target: '#wp-admin-bar-pbs_help_docs',
-		nextOnTargetClick: true,
-		placement: 'left',
-		xOffset: -10,
-		fixedElement: true
-	} );
-
-	tour2.steps.push( {
-		title: pbsParams.labels.tour_done_title,
-		content: pbsParams.labels.tour_done_body,
-		target: '#wp-admin-bar-gambit_builder_save',
-		nextOnTargetClick: true,
-		placement: 'bottom',
-		xOffset: 50,
-		fixedElement: true,
-		onShow: function() {
-			window.pbsOpenAllSections();
-			jQuery('.ct-toolbox').animate( {
-				scrollTop: 0
-			}, 600 );
-		}
-	} );
-
-	hopscotch.startTour( tour2 );
-
-	var editor = ContentTools.EditorApp.get();
-	editor.unbind( 'start', window.pbsPlayTour );
-};
-
-
-/**
- * Start the tour if it's the first time playing.
- */
-wp.hooks.addAction( 'pbs.ct.ready', function() {
-	if ( typeof hopscotch === 'undefined' ) {
-		return;
-	}
-	if ( ! pbsParams.do_intro ) {
-		return;
-	}
 
 	// If the tour has started before, possible from another page, don't show it again.
 	// Helpful for the PBS demo site.
@@ -22587,40 +21845,53 @@ wp.hooks.addAction( 'pbs.ct.ready', function() {
 		localStorage.setItem( 'pbs_did_intro', 1 );
 	}
 
-	var tour = {
-		id: 'start-editing',
-		i18n: {
-			doneBtn: pbsParams.labels.close
-		},
-		steps: [
-			{
-				title: pbsParams.labels.tour_intro_title,
-				content: pbsParams.labels.tour_intro_body,
-				target: document.querySelector( '#wp-admin-bar-gambit_builder_edit' ),
-				placement: 'bottom',
-				fixedElement: true
-			}
-		]
-	};
-	hopscotch.startTour(tour);
+	var tourModalWrapper = document.createElement( 'DIV' );
+	tourModalWrapper.classList.add( 'pbs-tour-modal-wrapper' );
 
+	var tourModal = document.createElement( 'DIV' );
+	tourModal.classList.add( 'pbs-tour-modal' );
+	tourModalWrapper.appendChild( tourModal );
+
+	var closeButton = document.createElement( 'DIV' );
+	closeButton.classList.add( 'pbs-tour-close' );
+	tourModal.appendChild( closeButton );
+
+	closeButton.addEventListener( 'click', function() {
+		tourModalWrapper.classList.remove( 'pbs-tour-shown' );
+		setTimeout( function() {
+			document.body.removeChild( tourModalWrapper );
+		}, 400 );
+	} );
+
+	var iframe = document.createElement( 'IFRAME' );
+	iframe.setAttribute( 'src', 'https://www.youtube.com/embed/dSU2l1Vhp50?rel=0&autoplay=1&showinfo=0&autohide=1&controls=0' );
+	iframe.setAttribute( 'width', '800' );
+	iframe.setAttribute( 'height', '450' );
+	iframe.setAttribute( 'frameborder', '0' );
+	iframe.setAttribute( 'allowfullscreen', '1' );
+	tourModal.appendChild( iframe );
+
+	document.body.appendChild( tourModalWrapper );
+
+	setTimeout( function() {
+		tourModalWrapper.classList.add( 'pbs-tour-shown' );
+	}, 100 );
 
 	var editor = ContentTools.EditorApp.get();
-	editor.bind( 'start', window.pbsPlayTour );
-});
+	editor.unbind( 'start', window.pbsPlayTour );
+};
+
 
 /**
- * Stop the tour when the editor stops.
+ * Start the tour if it's the first time playing.
  */
-window.addEventListener( 'DOMContentLoaded', function() {
-	if ( typeof hopscotch === 'undefined' ) {
+wp.hooks.addAction( 'pbs.ct.ready', function() {
+	if ( ! pbsParams.do_intro ) {
 		return;
 	}
 
 	var editor = ContentTools.EditorApp.get();
-	editor.bind( 'stop', function() {
-		hopscotch.endTour();
-	} );
+	editor.bind( 'start', window.pbsPlayTour );
 });
 
 /**
@@ -22666,7 +21937,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 				}
 			}
 		};
-		request.send( 'action=pbs_lite_tracking_ping&nonce=' + pbsParams.lite_tracking_nonce );
+		request.send( 'action=pbs_lite_tracking_ping&nonce=' + pbsParams.nonce );
 	};
 
 	var showRateBox = function() {
@@ -22677,7 +21948,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 		var request = new XMLHttpRequest();
 		request.open( 'POST', pbsParams.ajax_url, true );
 		request.setRequestHeader( 'Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8' );
-		request.send( 'action=pbs_lite_tracking_rated&nonce=' + pbsParams.lite_tracking_nonce );
+		request.send( 'action=pbs_lite_tracking_rated&nonce=' + pbsParams.nonce );
 
 		pbsParams.lite_tracking_rated = '1';
 		clearInterval( trackerInterval );
@@ -22752,7 +22023,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	    var payload = new FormData();
 		payload.append( 'action', 'pbs_optin_answer' );
 		payload.append( 'optin', yesno );
-		payload.append( 'nonce', pbsParams.optin_nonce );
+		payload.append( 'nonce', pbsParams.nonce );
 
 	    var xhr = new XMLHttpRequest();
 
@@ -22842,6 +22113,290 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	};
 })();
 
+/* globals ContentTools, pbsParams */
+
+window.addEventListener( 'DOMContentLoaded', function() {
+
+	// Set heartbeat to the slowest at the beginning because we cannot disable it.
+	wp.heartbeat.interval( 120 );
+
+	// Listen in to when the modal login form closes.
+	var lastAutosave = +new Date();
+	var loginListenerInterval = null;
+	var loginListener = function() {
+		var authCheckWrapper = document.querySelector( '#wp-auth-check-wrap' );
+		if ( ! authCheckWrapper ) {
+			clearInterval( loginListenerInterval );
+			modalIsOpen = false;
+		} else if ( authCheckWrapper.classList.contains( 'hidden' ) ) {
+			clearInterval( loginListenerInterval );
+			modalIsOpen = false;
+			wp.heartbeat.connectNow();
+		}
+	};
+	var startLoginListener = function() {
+		clearInterval( loginListenerInterval );
+		loginListenerInterval = setInterval( loginListener, 500 );
+	};
+
+	// When a modal is open, this should be true. When a modal is open,
+	// don't show takeover or post lock modals.
+	var modalIsOpen = false;
+
+	// Send out heartbeat stuff.
+	jQuery( document ).on( 'heartbeat-send', function( e, data ) {
+
+		// Only do this when editing.
+		if ( ! window.PBSEditor.isEditing() ) {
+			return;
+		}
+
+		// Refresh nonces when possible.
+		data['wp-refresh-post-nonces'] = {
+			post_id: pbsParams.post_id
+		};
+
+		// Refresh our own nonce regularly.
+		data.pbs_nonce = pbsParams.nonce;
+
+		// Needed for nonces and post locking.
+		data.post_id = pbsParams.post_id;
+
+		if ( modalIsOpen ) {
+			return;
+		}
+
+		// Autosave from time to time.
+		var autosaveDiff = ( ( +new Date() ) - lastAutosave ) / 1000;
+		var autosaveInterval = 15;
+		if ( pbsParams.autosave_interval ) {
+			autosaveInterval = parseInt( pbsParams.autosave_interval, 10 ) * 60;
+		}
+		if ( autosaveDiff > autosaveInterval ) {
+			lastAutosave = +new Date();
+
+			// Get the content & do the normal filters.
+			data.content = ContentTools.EditorApp.get().regions()['main-content'].html();
+			data.content = wp.hooks.applyFilters( 'pbs.save', data.content );
+		}
+	} );
+
+	// Handle heartbeat responses.
+	jQuery( document ).on( 'heartbeat-tick', function( e, data ) {
+
+		// Only do this when editing.
+		if ( ! window.PBSEditor.isEditing() ) {
+			return;
+		}
+
+		// If logged out, the modal form will automatically appear, start
+		// listening when the modal disappears, it means we logged in or closed it.
+		if ( data['wp-auth-check'] === false ) {
+			modalIsOpen = true;
+			startLoginListener();
+			return;
+		}
+
+		// Update our nonces if invalid already.
+		if ( data['wp-refresh-post-nonces'] ) {
+			var nonces = data['wp-refresh-post-nonces'];
+
+			// Update the Heartbeat API nonce.
+			if ( nonces.heartbeatNonce ) {
+				window.heartbeatSettings.nonce = nonces.heartbeatNonce;
+			}
+
+			// Update the PBS nonce if invalid already.
+			if ( nonces.pbs_nonce_new ) {
+				pbsParams.nonce = nonces.pbs_nonce_new;
+			}
+		}
+
+		// Update the PBS nonce if invalid already.
+		if ( data.pbs_nonce_new ) {
+			pbsParams.nonce = data.pbs_nonce_new;
+		}
+
+		if ( modalIsOpen ) {
+			return;
+		}
+
+		// There is a post lock, do an autosave and show the modal.
+		if ( data.has_post_lock ) {
+
+			// Display a post lock modal & autosave.
+			if ( ! document.querySelector( '#pbs-post-locked-dialog' ) ) {
+
+				// Autosave.
+				doAutosave();
+
+				// Display the "post was locked" modal.
+				var templateData = {
+					avatar: data.post_lock_avatar,
+					avatar2x: data.post_lock_avatar2x,
+					author_name: data.post_lock_author_name
+				};
+				var div = document.createElement( 'DIV' );
+				div.innerHTML = wp.template( 'pbs-heartbeat-takeover' )( templateData );
+				div.setAttribute( 'id', 'pbs-post-locked-dialog' );
+				document.body.appendChild( div );
+				modalIsOpen = true;
+
+				// If main button was clicked, reload the page.
+				document.querySelector( '.pbs-post-takeover-refresh' ).addEventListener( 'click', function( ev ) {
+					ev.preventDefault();
+					modalIsOpen = false;
+					doRemovePostLock = false;
+					ContentTools.EditorApp.get().stop();
+					window.location.reload();
+					div.parentNode.removeChild( div );
+				} );
+			}
+		}
+	} );
+
+	// When this is true, the post lock is removed when the editor is stopped.
+	var doRemovePostLock = true;
+
+	// When the editor starts...
+	ContentTools.EditorApp.get().bind( 'start', function() {
+
+		// Start the heartbeat API.
+		wp.heartbeat.interval( 15 );
+
+		// Check post lock & check nonce.
+		checkHeartbeat();
+		doRemovePostLock = true;
+	} );
+
+	// When the editor stops...
+	ContentTools.EditorApp.get().bind( 'stop', function() {
+
+		// Stop the heartbeat API.
+		wp.heartbeat.interval( 120 );
+
+		// Remove the post lock if needed (only when we are the one who locked it).
+		if ( doRemovePostLock ) {
+			removePostLock();
+		}
+	} );
+
+
+	/**
+	 * Triggers a post lock check & PBS nonce check.
+	 */
+	function checkHeartbeat() {
+	    var payload = new FormData();
+		payload.append( 'action', 'pbs_heartbeat_check' );
+		payload.append( 'post_id', pbsParams.post_id );
+		payload.append( 'nonce', pbsParams.nonce );
+
+	    var xhr = new XMLHttpRequest();
+
+	   	xhr.onload = function() {
+	   		if ( xhr.status >= 200 && xhr.status < 400 ) {
+				var response = JSON.parse( xhr.responseText );
+				if ( response ) {
+
+					// There is an existing post lock, display the takeover modal.
+					if ( response.post_lock ) {
+
+						var data = {
+							avatar: response.post_lock_avatar,
+							avatar2x: response.post_lock_avatar2x,
+							author_name: response.post_lock_author_name
+						};
+						var div = document.createElement( 'DIV' );
+						div.innerHTML = wp.template( 'pbs-heartbeat-locked' )( data );
+						div.setAttribute( 'id', 'pbs-post-locked-dialog' );
+						document.body.appendChild( div );
+						modalIsOpen = true;
+
+						// Cancel / back handler.
+						document.querySelector( '.pbs-post-locked-back' ).addEventListener( 'click', function( ev ) {
+							ev.preventDefault();
+							modalIsOpen = false;
+							doRemovePostLock = false;
+							document.querySelector( '#wp-admin-bar-gambit_builder_cancel' ).dispatchEvent( new CustomEvent( 'click' ) );
+							div.parentNode.removeChild( div );
+						} );
+
+						// Takeover handler.
+						document.querySelector( '.pbs-post-locked-takeover' ).addEventListener( 'click', function( ev ) {
+							ev.preventDefault();
+							modalIsOpen = false;
+							overridePostLock();
+							div.parentNode.removeChild( div );
+						} );
+					}
+
+					// Update the PBS nonce if given.
+					if ( response.nonce ) {
+						pbsParams.nonce = response.nonce;
+					}
+				}
+	   		}
+	   	}.bind( this );
+
+		xhr.onerror = function() {
+		};
+
+	    xhr.open( 'POST', pbsParams.ajax_url );
+	    xhr.send( payload );
+	}
+
+
+	/**
+	 * Trigger a removal of the post lock.
+	 */
+	function removePostLock() {
+	    var payload = new FormData();
+		payload.append( 'action', 'pbs_remove_post_lock' );
+		payload.append( 'post_id', pbsParams.post_id );
+		payload.append( 'nonce', pbsParams.nonce );
+
+	    var xhr = new XMLHttpRequest();
+	    xhr.open( 'POST', pbsParams.ajax_url );
+	    xhr.send( payload );
+	}
+
+
+	/**
+	 * Trigger a take over of an existing post lock.
+	 */
+	function overridePostLock() {
+	    var payload = new FormData();
+		payload.append( 'action', 'pbs_override_post_lock' );
+		payload.append( 'post_id', pbsParams.post_id );
+		payload.append( 'nonce', pbsParams.nonce );
+
+	    var xhr = new XMLHttpRequest();
+	    xhr.open( 'POST', pbsParams.ajax_url );
+	    xhr.send( payload );
+	}
+
+
+	/**
+	 * Manually trigger an autosave.
+	 */
+	function doAutosave() {
+	    var payload = new FormData();
+		payload.append( 'action', 'pbs_autosave' );
+		payload.append( 'post_id', pbsParams.post_id );
+		payload.append( 'nonce', pbsParams.nonce );
+
+		// Get the content & do the normal filters.
+		var content = ContentTools.EditorApp.get().regions()['main-content'].html();
+		content = wp.hooks.applyFilters( 'pbs.save', content );
+		payload.append( 'content', content );
+
+	    var xhr = new XMLHttpRequest();
+	    xhr.open( 'POST', pbsParams.ajax_url );
+	    xhr.send( payload );
+	}
+
+} );
+
 if ( ! window.PBSEditor ) {
 	window.PBSEditor = {};
 }
@@ -22898,33 +22453,92 @@ window.PBSEditor.rgbToHsl = function( r, g, b ) {
 /***************************************************************************
  * These are the tools in the inspector, overriding the defaults of CT.
  ***************************************************************************/
-ContentTools.DEFAULT_TOOLS = [
+window.PBSEditor.formattingTools = [
 	[
+		'insertElement',
 		'paragraphPicker',
+		'|',
 		'color',
-		'clear-formatting',
-		'remove',
+		// 'remove',
 		'bold',
 		'italic',
 		'underline',
-		'link',
 		'strikethrough',
+		'link',
+		// 'unlink',
 		// 'blockquote',
-		'hr',
+		'|',
 		'align-left',
 		'align-center',
 		'align-right',
 		'align-justify',
-		'indent',
-		'unindent',
-		'unordered-list',
-		'ordered-list',
+		'|',
+		'hr',
 
 
 
 		'code',
+		'|',
+		'unordered-list',
+		'ordered-list',
+		'indent',
+		'unindent',
+		'|',
+		'clear-formatting',
 		'undo', 'redo'				// These are automatically moved into the admin bar.
-	],
+	]
+];
+window.PBSEditor.insertElements = [
+	[
+		'onecolumn',
+		'twocolumn',
+		'threecolumn',
+		'fourcolumn',
+		'text',
+		'pbs-media',
+		'shortcode',
+
+		'widget',
+		'sidebar',
+		'icon',
+
+
+
+		'html',
+
+		'map',
+
+		'tabs'
+	]
+];
+
+ContentTools.DEFAULT_TOOLS = [[]];
+	// [
+	// 	'paragraphPicker',
+	// 	'color',
+	// 	'clear-formatting',
+	// 	'remove',
+	// 	'bold',
+	// 	'italic',
+	// 	'underline',
+	// 	'link',
+	// 	'strikethrough',
+	// 	// 'blockquote',
+	// 	'hr',
+	// 	'align-left',
+	// 	'align-center',
+	// 	'align-right',
+	// 	'align-justify',
+	// 	'indent',
+	// 	'unindent',
+	// 	'unordered-list',
+	// 	'ordered-list',
+
+
+
+	// 	'code',
+	// 	'undo', 'redo'				// These are automatically moved into the admin bar.
+	// ],
 	// [
 		// 'paragraph',
 		// 'h1',
@@ -22946,53 +22560,77 @@ ContentTools.DEFAULT_TOOLS = [
 
 
 
-	[
-		'pbs-media',
+// 	[
+// 		// 'pbs-media',
 
-		'widget',
-		'sidebar',
-		'icon',
+// 		// 'widget',
+// 		// 'sidebar',
+// 		// 'icon',
 
 
 
-		'shortcode',
-		'html',
+// 		// 'shortcode',
+// 		// 'html',
 
-		'map',
-		'tabs',
-		'onecolumn',
-		'twocolumn',
-		'threecolumn',
-		'fourcolumn'
-	// [
-	// 	'row', 'column2', 'column3', 'column4', 'column233', 'column424'
-	// ],
-	],								// LITE-ONLY
-	[								// LITE-ONLY
-		'get-premium'				// LITE-ONLY
-	]
-];
+// 		// 'map',
+// 		// 'tabs',
+// 		// 'onecolumn',
+// 		// 'twocolumn',
+// 		// 'threecolumn',
+// 		// 'fourcolumn'
+// 	// [
+// 	// 	'row', 'column2', 'column3', 'column4', 'column233', 'column424'
+// 	// ],
+// 	],								// LITE-ONLY
+// 	[								// LITE-ONLY
+// 		'get-premium'				// LITE-ONLY
+// 	]
+// ];
 
 window.PBSEditor.toolHeadings = [
-	{ 'label': pbsParams.labels.text_formatting, 'class': 'text-formatting' },
+	// { 'label': pbsParams.labels.text_formatting, 'class': 'text-formatting' },
 	// { 'label': pbsParams.labels.change_type, 'class': 'change-type' },
-	{ 'label': pbsParams.labels.insert_content, 'class': 'interactive-elements' }
+	// { 'label': pbsParams.labels.insert_content, 'class': 'interactive-elements' }
 	// { 'label': pbsParams.labels.rows_and_columns, 'class': 'rows-columns' }
 ];
 
-window.PBSEditor.advancedTools = [
-	'h3', 'h4', 'h5', 'h6', 'table', 'preformatted', 'indent', 'unindent', 'code', 'align-justify', 'uppercase', 'strikethrough',
-	'pbs-advanced-formatting-group',
-	'pbs-shortcodes-group'
-	//, 'pbs-rows-columns-group'
-];
+// window.PBSEditor.advancedTools = [
+// 	'h3', 'h4', 'h5', 'h6', 'table', 'preformatted', 'indent', 'unindent', 'code', 'align-justify', 'uppercase', 'strikethrough',
+// 	'pbs-advanced-formatting-group',
+// 	'pbs-shortcodes-group'
+// 	//, 'pbs-rows-columns-group'
+// ];
 
 window.addEventListener( 'DOMContentLoaded', function() {
-	new PBSEditor.MarginBottom();
-	new PBSEditor.MarginTop();
-	new PBSEditor.MarginBottomContainer();
-	new PBSEditor.MarginTopContainer();
-	new PBSEditor.OverlayColumnWidth();
-	new PBSEditor.OverlayColumnWidthRight();
-	new PBSEditor.OverlayColumnWidthLabels();
+	// new PBSEditor.MarginBottom();
+	// new PBSEditor.MarginTop();
+	// new PBSEditor.MarginBottomContainer();
+	// new PBSEditor.MarginTopContainer();
+	// new PBSEditor.OverlayColumnWidth();
+	// new PBSEditor.OverlayColumnWidthRight();
+	// new PBSEditor.OverlayColumnWidthLabels();
+	new PBSEditor.OverlayColumn();
+	new PBSEditor.OverlayRow();
+	new PBSEditor.OverlayElement();
+	// new PBSEditor.OverlayResize();
+
+	new PBSEditor.ToolbarElement();
+	new PBSEditor.ToolbarImage();
+	new PBSEditor.ToolbarHtml();
+	new PBSEditor.ToolbarIframe();
+	new PBSEditor.ToolbarEmbed();
+	new PBSEditor.ToolbarMap();
+	new PBSEditor.ToolbarIcon();
+	new PBSEditor.ToolbarShortcode();
+	new PBSEditor.ToolbarRow();
+	new PBSEditor.ToolbarColumn();
+	new PBSEditor.ToolbarNewsletter();
+	new PBSEditor.ToolbarList();
+	new PBSEditor.ToolbarTabContainer();
+	new PBSEditor.ToolbarTable();
+
+	new PBSEditor.TooltipLink();
+	new PBSEditor.TooltipButton();
+	new PBSEditor.TooltipInput();
+	new PBSEditor.TooltipTab();
 });

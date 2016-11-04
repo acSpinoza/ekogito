@@ -53,7 +53,6 @@ if ( ! class_exists( 'PBSLiteTracking' ) ) {
 		public function add_tracking_params( $args ) {
 			$args['lite_tracking_seconds'] = (int) get_option( 'pbs_lite_tracking_seconds' );
 			$args['lite_tracking_rated'] = get_option( 'pbs_lite_tracking_rated' );
-			$args['lite_tracking_nonce'] = wp_create_nonce( 'pbs_lite_tracking' );
 			return $args;
 		}
 
@@ -68,7 +67,7 @@ if ( ! class_exists( 'PBSLiteTracking' ) ) {
 				die();
 			}
 			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
-			if ( ! wp_verify_nonce( $nonce, 'pbs_lite_tracking' ) ) {
+			if ( ! wp_verify_nonce( $nonce, 'pbs' ) ) {
 				die();
 			}
 
@@ -91,7 +90,7 @@ if ( ! class_exists( 'PBSLiteTracking' ) ) {
 				die();
 			}
 			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
-			if ( ! wp_verify_nonce( $nonce, 'pbs_lite_tracking' ) ) {
+			if ( ! wp_verify_nonce( $nonce, 'pbs' ) ) {
 				die();
 			}
 

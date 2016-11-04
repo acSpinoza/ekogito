@@ -337,5 +337,18 @@ window.pbsTabsRefreshActiveTab = function( tabsElement ) {
 
 	} );
 
+	// On first load, the first tab is active.
+	document.addEventListener( 'DOMContentLoaded', function() {
+		var elements = document.querySelectorAll( '[data-ce-tag="tabs"]' );
+		Array.prototype.forEach.call( elements, function( el ) {
+			el = el.querySelector( '[data-ce-tag="tab"]' );
+			if ( el ) {
+				el.classList.add( 'pbs-tab-active' );
+			}
+		} );
+	} );
+
 } )();
+
+
 

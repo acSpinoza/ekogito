@@ -14,7 +14,8 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 delete_option( 'pbs_no_migration_notice' );
 
 // Used by class-intro.php.
-delete_option( 'pbs_first_load_intro' );
+delete_option( 'pbs_first_load_intro' ); // Old intro option.
+delete_option( 'pbs_first_load_intro_v3' );
 
 // Used by class-licensing.php.
 delete_option( 'pbs_license_status' );
@@ -41,3 +42,6 @@ delete_option( 'pbs_shortcode_mappings' );
 delete_option( 'pbs_shortcode_mappings_total' );
 delete_option( 'pbs_shortcode_mapped_plugins_total' );
 delete_option( 'pbs_shortcode_mapped_shortcodes_total' );
+
+// Used by class-freemius.php.
+delete_option( 'pbs_premium_notice' );

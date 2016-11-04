@@ -64,7 +64,7 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 			}
 
 			// Security check.
-			if ( ! wp_verify_nonce( sanitize_key( $_POST['save_nonce'] ), 'pbs_save' . get_current_user_id() ) ) { // Input var: okay.
+			if ( ! wp_verify_nonce( sanitize_key( $_POST['save_nonce'] ), 'pbs' ) ) { // Input var: okay.
 				die();
 			}
 
@@ -122,7 +122,6 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 			}
 
 			if ( get_option( 'pbs_stats_tracking_opted_in' ) === false ) {
-				$params['optin_nonce'] = wp_create_nonce( 'pbs_optin' );
 				$params['show_opt_in_stats_track'] = '1';
 			} else if ( get_option( 'pbs_stats_tracking_opted_in' ) === 'yes' ) {
 				$params['stats_tracking_opted_in'] = '1';
@@ -159,7 +158,7 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 				die();
 			}
 			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
-			if ( ! wp_verify_nonce( $nonce, 'pbs_optin' ) ) {
+			if ( ! wp_verify_nonce( $nonce, 'pbs' ) ) {
 				die();
 			}
 
@@ -255,7 +254,7 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 					<p class="pbs-deactivate-advanced"><label for="pbs_description"><span id="pbs_description_label"><?php esc_html_e( 'Feedback', PAGE_BUILDER_SANDWICH ) ?></span><textarea name="pbs_description" id="pbs_description"></textarea></label></p>
 					<p class="pbs-deactivate-advanced"><label for="pbs_email"><span id="pbs_email_label"><?php esc_html_e( 'Enter your email so we can let you know if we have resolved your issues', PAGE_BUILDER_SANDWICH ) ?></span><input type="text" name="pbs_email" id="pbs_email"></label></p>
 					<p class='pbs-buttons'>
-						<input type="hidden" id="pbs_deactivate_nonce" value="<?php echo esc_attr( wp_create_nonce( 'pbs_deactivate' ) ) ?>"/>
+						<input type="hidden" id="pbs_deactivate_nonce" value="<?php echo esc_attr( wp_create_nonce( 'pbs' ) ) ?>"/>
 						<a href='#' class='pbs-button pbs-button-deactivate-yes'><?php esc_html_e( 'Send Feedback & Deactivate', PAGE_BUILDER_SANDWICH ) ?></a>
 						<a href='#' class='pbs-button pbs-button-deactivate-no'><?php esc_html_e( 'Just Deactivate', PAGE_BUILDER_SANDWICH ) ?></a>
 					</p>
@@ -275,7 +274,7 @@ if ( ! class_exists( 'PBSStatsTracking' ) ) {
 				die();
 			}
 			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
-			if ( ! wp_verify_nonce( $nonce, 'pbs_deactivate' ) ) {
+			if ( ! wp_verify_nonce( $nonce, 'pbs' ) ) {
 				die();
 			}
 

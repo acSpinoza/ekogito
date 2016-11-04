@@ -1,6 +1,85 @@
 Changelog
 =========
 
+#### 4.0.7 - October 25, 2016
+
+**Improvements**
+
+- Obfuscate all email addresses in debug log. Thanks [Sauli Lepola](https://twitter.com/SJLfi).
+- Ask for confirmation before disabling double opt-in, which we do not recommend.
+- Allow vertical resizing of debug log.
+- Failsafe against including JavaScript file twice.
+- No longer wrapping CF7 checkbox in paragraph tags.
+
+**Additions**
+
+- Added `mc4wp_form_api_error` action hook for API errors encountered by forms.
+- Added `element_class` argument to `[mc4wp_form]` shortcode for adding CSS classes.
+
+
+#### 4.0.6 - October 10, 2016
+
+**Fixes**
+
+- Issue with lists not showing when using W3 Total Cache with APCu object cache enabled.
+
+**Improvements**
+
+- We're no longer stripping newlines from text fields.
+
+**Additions**
+
+- Added missing e-commerce related API methods to API class.
+
+
+#### 4.0.5 - September 29, 2016
+
+**Fixes**
+
+- Allow checkbox option for the List Choice field (again).
+
+**Improvements**
+
+- Fetch MailChimp lists over AJAX, to speed up perceived performance (especially when your account has many lists).
+- Periodically fetch MailChimp lists, so cache is always fresh.
+- Improved `<label>` element accessibility for checkbox integrations.
+- Stop using double underscore prefix in function names, as these are reserved in PHP 7.
+- `{post}` and `{user}` shortcodes now accept a `default` parameter.
+
+**Additions**
+
+- Add [MemberPress](https://www.memberpress.com/) integration.
+- Add missing e-commerce related API methods for next week's [WooCommerce MailChimp e-commerce integration](https://mc4wp.com/kb/what-is-ecommerce360/) release.
+
+
+#### 4.0.4 - September 7, 2016
+
+**Improvements**
+
+- Allow re-running previous migrations by visiting a certain admin URL.
+- Do not show checkboxes option for fields that only accept a single value.
+- Write field specific errors to debug log when MailChimp denies a sign-up request.
+- Write to debug log when custom integrations can not find an EMAIL field.
+- Differentiate between connection & authorization errors when testing connection to MailChimp.
+- Bump limit of number of MailChimp lists to fetch from 100 to 500.
+
+
+#### 4.0.3 - August 24, 2016
+
+**Fixes**
+
+- Ninja Forms integration not working when using PayPal integration.
+
+**Improvements**
+
+- Show connection errors on MailChimp settings page.
+
+**Additions**
+
+- Add pre-checked option to Ninja Forms integration.
+- You can now [conditionally hide fields or elements](https://mc4wp.com/kb/conditional-fields-elements/) using the `data-show-if` attribute.
+
+
 #### 4.0.2 - August 10, 2016
 
 **Fixes**

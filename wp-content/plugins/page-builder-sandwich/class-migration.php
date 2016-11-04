@@ -96,7 +96,7 @@ if ( ! class_exists( 'PBSMigration' ) ) {
 		 * @see	admin_head
 		 */
 		public function add_migration_script() {
-			$nonce = wp_create_nonce( 'pbs_migrate' );
+			$nonce = wp_create_nonce( 'pbs' );
 			?>
 			<script>
 			jQuery(document).on( 'click', '.pbs-migration-notice .button', function() {
@@ -128,7 +128,7 @@ if ( ! class_exists( 'PBSMigration' ) ) {
 			if ( empty( $_POST['nonce'] ) ) { // Input var okay.
 				wp_send_json_error();
 			}
-			if ( ! wp_verify_nonce( sanitize_key( $_POST['nonce'] ), 'pbs_migrate' ) ) { // Input var okay.
+			if ( ! wp_verify_nonce( sanitize_key( $_POST['nonce'] ), 'pbs' ) ) { // Input var okay.
 				wp_send_json_error();
 			}
 

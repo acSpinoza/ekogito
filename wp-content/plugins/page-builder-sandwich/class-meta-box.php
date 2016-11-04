@@ -77,7 +77,7 @@ if ( ! class_exists( 'PBSMetaBox' ) ) {
 		 */
 		public function meta_box_content_not_saved() {
 			$post_type = get_post_type_object( get_post_type() );
-			if ( ! empty( $post_type ) ) {
+			if ( empty( $post_type ) ) {
 				return;
 			}
 			?>

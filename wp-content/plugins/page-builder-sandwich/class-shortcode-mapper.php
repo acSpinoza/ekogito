@@ -111,7 +111,7 @@ if ( ! class_exists( 'PBSShortcodeMapper' ) ) {
 				die();
 			}
 			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
-			if ( ! wp_verify_nonce( $nonce, 'pbs_shortcode' ) ) {
+			if ( ! wp_verify_nonce( $nonce, 'pbs' ) ) {
 				die();
 			}
 
@@ -357,7 +357,7 @@ if ( ! class_exists( 'PBSShortcodeMapper' ) ) {
 			if ( empty( $_POST['nonce'] ) ) { // Input var: okay.
 				die();
 			}
-			if ( ! wp_verify_nonce( sanitize_key( $_POST['nonce'] ), 'pbs_shortcode' ) ) { // Input var: okay.
+			if ( ! wp_verify_nonce( sanitize_key( $_POST['nonce'] ), 'pbs' ) ) { // Input var: okay.
 				die();
 			}
 			if ( empty( $_POST['image_ids'] ) ) { // Input var: okay.

@@ -60,6 +60,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_editor' ) );
 
 			// Apply different markers that we need for the builder to work properly in the frontend.
+			add_filter( 'the_content', array( $this, 'escape_pretext_shortcodes' ), 0 );
 			add_filter( 'the_content', array( $this, 'add_shortcode_markers' ), 0 );
 			add_filter( 'pbs_save_content', array( $this, 'remove_shortcode_markers' ) );
 			add_filter( 'the_content', array( $this, 'add_oembed_markers' ), 0 );
@@ -195,6 +196,9 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				return;
 			}
 
+			global $pbs_url_for_templates;
+			$pbs_url_for_templates = trailingslashit( plugins_url( 'page_builder_sandwich', __FILE__ ) );
+
 			include 'page_builder_sandwich/templates/option-border.php';
 			include 'page_builder_sandwich/templates/option-text.php';
 			include 'page_builder_sandwich/templates/option-textarea.php';
@@ -202,14 +206,17 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			include 'page_builder_sandwich/templates/option-margins-and-paddings.php';
 			include 'page_builder_sandwich/templates/option-select.php';
 			include 'page_builder_sandwich/templates/option-checkbox.php';
+			include 'page_builder_sandwich/templates/option-button2.php';
 			include 'page_builder_sandwich/templates/option-shortcode-generic.php';
+			include 'page_builder_sandwich/templates/option-image.php';
+			include 'page_builder_sandwich/templates/option-number.php';
+			include 'page_builder_sandwich/templates/frame-admin.php';
 			include 'page_builder_sandwich/templates/frame-shortcode-picker.php';
 			include 'page_builder_sandwich/templates/frame-predesigned-picker.php';
 
 			if ( ! PBS_IS_LITE ) {
 				include 'page_builder_sandwich/templates/option-multicheck.php';
-				include 'page_builder_sandwich/templates/option-image.php';
-				include 'page_builder_sandwich/templates/option-number.php';
+				include 'page_builder_sandwich/templates/option-iframe.php';
 
 				include 'page_builder_sandwich/templates/design-element-page-headings.php';
 				include 'page_builder_sandwich/templates/design-element-page-headings-2.php';
@@ -327,14 +334,14 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			$wp_admin_bar->add_node( $args );
 			$args = array(
 				'id'    => 'gambit_builder_save',
-				'title' => '<span class="ab-icon"></span>' . $save_label . '</span>',
+				'title' => $save_label,
 				'href'  => '#',
 				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
 			);
 			$wp_admin_bar->add_node( $args );
 			$args = array(
 				'id'    => 'gambit_builder_cancel',
-				'title' => '<span class="ab-icon"></span>' . __( 'Cancel', PAGE_BUILDER_SANDWICH ),
+				'title' => __( 'Cancel', PAGE_BUILDER_SANDWICH ),
 				'href'  => '#',
 				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
 			);
@@ -356,15 +363,14 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 					'title' => '<span class="ab-icon"></span>'
 						. __( 'Learn More About Premium', PAGE_BUILDER_SANDWICH )
 						. '<span id="pbs-premium-info">'
-						. __( "Get more tools and features by upgrading to the Premium Plugin. Here're some of the stuff you'll get:", PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'Premium elements', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'Live editable Carousels', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'Full-width rows', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'Background tinted images', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'More icons, Bullet icons, upload your own icons', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'Stylable buttons', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'More easy to use styling tools', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'Pre-designed Templates', PAGE_BUILDER_SANDWICH ) .
+						. __( "Get more features & elements by upgrading to the Premium Plugin. Here're some of the stuff you'll get:", PAGE_BUILDER_SANDWICH ) .
+						'<br>&middot; ' . __( 'Premium elements: Buttons, Ghost Buttons, Carousels, Newsletters, Toggles, and More,', PAGE_BUILDER_SANDWICH ) .
+						'<br>&middot; ' . __( 'Fixed background images, background patterns, background image tinting and more,', PAGE_BUILDER_SANDWICH ) .
+						'<br>&middot; ' . __( 'More icons, bullet icons, more icon options, and upload your own icons,', PAGE_BUILDER_SANDWICH ) .
+						'<br>&middot; ' . __( 'More advanced options like custom classes and IDs,', PAGE_BUILDER_SANDWICH ) .
+						'<br>&middot; ' . __( 'Add animations to any element,', PAGE_BUILDER_SANDWICH ) .
+						'<br>&middot; ' . __( 'More easy to use styling tools,', PAGE_BUILDER_SANDWICH ) .
+						'<br>&middot; ' . __( '40 Pre-designed templates,', PAGE_BUILDER_SANDWICH ) .
 						'<br>' . __( '...and plenty more!', PAGE_BUILDER_SANDWICH ) .
 						'<span id="pbs-premium-button">' . __( 'Learn more', PAGE_BUILDER_SANDWICH ) . '</span></span>',
 					'href'  => '#',
@@ -372,7 +378,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				);
 				$wp_admin_bar->add_node( $args );
 			}
-
+			/*
 			$args = array(
 				'id'    => 'pbs_help_icon',
 				'title' => '<span class="ab-icon"></span> ' . __( 'Tips', PAGE_BUILDER_SANDWICH ) . '<span class="pbs-help-label">
@@ -396,28 +402,13 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-adminbar-right' ),
 			);
 			$wp_admin_bar->add_node( $args );
+			*/
 
 			$args = array(
 				'id'    => 'pbs_help_docs',
 				'title' => '<span class="ab-icon"></span> ' . __( 'Help', PAGE_BUILDER_SANDWICH ),
 				'href'  => '#',
 				'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-adminbar-right' ),
-			);
-			$wp_admin_bar->add_node( $args );
-
-			$args = array(
-				'id'    => 'pbs_adminbar_undo',
-				'title' => '<span class="ab-icon"></span> ' . __( 'Undo', PAGE_BUILDER_SANDWICH ),
-				'href'  => '#',
-				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
-			);
-			$wp_admin_bar->add_node( $args );
-
-			$args = array(
-				'id'    => 'pbs_adminbar_redo',
-				'title' => '<span class="ab-icon"></span> ' . __( 'Redo', PAGE_BUILDER_SANDWICH ),
-				'href'  => '#',
-				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
 			);
 			$wp_admin_bar->add_node( $args );
 
@@ -529,21 +520,82 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 
 		/**
-		 * Wrap all shortcodes with markers so PBS can handle shortcode editing.
+		 * Strings inside preformatted text that look like shortcodes get detected
+		 * as shortcodes. To prevent this, escape "[" inside preformatted text.
 		 *
-		 * @since 2.0
+		 * @since 3.0
 		 *
 		 * @param string $content The current post content.
 		 *
 		 * @return string The modified content.
 		 */
-		public function add_shortcode_markers( $content ) {
-			if ( ! self::is_editable_by_user() ) {
-				return $content;
+		public function escape_pretext_shortcodes( $content ) {
+
+			if ( ! class_exists( 'simple_html_dom' ) ) {
+				require_once( 'page_builder_sandwich/inc/simple_html_dom.php' );
 			}
 
-			// Find the shortcodes inside the raw content.
-			$shortcode_pattern = get_shortcode_regex();
+			// Remove all data-shortcode and replace it with the decoded shortcode. Do this from last to first to preserve nesting.
+			$html = new simple_html_dom();
+			$html->load( stripslashes( $content ), true, false );
+
+			$elements = $html->find( 'pre' );
+			for ( $i = count( $elements ) - 1; $i >= 0; $i-- ) {
+				$elements[ $i ]->innertext = preg_replace( '/\[/', '&#91;', $elements[ $i ]->innertext );
+			}
+			$content = (string) $html;
+
+			return apply_filters( 'pbs_escape_pretext_shortcodes', $content );
+		}
+
+
+		/**
+		 * Adds Shortcode markers to shortcode-like strings.
+		 *
+		 * @since 3.0.1
+		 *
+		 * @param array $matches The matches which are non-html tags.
+		 *
+		 * @return string The string to replace the match with.
+		 */
+		public function _add_shortcode_markers( $content ) {
+
+			// Some shortcodes register their shortcode tags late. Instead
+			// of using get_shortcode_regex(), build our own regex using the
+			// same method, but capture all sc-like tags instead of just
+			// using the registered ones.
+			// @codingStandardsIgnoreStart
+			$shortcode_pattern =
+				'\\[' // Opening bracket
+			    . '(\\[?)' // 1: Optional second opening bracket for escaping shortcodes: [[tag]].
+				    . "([^\s\\[\\]]+)" // 2: Shortcode name
+				// . "([^\\d\\s<>\\/\\[\\]][^\\s<>\\/\\[\\]]{0,})" // 2: Shortcode name
+			    . '(?![\\w-])' // Not followed by word character or hyphen
+			    . '(' // 3: Unroll the loop: Inside the opening shortcode tag
+			    .     '[^\\]\\/]*' // Not a closing bracket or forward slash
+			    .     '(?:'
+			    .         '\\/(?!\\])' // A forward slash not followed by a closing bracket
+			    .         '[^\\]\\/]*' // Not a closing bracket or forward slash
+			    .     ')*?'
+			    . ')'
+			    . '(?:'
+			    .     '(\\/)' // 4: Self closing tag ...
+			    .     '\\]' // ... and closing bracket
+			    . '|'
+			    .     '\\]' // Closing bracket
+			    .     '(?:'
+			    .         '(' // 5: Unroll the loop: Optionally, anything between the opening and closing shortcode tags
+			    .             '[^\\[]*+' // Not an opening bracket
+			    .             '(?:'
+			    .                 '\\[(?!\\/\\2\\])' // An opening bracket not followed by the closing shortcode tag
+			    .                 '[^\\[]*+' // Not an opening bracket
+			    .             ')*+'
+			    .         ')'
+			    .         '\\[\\/\\2\\]' // Closing shortcode tag
+			    .     ')?'
+			    . ')'
+			    . '(\\]?)'; // 6: Optional second closing brocket for escaping shortcodes: [[tag]]
+			// @codingStandardsIgnoreEnd
 
 			preg_match_all( "/$shortcode_pattern/", $content, $shortcodes, PREG_SET_ORDER | PREG_OFFSET_CAPTURE );
 
@@ -561,6 +613,35 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 					$content = substr( $content, 0, $match[0][1] ) . $modified_shortcode . substr( $content, $match[0][1] + strlen( $match[0][0] ) );
 				}
 			}
+
+			return $content;
+		}
+
+
+		/**
+		 * Wrap all shortcodes with markers so PBS can handle shortcode editing.
+		 *
+		 * @since 2.0
+		 *
+		 * @param string $content The current post content.
+		 *
+		 * @return string The modified content.
+		 */
+		public function add_shortcode_markers( $content ) {
+			if ( ! self::is_editable_by_user() ) {
+				return $content;
+			}
+
+			// Ignore all brackets inside HTML tags because that may screw up our shortcode pattern. HACKY I know, but we have no choice or else we will most likely get false positive.
+			$content = preg_replace( '/(<[^>]+)(\[)([^>]+>)/', '$1—–{——$3', $content );
+			$content = preg_replace( '/(<[^>]+)(\])([^>]+>)/', '$1—–}——$3', $content );
+
+			// Add wrappers around all shortcodes that we can find.
+			$content = $this->_add_shortcode_markers( $content );
+
+			// Bring back the brackets we removed above.
+			$content = preg_replace( '/—–\{——/', '[', $content );
+			$content = preg_replace( '/—–\}——/', ']', $content );
 
 			remove_action( 'the_content', array( $this, 'add_shortcode_markers' ), 1 );
 
@@ -717,7 +798,9 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 		 * @return string The cleaned html content.
 		 */
 		public function cleanup_content( $content ) {
-
+			// var_dump($content);
+			// $content = preg_replace( '/\n/', "\n\n\n", $content );
+			// return $content;
 			// Remove line breaks, except for those inside preformatted tags.
 			$content = preg_replace( '/[\r\n](?![^<]*<\/pre>)/', ' ', $content );
 
@@ -751,6 +834,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 		 * @return void
 		 */
 		public function save_content() {
+
 			// Check if we have the necessary fields.
 			if ( empty( $_POST['post_id'] ) ||  // Input var: okay.
 				 ( empty( $_POST['post_status'] ) && ! isset( $_POST['main-content'] ) ) ||  // Input var: okay.
@@ -759,7 +843,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			}
 
 			// Security check.
-			if ( ! wp_verify_nonce( sanitize_key( $_POST['save_nonce'] ), 'pbs_save' . get_current_user_id() ) ) { // Input var: okay.
+			if ( ! wp_verify_nonce( sanitize_key( $_POST['save_nonce'] ), 'pbs' ) ) { // Input var: okay.
 				die();
 			}
 
@@ -780,7 +864,6 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			} else if ( ! empty( $_POST['post_status'] ) ) { // Input var: okay.
 				$post_status = sanitize_text_field( wp_unslash( $_POST['post_status'] ) ); // Input var: okay.
 			}
-
 			$content = sanitize_post_field( 'post_content', wp_unslash( $_POST['main-content'] ), $post_id, 'db' ); // Input var: okay. WPCS: sanitization ok.
 			$content = apply_filters( 'pbs_save_content', $content, $post_id );
 
@@ -901,6 +984,13 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			// Used for the media manager modal.
 			wp_enqueue_script( 'media-editor' );
 
+			// Requirements for the image editor (replace, edit & crop).
+			wp_enqueue_script( 'image-edit', admin_url( '/js/image-edit.js' ) );
+			wp_enqueue_script( 'imgareaselect' );
+			wp_enqueue_style( 'imgareaselect' );
+			wp_enqueue_style( 'media' );
+			wp_enqueue_script( 'media' );
+
 			wp_enqueue_style( 'wp-color-picker' );
 			wp_enqueue_script( 'jquery-ui-core' );
 			wp_enqueue_script( 'jquery-ui-slider' );
@@ -908,6 +998,8 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			// Link dialog modal.
 			wp_enqueue_style( 'editor-buttons' );
 			wp_enqueue_script( 'wplink' );
+
+			do_action( 'pbs_enqueue_scripts' );
 
 			// Load WP's color picker.
 			wp_enqueue_style( 'wp-color-picker' );
@@ -940,14 +1032,28 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			wp_localize_script( __CLASS__ . '-error-notice', 'errorNoticeParams', $error_notice_params );
 
+			// We need a dummy image ID for the images in pre-designed sections,
+			// This is so that the replace/edit buttons appear in the media manager.
+			$query = new WP_Query( array(
+				'post_status' => 'any',
+				'post_type' => 'attachment',
+				'posts_per_page' => 1,
+			) );
+			$dummy_image_id = 0;
+			if ( $query->have_posts() ) {
+				$query->the_post();
+				$dummy_image_id = get_the_ID();
+			}
+			wp_reset_postdata();
+
 			$localize_params = array(
 				'is_lite' => PBS_IS_LITE,
 				'is_rtl' => is_rtl(),
 				'ajax_url' => admin_url( 'admin-ajax.php' ),
+				'admin_url' => admin_url( '/' ),
 				'post_id' => $GLOBALS['post']->ID,
 				'theme_name' => str_replace( ' ', '-', strtolower( wp_get_theme()->Name ) ),
-				'save_nonce' => wp_create_nonce( 'pbs_save' . get_current_user_id() ),
-				'shortcode_nonce' => wp_create_nonce( 'pbs_shortcode' ),
+				'nonce' => wp_create_nonce( 'pbs' ),
 				'shortcodes' => self::get_all_shortcodes(),
 				'shortcodes_to_hide' => apply_filters( 'pbs_shortcodes_to_hide_in_picker', array() ),
 				'default_icon' => plugins_url( 'page_builder_sandwich/images/shortcode-icon.png', __FILE__ ),
@@ -955,6 +1061,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				'is_admin_bar_showing' => is_admin_bar_showing(),
 				'plugin_url' => trailingslashit( plugins_url( '/', __FILE__ ) ),
 				'post_status' => ! empty( $GLOBALS['post']->ID ) ? get_post_status( $GLOBALS['post']->ID ) : '',
+				'dummy_image_id' => $dummy_image_id,
 			);
 			$localize_params = apply_filters( 'pbs_localize_scripts', $localize_params );
 

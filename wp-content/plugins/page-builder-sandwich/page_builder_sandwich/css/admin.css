@@ -154,3 +154,125 @@
 	height: 0;
 }
 
+/**
+ * Admin styles for when the admin is placed inside an iframe.
+ * Used by the admin modal frame.
+ */
+
+body.pbs-admin-in-frame { /**
+   * Admin menu sidebar toggler.
+   */ /**
+   * Admin menu sidebar toggler overlay.
+   */ /**
+   * Fade out the admin body when the sidebar is toggled.
+   */ /**
+   * Remove the top adminbar, admin footer and sidebar collapse button.
+   */ /**
+   * Admin page for making the content wider since the sidebar menu is collapsed.
+   */ /**
+   * Hide admin notices.
+   */
+}
+
+body.pbs-admin-in-frame #pbs-admin-menu-toggler {
+	position: fixed;
+	top: 50%;
+	width: 20px;
+	height: 100px;
+	margin-top: -50px;
+	background: #cecdcd;
+	cursor: e-resize;
+	left: 0;
+	-webkit-transition: left .2s ease-in-out;
+	transition: left .2s ease-in-out;
+}
+
+body.pbs-admin-in-frame #pbs-admin-menu-toggler:before {
+	position: absolute;
+	content: "\f345";
+	font-family: Dashicons;
+	top: 50%;
+	font-size: 15px;
+	color: #504e4d;
+	left: 50%;
+	-webkit-transform: translateY(-50%) translateX(-50%);
+	transform: translateY(-50%) translateX(-50%);
+	line-height: 1em;
+}
+
+body.pbs-admin-in-frame.pbs-show-admin-menu #pbs-admin-menu-toggler {
+	left: 160px;
+}
+
+body.pbs-admin-in-frame.pbs-show-admin-menu #pbs-admin-menu-toggler:before {
+	content: "\f341";
+}
+
+body.pbs-admin-in-frame #adminmenumain {
+	-webkit-transition: margin-left .2s ease-in-out;
+	transition: margin-left .2s ease-in-out;
+	margin-left: -160px;
+}
+
+body.pbs-admin-in-frame.pbs-show-admin-menu #adminmenumain {
+	margin-left: 0;
+}
+
+body.pbs-admin-in-frame #pbs-admin-menu-toggler-overlay {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	display: none;
+}
+
+body.pbs-admin-in-frame.pbs-show-admin-menu #pbs-admin-menu-toggler-overlay {
+	display: block;
+}
+
+body.pbs-admin-in-frame #wpbody {
+	-webkit-transition: opacity .4s ease-in-out;
+	transition: opacity .4s ease-in-out;
+}
+
+body.pbs-admin-in-frame.pbs-show-admin-menu #wpbody {
+	opacity: .3;
+}
+
+body.pbs-admin-in-frame #wpadminbar,
+body.pbs-admin-in-frame #wpfooter {
+	z-index: -1;
+	visibility: hidden;
+}
+
+body.pbs-admin-in-frame #adminmenu #collapse-menu {
+	display: none;
+}
+
+body.pbs-admin-in-frame #wpbody-content {
+	margin-top: -32px;
+}
+
+body.pbs-admin-in-frame #adminmenuwrap {
+	margin-top: -32px;
+	margin-bottom: 50px;
+}
+
+body.pbs-admin-in-frame #wpcontent {
+	-webkit-transform: translateX(-80px);
+	transform: translateX(-80px);
+}
+
+body.pbs-admin-in-frame #wpbody-content > .wrap > .notice {
+	display: none !important;
+}
+
+body.pbs-admin-in-frame #header .notice {
+	display: none !important;
+}
+
+body.pbs-admin-in-frame form > .notice {
+	display: none !important;
+}
+

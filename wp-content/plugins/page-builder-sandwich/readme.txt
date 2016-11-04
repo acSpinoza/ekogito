@@ -3,8 +3,8 @@ Contributors: bfintal, gambitph
 Donate link: https://pagebuildersandwich.com
 Tags: page builder, page builder plugin, builder, layout builder, page, landing page builder, home page builder, landing page builder, page layout, drag and drop builder, frontend editor, visual, frontend builder, front-end builder, site builder, drag and drop, editor, column, columns, shortcode mapping, website builder, website builder plugin
 Requires at least: 4.2
-Tested up to: 4.6
-Stable tag: 2.18
+Tested up to: 4.6.1
+Stable tag: 3.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -20,7 +20,7 @@ Page Builder Sandwich is quite possibly the the last page builder you'll ever ne
 
 = Okay.. What's Unique? =
 
-Most of the time, page builders make you go through a lot of popups just to edit a simple thing. For example, if you want to edit a heading, you'll have to open up a popup, type in a text field, then save and close the popup. With Page Builder Sandwich, it's super easy, just click on your content and start typing. It's so much faster and intuitive.
+Most of the time, page builders make you go through a lot of popups just to edit a simple thing. For example, if you want to edit a heading, you'll have to open up a popup, type in a text field, then save and close the popup. With Page Builder Sandwich, it's super easy, just click on your content and start typing. It's so much faster and feels more natural.
 
 = Global Shortcode Mapping =
 
@@ -83,11 +83,13 @@ The premium version gives you some awesome [features](https://pagebuildersandwic
 * Enhanced Shortcode Mapping Controls
 * Map Element with advanced styling options
 * Button Element with advanced styling options
+* Tab Element with advanced styling options
 * Carousel Element
 * Newsletter Element (MailChimp, Aweber & MailPoet)
 * More Vector/SVG icons
 * Tables
-* Pre-Designed Sections that you can mix and match
+* 40 Pre-Designed Sections that you can mix and match
+* Customer Support
 * [Theme Builder](https://pagebuildersandwich.com/theme/)
 
 == Installation ==
@@ -118,9 +120,137 @@ If you cannot see the "Edit with Page Builder Sandwich" button on your frontend,
 
 == Upgrade Notice ==
 
+= Updating in general =
+
+If you have a caching plugin installed, or use any sort of caching in your site (DNS caching, object caching, etc), please clear those caches to make sure your browser loads the updated scripts.
+
+= Upgrading from 2.x =
+
+We've upgraded the whole interface, but everything is still compatible and should continue to work without any modifications.
+
+Watch this video for a tour of the new interface:
+
+[youtube https://www.youtube.com/?v=dSU2l1Vhp50]
+
+= Upgrading from 1.x =
+
 The new Page Builder Sandwich is completely different from the old one. We've ditched the old backend page builder for the more awesome frontend page building experience. If you're upgrading from version 1.x, a migration notice should appear on the top of your admin which should help you migrate your content into the new system.
 
 == Changelog ==
+
+= 3.1 =
+* Fixed: (Major bug) Shortcodes are not properly detected when there are no HTML tags before or after a shortcode.
+* New: Toggle element (Premium)
+* New: Shadow options for images, rows and columns (Premium)
+* New: Added a new tab styles (Premium)
+* New: Overflow option for rows and columns (Premium)
+* New: Added new options for tab and tab content background, text colors and border colors (Premium)
+* New: Custom classes and custom IDs can now be added to all elements (Premium)
+* New: Added 44 Animations that can be assigned to any element (Premium)
+* New: Appending "#pbs-edit" on the end of a frontend URL will automatically trigger PBS to start editing.
+* New: Added options for the Text element (Premium)
+* New: Added move button on a text toolbar.
+* New: Added post locking when editing & post lock take over.
+* New: Added autosaving every 15 minutes & when editing then another user took over.
+* New: Added check for when you got logged out in WordPress and now displays a login modal form similar to how the backend does it.
+* New: Now checks and updates the PBS nonce when it becomes invalid.
+* New: Added Edit with Page Builder Sandwich links to the post list screen for viewable posts.
+* Enhanced: Faster mouse events when hovering over items.
+* Enhanced: Row & column toolbars now collapse so as not to overlap each other. Hovering over one will show the buttons.
+* Enhanced: Images added with the pre-designed sections now show the replace & edit buttons.
+* Enhanced: Overlay outlines now update regularly on transitions.
+* Enhanced: Unified all PBS nonces to a single one.
+* Change: No longer adds unique classes and IDs to rows and columns.
+* Change: Column toolbars now have a different color to differentiate them better against row toolbars.
+* Change: Updated premium feature list in lite version.
+* Fixed: On load, the first tab is now in an active
+* Fixed: Adding new columns now add them in the last position, and with a better default column width.
+* Fixed: Tabs cannot be dropped before or after another tab element.
+* Fixed: Contents of the first tab will no longer receive mouse events when on another tab while editing.
+* Fixed: Tab labels now cannot be turned into a heading.
+* Fixed: If a row has a negative margin-top, the drop overlay has a visually wrong position that makes dropping harder.
+* Fixed: When editing for a very long time, saving will now work.
+* Fixed: When editing then you get logged out, saving will now work.
+
+= 3.0.1 =
+* Enhanced: Now hides the indent buttons when not focused on a list.
+* Enhanced: Drop labels are now friendlier when dropping elements inside an empty column.
+* Enhanced: We now ignore mouse events on html before our editable area so that menus and headings won't get in the way of editing.
+* Enhanced: When an icon is focused, left/center/right alignment buttons can be used.
+* Fixed: In Firefox, clicking on empty paragraphs moves the cursor to the right and wrongly adds text inside columns.
+* Fixed: Drop indicator font family was incorrect.
+* Fixed: Shortcode-like strings inside HTML strings are now no longer mistakenly marked as shortcodes when editing.
+* Fixed: Buttons inside the inspector now have the correct font family and letter spacing.
+* Fixed: The note for shortcodes with no attributes had incorrect styles.
+* Fixed: The overlay toolbars sometimes go behind elements and cannot be accessed.
+* Fixed: Row overlay outline doesn't hide when the browser is being resized.
+* Fixed: The overlays flicker on and off when the editor within a few seconds of the editor being started.
+* Fixed: The overlays now show up even when moving your mouse after focusing on an element.
+* Fixed: Remove the yellow highlight in CT that highlights the whole editing area.
+* Fixed: WordPress modals should use WP's default font family instead of the site's font family.
+* Fixed: Tables & align classes inside WordPress modals now do not inherit frontend styles.
+
+= 3.0 =
+* New: Added full-height for rows
+* New: Added fixed backgrounds for rows (falls back to normal on mobile)
+* New: Video tour
+* New: Column paddings can now be changed by dragging the edges of columns
+* New: Adding new elements can now be performed by dragging them into the content area.
+* New: Row margins can now be adjusted by dragging the top/bottom edges of rows
+* New: Elements & columns are now display outlines & tooltip buttons when hovered on
+* New: Added ability to add background patterns to rows.
+* New: Added text color option in rows & column.
+* New: Added line-height option for lists.
+* Enhanced: New drag and drop indicators
+* Enhanced: Revamped interface
+* Enhanced: Margin arrows are now replaced by intuitive overlay drag handles
+* Enhanced: Column width dragging indicators
+* Enhanced: Link & button tooltips
+* Enhanced: All overlays are now hidden while typing for a cleaner experience
+* Enhanced: Revamped resize overlays for easier resizing and better indication that elements can be resized.
+* Enhanced: Dragging an element into a blank column is not easier.
+* Enhanced: Icon tooltip fade in animation.
+* Change: Adding new elements are now performed via dragging instead of just clicking.
+* Fixed: Column widths are no longer affected by their paddings
+* Fixed: Standardizes all shortcut keys. See the docs on shortcut keys.
+* Fixed: Changing between text styles (paragraph, headings, etc) now remove all font-size, font-weight and line-height adjustments
+* Fixed: Standardizes all tooltip styles
+* Fixed: Pressing enter on the start of text now doesn't clear styles after creating a new line
+* Fixed: Carousel button colors were being cleared on page load.
+* Fixed: Using special characters inside shortcodes caused the text to become corrupted (because of encoding/decoding incorrectly)
+* Fixed: Shortcode-like strings inside preformatted text get detected as shortcodes and jumble the contents.
+* Fixed: Line breaks were being stripped (especially for preformatted text)
+
+= 2.20 =
+* Enhancement: Images can now be cropped.
+* Enhancement: Images can now be resized and replaced.
+* Change: Removed highlight when editing text.
+* Fixed: Drop down database values sometimes errored out when getting options
+* Fixed: Some shortcodes just display their raw form after rendering.
+* Fixed: Some shortcode mappings that fetch database values sometimes fail populating dropdowns when no default where values are given.
+* Fixed: Shortcodes that produce errors when rendering now do not stop the editor from working.
+* Fixed: Better initialization for shortcodes during editing.
+* Fixed: Image size is now detected properly when double clicking on an image
+* Fixed: Save notice meta box was not displaying any text when a post/page was not saved yet.
+* Fixed: In some servers, design elements with background images do not save because of ".." on the image paths. The full image path fixes it.
+* Fixed: target attributes were being removed while in the WP backend content editor.
+* Fixed: Activating both lite & premium versions displayed an error on function redeclaration.
+* Fixed: Changing text style (paragraph or headings) will now clear the font size, font weight and line height of the text also.
+* Fixed: Selecting the same text style won't result in a JS error anymore.
+
+= 2.19 =
+* New: Added new iframe modal for shortcode mapping (premium)
+* New: Added shortcode mappings output can now be initialized properly
+* New: Added dropdown database values for shortcode mapping (premium)
+* Fixed: Dragging images when another media manager is open will no longer another media manager.
+* Fixed: Some late added shortcodes are not detected in the content, now detecting all possible shortcodes via generic shortcode pattern instead of just the registered ones.
+* Fixed: Removed a stray input element in the column settings.
+* Fixed: Minor JS error that happens when a selected option doesn't have a type parameter
+* Fixed: Shortcodes tags that contain colons, periods, hyphens were not being detected properly.
+* Fixed: Number option for shortcodes now allow blank values
+* Fixed: Manually updating shortcode mappings then searching produces an error.
+* Fixed: Floated shortcodes overflow outside the shortcode container.
+* Fixed: Removed blank description areas that show up in shortcode attributes that fall back into a text option.
 
 = 2.18 =
 * New: Shortcode Mapping with so far 435 mapped shortcodes from 144 plugins

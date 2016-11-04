@@ -17,9 +17,9 @@
 		if( empty( $lists ) ) {
 			?><td colspan="2"><?php printf( __( 'No lists found, <a href="%s">are you connected to MailChimp</a>?', 'mailchimp-for-wp' ), admin_url( 'admin.php?page=mailchimp-for-wp' ) ); ?></td><?php
 		} else { ?>
-			<td>
+			<td >
 
-				<ul id="mc4wp-lists" style="margin-bottom: 20px;">
+				<ul id="mc4wp-lists" style="margin-bottom: 20px; max-height: 300px; overflow-y: auto;">
 					<?php foreach( $lists as $list ) { ?>
 						<li>
 							<label>
@@ -41,10 +41,10 @@
 				<?php _e( 'Yes' ); ?>
 			</label> &nbsp;
 			<label>
-				<input type="radio" name="mc4wp_form[settings][double_optin]" value="0" <?php checked( $opts['double_optin'], 0 ); ?> />&rlm;
+				<input type="radio" name="mc4wp_form[settings][double_optin]" value="0" <?php checked( $opts['double_optin'], 0 ); ?> onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to disable double opt-in?', 'mailchimp-for-wp' ); ?>');" />&rlm;
 				<?php _e( 'No' ); ?>
 			</label>
-			<p class="help"><?php _e( 'Select "yes" if you want people to confirm their email address before being subscribed (recommended)', 'mailchimp-for-wp' ); ?></p>
+			<p class="help"><?php _e( 'We strongly suggest keeping double opt-in enabled. Disabling double opt-in may result in abuse.', 'mailchimp-for-wp' ); ?></p>
 		</td>
 	</tr>
 
@@ -76,7 +76,7 @@
 				<?php _e( 'No' ); ?>
 			</label>
 			<p class="help">
-				<?php _e( 'Select "no" if you want to add the selected groupings to any previously selected groupings when updating a subscriber.', 'mailchimp-for-wp' ); ?>
+				<?php _e( 'Select "no" if you want to add the selected interests to any previously selected interests when updating a subscriber.', 'mailchimp-for-wp' ); ?>
 				<?php printf( ' <a href="%s" target="_blank">' . __( 'What does this do?', 'mailchimp-for-wp' ) . '</a>', 'https://mc4wp.com/kb/what-does-replace-groupings-mean/' ); ?>
 			</p>
 		</td>

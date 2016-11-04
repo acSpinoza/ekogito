@@ -86,7 +86,7 @@ if ( ! class_exists( 'PBSRenderShortcode' ) ) {
 			if ( empty( $_POST['nonce'] ) ) { // Input var: okay.
 				return false;
 			}
-			if ( ! wp_verify_nonce( sanitize_key( $_POST['nonce'] ), 'pbs_shortcode' ) ) { // Input var: okay.
+			if ( ! wp_verify_nonce( sanitize_key( $_POST['nonce'] ), 'pbs' ) ) { // Input var: okay.
 				return false;
 			}
 			if ( empty( $_POST['action'] ) || 'pbs_shortcode_render' !== $_POST['action'] ) { // Input var: okay.
@@ -167,7 +167,7 @@ if ( ! class_exists( 'PBSRenderShortcode' ) ) {
 			$data = array();
 
 			// Print out our shortcode output.
-			$data['output'] = $this->saved_shortcode_data;
+			$data['output'] = do_shortcode( $this->saved_shortcode_data );
 
 			// Print out the styles and scripts used by the shortcode.
 			global $wp_scripts, $wp_styles;
@@ -225,7 +225,9 @@ if ( ! class_exists( 'PBSRenderShortcode' ) ) {
 			if ( ! empty( $_POST['shortcode'] ) ) { // Input var: okay. WPCS: CSRF ok.
 				$shortcode = base64_decode( wp_unslash( $_POST['shortcode'] ) ); // Input var: okay. WPCS: CSRF ok. WPCS: sanitization ok.
 			}
-			$this->saved_shortcode_data = do_shortcode( $shortcode );
+
+			// We will render this later to make sure the shortcode is available.
+			$this->saved_shortcode_data = $shortcode;
 
 			return '';
 		}
