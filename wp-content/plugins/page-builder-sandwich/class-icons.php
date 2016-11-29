@@ -701,7 +701,7 @@ if ( ! class_exists( 'PBSIcons' ) ) {
 			if ( empty( $_POST['s'] ) ) { // Input var: okay.
 				die();
 			}
-			$s = trim( sanitize_text_field( wp_unslash( $_POST['s'] ) ) ); // Input var: okay.
+			$s = strtolower( trim( sanitize_text_field( wp_unslash( $_POST['s'] ) ) ) ); // Input var: okay.
 
 			include 'class-icons-helper.php';
 			$all_icons = pbs_icons();

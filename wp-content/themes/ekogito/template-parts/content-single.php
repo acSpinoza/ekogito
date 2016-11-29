@@ -28,7 +28,7 @@ if(has_post_thumbnail()){
                         <div class="sd-content">
                             <ul>
                                 <li>
-                                    <h1><?php echo get_the_title(); ?></h1>
+                                    <h1><?php echo str_replace(' | ', '<br />', get_the_title()); ?></h1>
                                 </li>
                           
                                 	<?php 
@@ -40,8 +40,7 @@ if(has_post_thumbnail()){
 																	$custom_likes = new Jetpack_Likes;
 																	echo $custom_likes->post_likes( '' );
 															}
-															?>
-															
+															?>														
                             </ul>
                         </div>
                     </div>
@@ -53,7 +52,12 @@ if(has_post_thumbnail()){
             <div class=" uk-width-medium-2-10 uk-flex-middle">
                 <div class="uk-cover-background " style="max-height:150px;background-image: url(<?php echo $thumb_url; ?>);">
                     <img class="uk-invisible" src="<?php echo $thumb_url; ?>" width="600" height="460" alt="">
+										
                 </div>
+							</br>
+							<div style="text-align:center">
+								<?php echo '<span class="dashicons dashicons-clock"></span> '.do_shortcode( '[est_time]' ).' de lecture'; ?>
+							</div>
             </div>
         </div>
 	</header><!-- .entry-header -->

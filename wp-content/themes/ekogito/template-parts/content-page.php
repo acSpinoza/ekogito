@@ -28,7 +28,7 @@ if(has_post_thumbnail()){
                         <div class="sd-content">
                             <ul>
                                 <li>
-                                    <h1><?php echo get_the_title(); ?></h1>
+                                    <h1><?php echo str_replace(' | ', '<br />', get_the_title()); ?></h1>
                                 </li>
                               <?php 
 															if ( function_exists( 'sharing_display' ) ) {

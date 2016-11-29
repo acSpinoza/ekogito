@@ -582,13 +582,25 @@ SQL
 			}
 		}
 	}
-	public static function initProtection(){
-		self::getLog()->initLogRequest();
-		if(preg_match('/\/wp\-admin\/admin\-ajax\.php/', $_SERVER['REQUEST_URI'])){
-			if(
-				(isset($_GET['action']) && $_GET['action'] == 'revslider_show_image' && isset($_GET['img']) && preg_match('/\.php$/i', $_GET['img'])) ||
-				(isset($_POST['action']) && $_POST['action'] == 'revslider_show_image' && isset($_POST['img']) && preg_match('/\.php$/i', $_POST['img']))
-			){
+	public static function initProtection(){ //Basic protection during WAF learning period
+		if (preg_match('#/wp\-admin/admin\-ajax\.php$#i', $_SERVER['SCRIPT_FILENAME'])) {
+			$gAction = isset($_GET['action']) ? $_GET['action'] : '';
+			$pAction = isset($_POST['action']) ? $_POST['action'] : '';
+			if (
+				(($gAction == 'revslider_show_image' || $gAction == 'nopriv_revslider_show_image') && isset($_GET['img']) && preg_match('/\.php$/i', $_GET['img'])) ||
+				(($pAction == 'revslider_show_image' || $pAction == 'nopriv_revslider_show_image') && isset($_POST['img']) && preg_match('/\.php$/i', $_POST['img']))
+			) {
+				self::getLog()->do503(86400, "URL not allowed. Slider Revolution Hack attempt detected. #2");
+				exit(); //function above exits anyway
+			}
+			
+			if (
+				(
+					(($gAction == 'revslider_ajax_action' || $gAction == 'nopriv_revslider_ajax_action') && isset($_GET['client_action']) && $_GET['client_action'] == 'update_plugin') ||
+					(($pAction == 'revslider_ajax_action' || $pAction == 'nopriv_revslider_ajax_action') && isset($_POST['client_action']) && $_POST['client_action'] == 'update_plugin')
+				) &&
+				!wfUtils::isAdmin()
+			) {
 				self::getLog()->do503(86400, "URL not allowed. Slider Revolution Hack attempt detected. #2");
 				exit(); //function above exits anyway
 			}
@@ -603,8 +615,8 @@ SQL
 			//Either there is no version in options or the version in options is greater and we need to run the upgrade
 			self::runInstall();
 		}
-
-		self::initProtection();
+		
+		self::getLog()->initLogRequest();
 		
 		//Fix wp_mail bug when $_SERVER['SERVER_NAME'] is undefined
 		add_filter('wp_mail_from', 'wordfence::fixWPMailFromAddress');
@@ -1027,6 +1039,8 @@ SQL
 	public static function veryFirstAction() {
 		/** @var wpdb $wpdb ; */
 		global $wpdb;
+		
+		self::initProtection();
 
 		$wfFunc = isset($_GET['_wfsf']) ? @$_GET['_wfsf'] : false;
 		if($wfFunc == 'unlockEmail'){
@@ -1404,7 +1418,7 @@ SQL
 				}
 				else { //Code path for old method, invalid password the second time
 					self::$authError = $authUser;
-					if (is_wp_error(self::$authError) && (self::$authError->get_error_code() == 'invalid_username' || self::$authError->get_error_code() == 'incorrect_password') && wfConfig::get('loginSec_maskLoginErrors')) {
+					if (is_wp_error(self::$authError) && (self::$authError->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'invalid_email' || self::$authError->get_error_code() == 'incorrect_password' || $authUser->get_error_code() == 'authentication_failed') && wfConfig::get('loginSec_maskLoginErrors')) {
 						self::$authError = new WP_Error('incorrect_password', sprintf(__('<strong>ERROR</strong>: The username or password you entered is incorrect. <a href="%2$s" title="Password Lost and Found">Lost your password</a>?'), $username, wp_lostpassword_url()));
 					}
 					
@@ -1694,7 +1708,7 @@ SQL
 		if(self::getLog()->isWhitelisted($IP)){
 			return $authUser;
 		}
-		if(wfConfig::get('other_WFNet') && is_wp_error($authUser) && ($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'incorrect_password' || $authUser->get_error_code() == 'twofactor_invalid') ){
+		if(wfConfig::get('other_WFNet') && is_wp_error($authUser) && ($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'invalid_email' || $authUser->get_error_code() == 'incorrect_password' || $authUser->get_error_code() == 'twofactor_invalid' || $authUser->get_error_code() == 'authentication_failed') ){
 			if($maxBlockTime = self::wfsnIsBlocked($IP, 'brute')){
 				self::getLog()->blockIP($IP, "Blocked by Wordfence Security Network", true, false, $maxBlockTime);
 				$secsToGo = wfConfig::get('blockedTime');
@@ -1704,7 +1718,7 @@ SQL
 
 		}
 		if($secEnabled){
-			if(is_wp_error($authUser) && $authUser->get_error_code() == 'invalid_username'){
+			if(is_wp_error($authUser) && ($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'invalid_email')){
 				if($blacklist = wfConfig::get('loginSec_userBlacklist')){
 					$users = explode("\n", wfUtils::cleanupOneEntryPerLine($blacklist));
 					foreach($users as $user){
@@ -1725,7 +1739,7 @@ SQL
 				}
 			}
 			$tKey = 'wflginfl_' . bin2hex(wfUtils::inet_pton($IP));
-			if(is_wp_error($authUser) && ($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'incorrect_password' || $authUser->get_error_code() == 'twofactor_invalid') ){
+			if(is_wp_error($authUser) && ($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'invalid_email' || $authUser->get_error_code() == 'incorrect_password' || $authUser->get_error_code() == 'twofactor_invalid' || $authUser->get_error_code() == 'authentication_failed') ){
 				$tries = get_transient($tKey);
 				if($tries){
 					$tries++;
@@ -1742,14 +1756,14 @@ SQL
 			}
 		}
 		if(is_wp_error($authUser)){
-			if($authUser->get_error_code() == 'invalid_username'){
+			if($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'invalid_email'){
 				self::getLog()->logLogin('loginFailInvalidUsername', 1, $username);
 			} else {
 				self::getLog()->logLogin('loginFailValidUsername', 1, $username);
 			}
 		}
 
-		if(is_wp_error($authUser) && ($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'incorrect_password') && wfConfig::get('loginSec_maskLoginErrors')){
+		if(is_wp_error($authUser) && ($authUser->get_error_code() == 'invalid_username' || $authUser->get_error_code() == 'invalid_email' || $authUser->get_error_code() == 'incorrect_password') && wfConfig::get('loginSec_maskLoginErrors')){
 			return new WP_Error( 'incorrect_password', sprintf( __( '<strong>ERROR</strong>: The username or password you entered is incorrect. <a href="%2$s" title="Password Lost and Found">Lost your password</a>?' ), $username, wp_lostpassword_url() ) );
 		}
 		return $authUser;
@@ -1920,6 +1934,8 @@ SQL
 		if(self::isLockedOut(wfUtils::getIP())){
 			require('wfLockedOut.php');
 		}
+		
+		self::doEarlyAccessLogging(); //Rate limiting
 	}
 	public static function authActionNew(&$username, &$passwd){ //As of php 5.4 we must denote passing by ref in the function definition, not the function call (as WordPress core does, which is a bug in WordPress).
 		if(self::isLockedOut(wfUtils::getIP())){
@@ -4007,6 +4023,11 @@ wfscr.src = url;
 EOL;
 	}
 	public static function wfLogHumanHeader(){
+		//Final check in case this was added as an action before the request was fully initialized
+		if (self::getLog()->getCurrentRequest()->jsRun || !wfConfig::liveTrafficEnabled()) {
+			return;
+		}
+		
 		self::$hitID = self::getLog()->logHit();
 		if (self::$hitID) {
 			$URL = home_url('/?wordfence_logHuman=1&hid=' . wfUtils::encrypt(self::$hitID));

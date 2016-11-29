@@ -6,10 +6,10 @@
  */
 
 /**
-Plugin Name: Page Builder Sandwich Lite
+Plugin Name: Page Builder Sandwich
 Description: The easiest way to build your website without any code. A true drag & drop page builder for WordPress.
 Author: Gambit Technologies
-Version: 3.1
+Version: 3.3
 Author URI: http://gambit.ph
 Plugin URI: http://pagebuildersandwich.com
 Text Domain: page-builder-sandwich
@@ -31,7 +31,7 @@ if ( defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) ) {
 }
 
 // Identifies the current plugin version.
-defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '3.1' );
+defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '3.3' );
 
 // The slug used for translations & other identifiers.
 defined( 'PAGE_BUILDER_SANDWICH' ) or define( 'PAGE_BUILDER_SANDWICH', 'page-builder-sandwich' );
@@ -43,10 +43,6 @@ define( 'PBS_IS_LITE', true );
 
 // Shows/hides Pro code.
 define( 'PBS_IS_PRO', false );
-
-// EDD auto-update Stuff.
-define( 'PBS_EDD_SL_STORE_URL', 'http://pagebuildersandwich.com/?edd=nocache' );
-define( 'PBS_EDD_SL_ITEM_NAME', 'Page Builder Sandwich' );
 
 if ( ! function_exists( 'pbs_is_dev' ) ) {
 	/**
@@ -65,6 +61,10 @@ if ( ! function_exists( 'pbs_is_dev' ) ) {
 		return false;
 	}
 }
+
+// Freemius stuff.
+require_once( 'class-freemius.php' );
+require_once( 'module-migration.php' );
 
 // This is the main plugin functionality.
 require_once( 'class-compatibility.php' );
@@ -87,17 +87,16 @@ require_once( 'class-shortcode-mapper-3rd-party.php' );
 require_once( 'class-inspector.php' );
 require_once( 'class-frame-admin.php' );
 require_once( 'class-heartbeat.php' );
-if ( ! PBS_IS_LITE && ! class_exists( 'EDD_SL_Plugin_Updater' ) ) {
-	include( 'page_builder_sandwich/inc/EDD_SL_Plugin_Updater.php' );
-}
-if ( ! PBS_IS_LITE ) {
-	require_once( 'class-licensing.php' );
+require_once( 'class-ask-rating.php' );
+require_once( 'class-admin-welcome.php' );
+require_once( 'class-title.php' );
+
+global $pbs_fs;
+if ( ! PBS_IS_LITE && $pbs_fs->can_use_premium_code() ) {
 	require_once( 'class-icons-uploader.php' );
 	require_once( 'class-element-newsletter.php' );
 	require_once( 'class-element-carousel.php' );
 	require_once( 'class-element-pretext.php' );
-} else {
-	require_once( 'class-lite-tracking.php' );
 }
 
 // Initializes plugin class.
@@ -122,9 +121,6 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 			// Our translations.
 			add_action( 'plugins_loaded', array( $this, 'load_text_domain' ), 1 );
 
-			// Gambit links.
-			add_filter( 'plugin_row_meta', array( $this, 'plugin_links' ), 10, 2 );
-
 			// Plugin links for internal developer tools.
 			add_filter( 'plugin_row_meta', array( $this, 'dev_tool_links' ), 10, 2 );
 
@@ -134,9 +130,6 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 			// Add edit with PBS links to posts & pages.
 			add_filter( 'post_row_actions', array( $this, 'add_pbs_edit_link' ), 10, 2 );
 			add_filter( 'page_row_actions', array( $this, 'add_pbs_edit_link' ), 10, 2 );
-
-			// Update check.
-			$this->check_update();
 
 			new PBSMigration();
 		}
@@ -165,15 +158,15 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 		public function plugin_links( $plugin_meta, $plugin_file ) {
 			if ( plugin_basename( __FILE__ ) === $plugin_file ) {
 
-				if ( PBS_IS_LITE ) {
+				global $pbs_fs;
+				if ( PBS_IS_LITE || ! $pbs_fs->can_use_premium_code() ) {
 					$plugin_meta[] = sprintf( "<a href='%s' target='_blank'>%s</a>",
-						'https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=plugin-meta-link&utm_campaign=Page%20Builder%20Sandwich
-',
+						esc_url( admin_url( '/admin.php?page=page-builder-sandwich-pricing' ) ),
 						__( 'Go Premium', PAGE_BUILDER_SANDWICH )
 					);
 				} else {
 					$plugin_meta[] = sprintf( "<a href='%s' target='_blank' class='pbs-plugin-placeholder'>%s</a>",
-						'mailto:support@pagebuildersandwich.com',
+						esc_url( admin_url( '/admin.php?page=page-builder-sandwich-contact' ) ),
 						__( 'Get Customer Support', PAGE_BUILDER_SANDWICH )
 					);
 				}
@@ -202,27 +195,6 @@ if ( ! class_exists( 'PageBuilderSandwichPlugin' ) ) {
 				}
 			}
 			return $plugin_meta;
-		}
-
-		/**
-		 * Checks for plugin updates.
-		 *
-		 * @since 2.7.1
-		 */
-		public function check_update() {
-			if ( PBS_IS_LITE ) {
-				return;
-			}
-			if ( get_option( 'pbs_license_status' ) === 'valid' && get_option( 'pbs_license' ) ) {
-				$edd_updater = new EDD_SL_Plugin_Updater( PBS_EDD_SL_STORE_URL, __FILE__, array(
-						'version' => VERSION_PAGE_BUILDER_SANDWICH,
-						'license' => get_option( 'pbs_license' ),
-						'item_name' => PBS_EDD_SL_ITEM_NAME,
-						'author' => 'Gambit Technologies',
-						'url' => home_url(),
-					)
-				);
-			}
 		}
 
 

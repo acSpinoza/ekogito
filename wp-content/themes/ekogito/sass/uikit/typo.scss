@@ -45,8 +45,10 @@ article a {
   }
 }
 
-
-
+[data-ce-tag="img"] {
+  border-bottom: none !important;
+}
+  
 blockquote {
     padding-left: 0;
     border-left: none;

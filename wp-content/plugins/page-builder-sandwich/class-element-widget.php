@@ -30,6 +30,21 @@ if ( ! class_exists( 'PBSElementWidget' ) ) {
 			add_filter( 'pbs_localize_scripts', array( $this, 'add_widget_list' ) );
 			add_action( 'wp_footer', array( $this, 'add_picker_frame_template' ) );
 			add_action( 'wp_ajax_pbs_get_widget_templates', array( $this, 'get_widget_templates' ) );
+
+			// When a menu has been added/changed/deleted, refresh the widgets
+			// so that widgets that use menus e.g. custom menu get updated.
+			add_action( 'wp_update_nav_menu', array( $this, 'menu_was_updated' ) );
+			add_action( 'wp_create_nav_menu', array( $this, 'menu_was_updated' ) );
+			add_action( 'created_nav_menu', array( $this, 'menu_was_updated' ) );
+			add_action( 'wp_delete_nav_menu', array( $this, 'menu_was_updated' ) );
+			add_action( 'wp_update_nav_menu_item', array( $this, 'menu_was_updated' ) );
+
+			// Tell JS to refresh our widget settings in the editor. This is used
+			// when the page redirected and we couldn't refresh it right away.
+			if ( get_transient( 'pbs_widget_force_update' ) ) {
+				add_action( 'wp_footer', array( $this, 'refresh_widgets' ) );
+				add_action( 'admin_footer', array( $this, 'refresh_widgets' ) );
+			}
 		}
 
 
@@ -149,6 +164,40 @@ if ( ! class_exists( 'PBSElementWidget' ) ) {
 			}
 
 			include 'page_builder_sandwich/templates/frame-widget-picker.php';
+		}
+
+
+		/**
+		 * Called when a menu (nav_menu) gets updated/created/deleted.
+		 * This prompts PBS to refresh the settings of widgets in the editor.
+		 *
+		 * @since 3.3
+		 *
+		 * @param int $menu_id The ID of the menu.
+		 */
+		public function menu_was_updated( $menu_id ) {
+
+			// We set a transient here so that we can also prompt PBS when
+			// the the admin page is redirected.
+			set_transient( 'pbs_widget_force_update', '1', HOUR_IN_SECONDS );
+
+			add_action( 'wp_footer', array( $this, 'refresh_widgets' ) );
+			add_action( 'admin_footer', array( $this, 'refresh_widgets' ) );
+		}
+
+
+		/**
+		 * Tell JS to refresh our widget settings in the editor.
+		 *
+		 * @since 3.3
+		 */
+		public function refresh_widgets() {
+			delete_transient( 'pbs_widget_force_update' );
+			?>
+			<script>
+			localStorage.removeItem( 'pbs_get_widget_templates_hash' );
+			</script>
+			<?php
 		}
 	}
 }

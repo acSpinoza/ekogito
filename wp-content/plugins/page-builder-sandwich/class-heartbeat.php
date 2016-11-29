@@ -40,7 +40,7 @@ if ( ! class_exists( 'PBSHeartbeat' ) ) {
 			add_action( 'wp_ajax_pbs_remove_post_lock', array( $this, 'remove_post_lock' ) );
 
 			// When saving a post, release the post lock.
-			add_action( 'pbs_saved_content', array( $this, 'remove_post_lock_on_save' ), 10, 2 );
+			add_action( 'pbs_saved_content', array( $this, 'remove_post_lock_on_save' ) );
 
 			// Take over a post lock.
 			// This is called when the takeover dialog is used.
@@ -58,7 +58,7 @@ if ( ! class_exists( 'PBSHeartbeat' ) ) {
 
 			// Heartbeat call to refresh the PBS nonce if invalid.
 			// Called every heartbeat.
-			add_filter( 'heartbeat_received', array( $this, 'refresh_pbs_nonce' ), 10, 2 );
+			add_filter( 'heartbeat_received', array( $this, 'refresh_pbs_nonce' ), 11, 2 );
 
 			// Refreshes the PBS nonce along with the refresh of other nonces.
 			// Called automatically by the heartbeat API.
@@ -66,11 +66,11 @@ if ( ! class_exists( 'PBSHeartbeat' ) ) {
 
 			// Heartbeat call to regularly lock the post.
 			// We need to regularly do this because the post lock expires after a while.
-			add_filter( 'heartbeat_received', array( $this, 'post_lock' ), 10, 2 );
+			add_filter( 'heartbeat_received', array( $this, 'post_lock' ), 11, 2 );
 
 			// Heartbeat call to autosave the post.
 			// This is called every autosave interval by heartbeat.
-			add_filter( 'heartbeat_received', array( $this, 'autosave' ), 10, 2 );
+			add_filter( 'heartbeat_received', array( $this, 'autosave' ), 11, 2 );
 
 			// Add the takeover modal.
 			add_action( 'wp_footer', array( $this, 'add_takeover_form' ) );
@@ -143,6 +143,20 @@ if ( ! class_exists( 'PBSHeartbeat' ) ) {
 			}
 
 			/**
+			 * Check Media Manager nonce, if invalid already, generate a new one.
+			 */
+
+			if ( empty( $_POST['media_manager_editor_nonce'] ) ) { // Input var okay.
+				die();
+			}
+			$nonce = sanitize_key( $_POST['media_manager_editor_nonce'] ); // Input var okay.
+
+			// If the nonce is old or invalid, create a new one.
+			if ( wp_verify_nonce( $nonce, 'media-send-to-editor' ) !== 1 ) {
+				$ret['media_manager_editor_nonce'] = wp_create_nonce( 'media-send-to-editor' );
+			}
+
+			/**
 			 * Check if the post is locked to another user.
 			 */
 
@@ -186,6 +200,8 @@ if ( ! class_exists( 'PBSHeartbeat' ) ) {
 		 * @return array The heartbeat response
 		 */
 		public function refresh_pbs_nonce( $response, $data ) {
+
+			// Nonce for the entire PBS.
 			if ( ! empty( $data['pbs_nonce'] ) ) {
 
 				$nonce = sanitize_key( $data['pbs_nonce'] );
@@ -195,6 +211,17 @@ if ( ! class_exists( 'PBSHeartbeat' ) ) {
 					$response['pbs_nonce_new'] = wp_create_nonce( 'pbs' );
 				}
 			}
+
+			// Nonce for the Media Manager because it uses another nonce.
+			if ( ! empty( $data['media_manager_editor_nonce'] ) ) {
+
+				$nonce = sanitize_key( $data['media_manager_editor_nonce'] );
+
+				if ( wp_verify_nonce( $nonce, 'media_manager_editor_nonce' ) !== 1 ) {
+					$response['media_manager_editor_nonce_new'] = wp_create_nonce( 'media-send-to-editor' );
+				}
+			}
+
 			return $response;
 		}
 
@@ -212,7 +239,12 @@ if ( ! class_exists( 'PBSHeartbeat' ) ) {
 		 */
 		function auth_refresh_pbs_nonce( $response, $data, $screen_id ) {
 			if ( array_key_exists( 'wp-refresh-post-nonces', $response ) ) {
+
+				// Main PBS nonce.
 				$response['wp-refresh-post-nonces']['pbs_nonce_new'] = wp_create_nonce( 'pbs' );
+
+				// The Media Manager nonce.
+				$response['wp-refresh-post-nonces']['media_manager_editor_nonce_new'] = wp_create_nonce( 'media-send-to-editor' );
 			}
 
 			return $response;
@@ -283,7 +315,7 @@ if ( ! class_exists( 'PBSHeartbeat' ) ) {
 		 * @param string $content The content saved (unused here).
 		 * @param int    $post_id The post ID saved.
 		 */
-		public function remove_post_lock_on_save( $content, $post_id ) {
+		public function remove_post_lock_on_save( $post_id ) {
 			delete_post_meta( $post_id, '_edit_lock' );
 		}
 

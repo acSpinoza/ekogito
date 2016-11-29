@@ -214,7 +214,8 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			include 'page_builder_sandwich/templates/frame-shortcode-picker.php';
 			include 'page_builder_sandwich/templates/frame-predesigned-picker.php';
 
-			if ( ! PBS_IS_LITE ) {
+			global $pbs_fs;
+			if ( ! PBS_IS_LITE && $pbs_fs->can_use_premium_code() ) {
 				include 'page_builder_sandwich/templates/option-multicheck.php';
 				include 'page_builder_sandwich/templates/option-iframe.php';
 
@@ -260,7 +261,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				include 'page_builder_sandwich/templates/design-element-gallery-5.php';
 
 			} else {
-				include 'page_builder_sandwich/templates/preview-premium-element.php';
+				include 'page_builder_sandwich/templates/learn-premium-modal.php';
 			}
 		}
 
@@ -303,7 +304,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			}
 			$args = array(
 				'id'    => 'gambit_builder_edit',
-				'title' => '<span class="ab-icon"></span>' . __( 'Edit with Page Builder Sandwich', PAGE_BUILDER_SANDWICH ),
+				'title' => '<span class="ab-icon"></span>' . __( 'Page Builder Sandwich', PAGE_BUILDER_SANDWICH ),
 				'href'  => '#',
 				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
 			);
@@ -354,55 +355,17 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			);
 			$wp_admin_bar->add_node( $args );
 
-			if ( PBS_IS_LITE ) {
-
-				// TODO add link to: https://pagebuildersandwich.com/downloads/page-builder-sandwich/?edd_action=add_to_cart&download_id=118&edd_options[price_id]=2 .
-				// TODO add link to: https://pagebuildersandwich.com/downloads/page-builder-sandwich/?edd_action=add_to_cart&download_id=118&edd_options[price_id]=1 .
+			global $pbs_fs;
+			if ( PBS_IS_LITE || ! $pbs_fs->can_use_premium_code() ) {
 				$args = array(
 					'id'    => 'pbs_go_premium',
 					'title' => '<span class="ab-icon"></span>'
-						. __( 'Learn More About Premium', PAGE_BUILDER_SANDWICH )
-						. '<span id="pbs-premium-info">'
-						. __( "Get more features & elements by upgrading to the Premium Plugin. Here're some of the stuff you'll get:", PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'Premium elements: Buttons, Ghost Buttons, Carousels, Newsletters, Toggles, and More,', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'Fixed background images, background patterns, background image tinting and more,', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'More icons, bullet icons, more icon options, and upload your own icons,', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'More advanced options like custom classes and IDs,', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'Add animations to any element,', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( 'More easy to use styling tools,', PAGE_BUILDER_SANDWICH ) .
-						'<br>&middot; ' . __( '40 Pre-designed templates,', PAGE_BUILDER_SANDWICH ) .
-						'<br>' . __( '...and plenty more!', PAGE_BUILDER_SANDWICH ) .
-						'<span id="pbs-premium-button">' . __( 'Learn more', PAGE_BUILDER_SANDWICH ) . '</span></span>',
+						. __( 'Learn More About Premium', PAGE_BUILDER_SANDWICH ),
 					'href'  => '#',
 					'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-adminbar-right' ),
 				);
 				$wp_admin_bar->add_node( $args );
 			}
-			/*
-			$args = array(
-				'id'    => 'pbs_help_icon',
-				'title' => '<span class="ab-icon"></span> ' . __( 'Tips', PAGE_BUILDER_SANDWICH ) . '<span class="pbs-help-label">
-							<strong>' . __( 'Some Tips', PAGE_BUILDER_SANDWICH ) . '</strong>
-							<br>&middot; ' . __( '<em>Click</em> on your site content area and start typing', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>Click</em> a button on the inspector to apply styling', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>Click & hold</em> to apply styles rapildy', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>Ctrl+Click</em> to reverse the styling', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>Shift+Ctrl+Click</em> to reset the style', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>Click & hold</em> on content to drag them', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>Use arrows keys</em> to move between rows', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>Drag edges</em> of images & icons to resize them', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>Hold shift</em> to see row outlines', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>More settings</em> show up for some elements', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>Quick toolbars</em> show up for some elements', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>Ctrl+S</em> to save', PAGE_BUILDER_SANDWICH ) .
-							'<br>&middot; ' . __( '<em>Ctrl+E</em> start Page Builder Sandwich', PAGE_BUILDER_SANDWICH ) .
-							'<span class="pbs-help-button" id="pbs-help-replay-tour">' . __( 'Replay Tour', PAGE_BUILDER_SANDWICH ) . '</span>
-							</span>',
-				'href'  => '#',
-				'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-adminbar-right' ),
-			);
-			$wp_admin_bar->add_node( $args );
-			*/
 
 			$args = array(
 				'id'    => 'pbs_help_docs',
@@ -798,9 +761,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 		 * @return string The cleaned html content.
 		 */
 		public function cleanup_content( $content ) {
-			// var_dump($content);
-			// $content = preg_replace( '/\n/', "\n\n\n", $content );
-			// return $content;
+
 			// Remove line breaks, except for those inside preformatted tags.
 			$content = preg_replace( '/[\r\n](?![^<]*<\/pre>)/', ' ', $content );
 
@@ -837,7 +798,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			// Check if we have the necessary fields.
 			if ( empty( $_POST['post_id'] ) ||  // Input var: okay.
-				 ( empty( $_POST['post_status'] ) && ! isset( $_POST['main-content'] ) ) ||  // Input var: okay.
+				 ( ! isset( $_POST['title'] ) && empty( $_POST['post_status'] ) && ! isset( $_POST['main-content'] ) ) ||  // Input var: okay.
 				 empty( $_POST['save_nonce'] ) ) { // Input var: okay.
 				die();
 			}
@@ -850,34 +811,25 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			// Sanitize data.
 			$post_id = intval( $_POST['post_id'] ); // Input var: okay.
 
-			// Check if we just need to update the status.
-			$post_status = '';
-			if ( ! empty( $_POST['post_status'] ) && ! isset( $_POST['main-content'] ) ) { // Input var: okay.
-
-				$post_status = sanitize_text_field( wp_unslash( $_POST['post_status'] ) ); // Input var: okay.
-
-				// Update the post status.
-				wp_update_post( array( 'ID' => $post_id, 'post_status' => $post_status ) );
-
-				die( esc_url( get_permalink( $post_id ) ) );
-
-			} else if ( ! empty( $_POST['post_status'] ) ) { // Input var: okay.
-				$post_status = sanitize_text_field( wp_unslash( $_POST['post_status'] ) ); // Input var: okay.
-			}
-			$content = sanitize_post_field( 'post_content', wp_unslash( $_POST['main-content'] ), $post_id, 'db' ); // Input var: okay. WPCS: sanitization ok.
-			$content = apply_filters( 'pbs_save_content', $content, $post_id );
-
-			// Save the post.
 			$post_data = array(
 				'ID' => $post_id,
-				'post_content' => $content,
-				'post_content_filtered' => '', // Blank this field to clear cached copies of the content. This is to also support Jetpack's Markdown module.
 			);
 
-			// Also change the post status if needed.
-			if ( ! empty( $post_status ) ) {
-				$post_data['post_status'] = $post_status;
+			// Check if we just need to update the status.
+			if ( ! empty( $_POST['post_status'] ) ) { // Input var: okay.
+				$post_data['post_status'] = sanitize_text_field( wp_unslash( $_POST['post_status'] ) ); // Input var: okay.
 			}
+
+			// The new content.
+			if ( isset( $_POST['main-content'] ) ) { // Input var: okay.
+				$content = sanitize_post_field( 'post_content', wp_unslash( $_POST['main-content'] ), $post_id, 'db' ); // Input var: okay. WPCS: sanitization ok.
+				$content = apply_filters( 'pbs_save_content', $content, $post_id );
+
+				$post_data['post_content'] = $content;
+				$post_data['post_content_filtered'] = ''; // Blank this field to clear cached copies of the content. This is to also support Jetpack's Markdown module.
+			}
+
+			$post_data = apply_filters( 'pbs_save_content_data', $post_data, $_POST, $post_id ); // Input var: okay.
 
 			// Update the post.
 			$post_id = wp_update_post( $post_data );
@@ -891,7 +843,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				delete_post_meta( $post_id, 'pbs_style' );
 			}
 
-			do_action( 'pbs_saved_content', $content, $post_id );
+			do_action( 'pbs_saved_content', $post_id );
 
 			die( esc_url( get_permalink( $post_id ) ) );
 		}
@@ -912,15 +864,9 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			$js_dir = defined( 'WP_DEBUG' ) && WP_DEBUG ? 'dev' : 'min';
 			$js_suffix = defined( 'WP_DEBUG' ) && WP_DEBUG ? '' : '-min';
 
+			global $pbs_fs;
 			$localize_params = array(
-				'is_lite' => PBS_IS_LITE,
-				'frontend' => __( 'Frontend', PAGE_BUILDER_SANDWICH ),
-				'license_label' => __( 'Enter License Key to Receive Updates', PAGE_BUILDER_SANDWICH ),
-				'license_button' => __( 'Verify License', PAGE_BUILDER_SANDWICH ),
-				'license_active_label' => __( 'You will be notified of plugin updates. Your License key is', PAGE_BUILDER_SANDWICH ),
-				'license_active_button' => __( 'Deactivate License', PAGE_BUILDER_SANDWICH ),
-				'licence_active_message' => __( 'License key activated, you will now receive plugin updates from your admin.', PAGE_BUILDER_SANDWICH ),
-				'licence_deactive_message' => __( 'License key deactivated, you will no longer receive plugin updates.', PAGE_BUILDER_SANDWICH ),
+				'is_lite' => PBS_IS_LITE || ! $pbs_fs->can_use_premium_code(),
 			);
 			$localize_params = apply_filters( 'pbs_localize_admin_scripts', $localize_params );
 
@@ -1021,9 +967,6 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			wp_enqueue_style( __CLASS__ . '-builder' , plugins_url( 'page_builder_sandwich/css/editor.min.css', __FILE__ ), array(), VERSION_PAGE_BUILDER_SANDWICH );
 			wp_enqueue_script( __CLASS__ . '-builder', plugins_url( 'page_builder_sandwich/js/' . $js_dir . '/script' . $js_suffix . '.js', __FILE__ ), array( 'content-tools', 'backbone', 'wp-util', 'media-editor', 'iris' ), VERSION_PAGE_BUILDER_SANDWICH );
 
-			// Tour script.
-			wp_enqueue_style( 'hopscotch', plugins_url( 'page_builder_sandwich/css/inc/hopscotch/hopscotch.min.css', __FILE__ ), array(), VERSION_PAGE_BUILDER_SANDWICH );
-
 			// Display error notices with PBS.
 			wp_enqueue_script( __CLASS__ . '-error-notice', plugins_url( 'page_builder_sandwich/js/' . $js_dir . '/script-error-notice' . $js_suffix . '.js', __FILE__ ), array(), VERSION_PAGE_BUILDER_SANDWICH );
 
@@ -1046,13 +989,16 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			}
 			wp_reset_postdata();
 
+			global $pbs_fs;
 			$localize_params = array(
-				'is_lite' => PBS_IS_LITE,
+				'is_lite' => PBS_IS_LITE || ! $pbs_fs->can_use_premium_code(),
 				'is_rtl' => is_rtl(),
 				'ajax_url' => admin_url( 'admin-ajax.php' ),
 				'admin_url' => admin_url( '/' ),
 				'post_id' => $GLOBALS['post']->ID,
 				'theme_name' => str_replace( ' ', '-', strtolower( wp_get_theme()->Name ) ),
+				'theme' => wp_get_theme()->Name,
+				'stylesheet_directory_uri' => trailingslashit( get_stylesheet_directory_uri() ),
 				'nonce' => wp_create_nonce( 'pbs' ),
 				'shortcodes' => self::get_all_shortcodes(),
 				'shortcodes_to_hide' => apply_filters( 'pbs_shortcodes_to_hide_in_picker', array() ),
@@ -1062,6 +1008,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				'plugin_url' => trailingslashit( plugins_url( '/', __FILE__ ) ),
 				'post_status' => ! empty( $GLOBALS['post']->ID ) ? get_post_status( $GLOBALS['post']->ID ) : '',
 				'dummy_image_id' => $dummy_image_id,
+				'buy_url' => admin_url( '/admin.php?page=page-builder-sandwich-pricing' ),
 			);
 			$localize_params = apply_filters( 'pbs_localize_scripts', $localize_params );
 

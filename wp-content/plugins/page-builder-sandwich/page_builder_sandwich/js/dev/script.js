@@ -343,16 +343,11 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			}
 		};
 
-	    xhr.open('POST', pbsParams.ajax_url );
+	    xhr.open( 'POST', pbsParams.ajax_url );
 	    xhr.send( payload );
 
-		// Stats tracking.
-		if ( pbsParams.show_opt_in_stats_track || pbsParams.stats_tracking_opted_in ) {
-		    xhrTracking = new XMLHttpRequest();
-		    xhrTracking.open('POST', pbsParams.ajax_url );
-			payload.append( 'action', 'pbs_save_content_tracking' );
-		    xhrTracking.send( payload );
-		}
+		// Allow others to do something after saving.
+		wp.hooks.doAction( 'pbs.save.payload.post', payload );
 	});
 
 
@@ -450,6 +445,18 @@ window.addEventListener( 'DOMContentLoaded', function() {
 		while ( element && element.tagName !== 'body' ) {
 			var curElement = element;
 			while ( curElement.previousSibling ) {
+
+				if ( curElement.previousSibling.nodeType !== 1 ) {
+					curElement = curElement.previousSibling;
+					continue;
+				}
+
+				// If this contains the title (it's editable), don't add this.
+				if ( curElement.previousSibling.querySelector( '.pbs-title-editor' ) ) {
+					curElement = curElement.previousSibling;
+					continue;
+				}
+
 				if ( curElement.previousSibling.classList ) {
 					curElement.previousSibling.classList.add( 'pbs-ignore-while-editing' );
 				}
@@ -491,9 +498,16 @@ window.addEventListener( 'DOMContentLoaded', function() {
 		}
 		var isInEditorSemiRoot = editorSemiRoot.contains( e.target );
 
+		// If clicked on a WP modal, ignore that event.
+		if ( window.pbsSelectorMatches( e.target, '.wp-core-ui *' ) ) {
+			return;
+		}
+
+		// Check if the one being clicked is the page title, we will allow it to be edited.
+		var isInTitle = window.pbsSelectorMatches( e.target, '.pbs-title-editor, .pbs-title-editor *' );
 
 		// Only do this when we are editing.
-		if ( editorArea.classList.contains( 'pbs-editing' ) && isInEditorSemiRoot && ! isEditorArea && ! isInEditorArea ) {
+		if ( editorArea.classList.contains( 'pbs-editing' ) && isInEditorSemiRoot && ! isEditorArea && ! isInEditorArea && ! isInTitle ) {
 			var rect = editorArea.getBoundingClientRect();
 			var mainRegion = ContentTools.EditorApp.get().regions()['main-content'];
 
@@ -645,6 +659,9 @@ window.PBSEditor = {};
 window.PBSEditor.getToolUI = function( name ) {
 	if ( ContentTools.EditorApp.get()._toolboxBar._toolUIs[ name ] ) {
 		return ContentTools.EditorApp.get()._toolboxBar._toolUIs[ name ];
+	}
+	if ( ContentTools.EditorApp.get()._toolboxElements._toolUIs[ name ] ) {
+		return ContentTools.EditorApp.get()._toolboxElements._toolUIs[ name ];
 	}
 	return ContentTools.EditorApp.get()._toolbox._toolUIs[ name ];
 };
@@ -1890,10 +1907,19 @@ PBSEditor._ShortcodeFrame = PBSEditor.SearchFrame.extend({
 				};
 				if ( pbsParams.shortcode_mappings[ tag ] ) {
 					map = pbsParams.shortcode_mappings[ tag ];
+					if ( map.is_hidden === '1' ) {
+						continue;
+					}
 					sc.desc = map.description;
 					sc.owner = map.owner;
 					sc.ownerslug = map['owner-slug'];
-					sc.image = 'http://ps.w.org/' + sc.ownerslug + '/assets/icon-128x128.png), url(http://ps.w.org/' + sc.ownerslug + '/assets/icon.svg), url(' + pbsParams.plugin_url + 'page_builder_sandwich/assets/element-icons/shortcode_single.svg',
+					sc.image = 'http://ps.w.org/' + sc.ownerslug + '/assets/icon-128x128.png), url(http://ps.w.org/' + sc.ownerslug + '/assets/icon.svg), url(' + pbsParams.plugin_url + 'page_builder_sandwich/assets/element-icons/shortcode_single.svg';
+
+					// If theme shortcode, use the theme's screenshot as the icon.
+					if ( map.owner === pbsParams.theme ) {
+						sc.image = pbsParams.stylesheet_directory_uri + 'screenshot.png';
+					}
+
 					sc.isMapped = true;
 					if ( map.name ) {
 						sc.name = map.name;
@@ -1901,6 +1927,9 @@ PBSEditor._ShortcodeFrame = PBSEditor.SearchFrame.extend({
 				}
 				if ( PBSInspectorOptions.Shortcode[ pbsParams.shortcodes[ i ] ] ) {
 					map = PBSInspectorOptions.Shortcode[ pbsParams.shortcodes[ i ] ];
+					if ( map.is_hidden === '1' ) {
+						continue;
+					}
 					if ( map.label ) {
 						sc.name = map.label;
 					}
@@ -2445,7 +2474,7 @@ PBSEditor.Overlay = (function() {
 	Overlay.prototype._show = function( element ) {
 		var root = ContentEdit.Root.get();
 		// if ( element._domElement && ! root.dragging() ) {
-		if ( ! root.dragging() ) {
+		if ( ! root.dragging() && element ) {
 			this._domElement.style.display = 'block';
 			this.show( element );
 
@@ -2541,15 +2570,32 @@ PBSEditor.Overlay = (function() {
  * Instead of using CT's mouse events, just create out own one.
  */
 ( function() {
-	var pbsOverElement = _.debounce( function( target ) {
-		if ( ! target._ceElement ) {
+	var currentOverElement = null;
+	var currentTarget = null;
+	var pbsOverElement = _.throttle( function( target ) {
+		if ( currentTarget === target ) {
+			wp.hooks.doAction( 'pbs.element.over', currentOverElement );
 			return;
+		}
+		if ( ! target._ceElement ) {
+			wp.hooks.doAction( 'pbs.nonelement.over', target );
+			while ( ! target._ceElement ) {
+				target = target.parentNode;
+				if ( ! target || target.tagName === 'BODY' ) {
+					return;
+				}
+			}
+			if ( target._ceElement.constructor.name === 'Region' ) {
+				return;
+			}
 		}
 		if ( PBSEditor.Overlay.active ) {
 			return;
 		}
+		currentTarget = target;
+		currentOverElement = target._ceElement;
 		wp.hooks.doAction( 'pbs.element.over', target._ceElement );
-	}, 5 );
+	}, 30 );
 	var mouseListener = function( ev ) {
 		pbsOverElement( ev.target );
 	};
@@ -2651,6 +2697,9 @@ PBSEditor.OverlayControls = ( function( _super ) {
 		if ( ! element ) {
 			element = this.element;
 		}
+		if ( ! element ) {
+			return false;
+		}
 		return true;
 	};
 
@@ -2701,6 +2750,10 @@ PBSEditor.OverlayControls = ( function( _super ) {
 	};
 
 	OverlayControls.prototype.show = function( element ) {
+
+		if ( ! element ) {
+			return;
+		}
 
 		if ( this._domElement.classList.contains( 'pbs-overlay-show' ) ) {
 			if ( this._prevElement ) {
@@ -2892,8 +2945,11 @@ PBSEditor.OverlayElement = ( function( _super ) {
 					this._overlaySize.style.left = rect.right + 'px';
 					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
 				},
-				onMoveStop: function() {
+				onMoveStop: function( overlay, element ) {
 					document.body.removeChild( this._overlaySize );
+					if ( element.constructor.name === 'Image' ) {
+						element.style( 'height', 'auto' );
+					}
 				}
 			},
 			{
@@ -2962,8 +3018,11 @@ PBSEditor.OverlayElement = ( function( _super ) {
 					this._overlaySize.style.left = rect.right + 'px';
 					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
 				},
-				onMoveStop: function() {
+				onMoveStop: function( overlay, element ) {
 					document.body.removeChild( this._overlaySize );
+					if ( element.constructor.name === 'Image' ) {
+						element.style( 'height', 'auto' );
+					}
 				}
 			},
 			{
@@ -3032,8 +3091,11 @@ PBSEditor.OverlayElement = ( function( _super ) {
 					this._overlaySize.style.left = rect.right + 'px';
 					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
 				},
-				onMoveStop: function() {
+				onMoveStop: function( overlay, element ) {
 					document.body.removeChild( this._overlaySize );
+					if ( element.constructor.name === 'Image' ) {
+						element.style( 'height', 'auto' );
+					}
 				}
 			},
 			{
@@ -3102,8 +3164,11 @@ PBSEditor.OverlayElement = ( function( _super ) {
 					this._overlaySize.style.left = rect.right + 'px';
 					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
 				},
-				onMoveStop: function() {
+				onMoveStop: function( overlay, element ) {
 					document.body.removeChild( this._overlaySize );
+					if ( element.constructor.name === 'Image' ) {
+						element.style( 'height', 'auto' );
+					}
 				}
 			},
 			{
@@ -3162,8 +3227,11 @@ PBSEditor.OverlayElement = ( function( _super ) {
 					this._overlaySize.style.left = rect.right + 'px';
 					this._overlaySize.innerHTML = rect.height + ' px';
 				},
-				onMoveStop: function() {
+				onMoveStop: function( overlay, element ) {
 					document.body.removeChild( this._overlaySize );
+					if ( element.constructor.name === 'Image' ) {
+						element.style( 'height', 'auto' );
+					}
 				}
 			},
 			{
@@ -3171,6 +3239,9 @@ PBSEditor.OverlayElement = ( function( _super ) {
 				refresh: function( overlay, element, styles, rect ) {
 					this._domElement.style.display = '';
 					if ( element.constructor.name === 'Shortcode' ) {
+						this._domElement.style.display = 'none';
+					}
+					if ( element.constructor.name === 'Title' ) {
 						this._domElement.style.display = 'none';
 					}
 
@@ -3207,6 +3278,9 @@ PBSEditor.OverlayElement = ( function( _super ) {
 				refresh: function( overlay, element, styles, rect ) {
 					this._domElement.style.display = '';
 					if ( element.constructor.name === 'Shortcode' ) {
+						this._domElement.style.display = 'none';
+					}
+					if ( element.constructor.name === 'Title' ) {
 						this._domElement.style.display = 'none';
 					}
 
@@ -3414,6 +3488,9 @@ PBSEditor.OverlayColumn = ( function( _super ) {
 		if ( ! element ) {
 			element = this.element;
 		}
+		if ( ! element ) {
+			return false;
+		}
 		if ( element.constructor.name === 'DivCol' ) {
 			return true;
 		}
@@ -3435,6 +3512,10 @@ PBSEditor.OverlayColumn = ( function( _super ) {
 
 	OverlayColumn.prototype.show = function( element ) {
 
+		if ( ! element ) {
+			return;
+		}
+		
 		if ( element.constructor.name !== 'DivCol' ) {
 			element = element.parent();
 			while ( element && element.constructor.name !== 'Region' ) {
@@ -3475,6 +3556,9 @@ PBSEditor.OverlayColumn = ( function( _super ) {
 			this._alreadyShown2 = false;
 		}.bind( this ) );
 
+		if ( ! element ) {
+			return element;
+		}
 		if ( element.constructor.name !== 'DivCol' ) {
 			element = element.parent();
 			while ( element && element.constructor.name !== 'Region' ) {
@@ -3566,6 +3650,9 @@ PBSEditor.OverlayRow = (function(_super) {
 		if ( ! element ) {
 			element = this.element;
 		}
+		if ( ! element ) {
+			return false;
+		}
 		if ( element.constructor.name === 'DivRow' ) {
 			return true;
 		}
@@ -3610,6 +3697,10 @@ PBSEditor.OverlayRow = (function(_super) {
 	};
 
 	OverlayRow.prototype.show = function( element ) {
+
+		if ( ! element ) {
+			return;
+		}
 
 		if ( element.constructor.name !== 'DivRow' ) {
 			element = element.parent();
@@ -3882,6 +3973,10 @@ PBSEditor.OverlayRow = (function(_super) {
 			this._alreadyShown2 = false;
 		}.bind( this ) );
 
+		if ( ! element ) {
+			return element;
+		}
+
 		if ( element.constructor.name !== 'DivRow' ) {
 			element = element.parent();
 			while ( element && element.constructor.name !== 'Region' ) {
@@ -3935,7 +4030,7 @@ PBSEditor.OverlayRow = (function(_super) {
 
 })(PBSEditor.Overlay);
 
-/* globals ContentEdit, pbsParams */
+/* globals ContentEdit, pbsParams, ContentTools */
 
 /**
  * This changes the drop behavior to use overlays to represent the droppable
@@ -4016,6 +4111,7 @@ PBSEditor.OverlayRow = (function(_super) {
 	var prevDropTarget = null;
 	var prevDropPlacement = null;
 	var showDropIndicator = function( placement ) {
+
 		var root = ContentEdit.Root.get();
 
 		if ( ! dropIndicator ) {
@@ -4117,7 +4213,287 @@ PBSEditor.OverlayRow = (function(_super) {
 		}.bind( this ), 10 );
 		return ret;
 	};
+
+
+	/**
+	 * Dragging elements while not over any element doesn't show the dragging
+	 * indicator. This handles dragging outside existing elements.
+	 */
+	var pbsOverElement = _.throttle( function( ev ) {
+
+		// Only do this when dragging.
+		var root = ContentEdit.Root.get();
+		if ( ! root.dragging() ) {
+			return;
+		}
+
+		// Don't do this inside containers.
+		if ( window.pbsSelectorMatches( ev.target, '.ct-widget, .ct-widget *' ) ) {
+			hideDropIndicator();
+			root._dropTarget = null;
+			return;
+		}
+
+		var elements = document.querySelectorAll( '.pbs-main-wrapper > .ce-element, .pbs-main-wrapper > [data-ce-tag]' );
+
+		var pointerX = ev.pageX;
+		var pointerY = ev.pageY;
+		var closestDistance = 999999999;
+		var closestElement = null;
+		var placement = [ 'above', 'center' ];
+		var doExit = false;
+
+		Array.prototype.forEach.call( elements, function( el ) {
+			if ( ! el._ceElement ) {
+				return;
+			}
+
+			if ( el._ceElement === root.dragging() ) {
+				return;
+			}
+			// window.
+			if ( window.pbsSelectorMatches( el, '.ce-element *, [data-ce-tag] *' ) ) {
+				doExit = true;
+				return;
+			}
+
+			var rect = el.getBoundingClientRect();
+			var scrollY = window.scrollY || window.pageYOffset;
+
+			var top = rect.top + scrollY;
+			var bottom = top + rect.height;
+			var left = rect.left;
+			var right = left + rect.width;
+
+			var elemX, elemY;
+
+			// Find closest Y point to the pointer.
+			if ( pointerY <= top ) {
+				elemY = top;
+			} else if ( pointerY >= bottom ) {
+				elemY = bottom;
+			} else {
+				elemY = pointerY;
+			}
+
+			// Find closest X point to the pointer.
+			if ( pointerX <= left ) {
+				elemX = left;
+			} else if ( pointerX >= right ) {
+				elemX = right;
+			} else {
+				elemX = pointerX;
+			}
+
+			// Compute distance.
+			var dist = Math.pow( pointerX - elemX, 2 ) + Math.pow( pointerY - elemY, 2 );
+
+			// If inside an element, don't do anything.
+			if ( dist === 0 ) {
+				doExit = true;
+				return;
+			}
+
+			// Find the nearest element.
+			if ( dist < closestDistance ) {
+				closestDistance = dist;
+				closestElement = el._ceElement;
+				placement[0] = pointerY <= top + rect.height / 2 ? 'above' : 'below';
+			}
+		} );
+
+		if ( doExit ) {
+			return;
+		}
+
+		// Show the drop indicator on the closest element.
+		if ( closestElement ) {
+			root._dropTarget = closestElement;
+			showDropIndicator( placement );
+		}
+	}, 30 );
+	var mouseListener = function( ev ) {
+		pbsOverElement( ev );
+	};
+	ContentTools.EditorApp.get().bind( 'start', function () {
+		window.addEventListener( 'mousemove', mouseListener );
+		window.addEventListener( 'mouseover', mouseListener );
+	} );
+	ContentTools.EditorApp.get().bind( 'stop', function () {
+		window.removeEventListener( 'mousemove', mouseListener );
+		window.removeEventListener( 'mouseover', mouseListener );
+	} );
 } )();
+
+/* globals ContentTools, ContentEdit, PBSEditor */
+
+window.addEventListener( 'DOMContentLoaded', function() {
+
+	var origTitles = [];
+
+	// Titles SHOULD be h1, but also try h2, h3, h4.
+	var findInThese = [ 'h1', 'h2', 'h3', 'h4', '' ];
+	var titleMarkers = null;
+	for ( var i = 0; i < findInThese.length; i++ ) {
+		if ( document.querySelectorAll( findInThese[ i ] + ' [data-pbs-title-marker-post-id]' ).length ) {
+			titleMarkers = document.querySelectorAll( findInThese[ i ] + ' [data-pbs-title-marker-post-id]' );
+		}
+	}
+
+	if ( ! titleMarkers ) {
+		titleMarkers = document.querySelectorAll( '[data-pbs-title-marker-post-id]' );
+	}
+
+	// Change the structure from an HTML marker, into a class name marker.
+	var titles = [];
+	Array.prototype.forEach.call( titleMarkers, function( marker ) {
+
+		var titleElement = marker.parentNode;
+		var postID = marker.getAttribute( 'data-pbs-title-marker-post-id' );
+
+		titleElement.classList.add( 'pbs-title-editor' );
+		titleElement.getAttribute( 'pbs-post-id', postID );
+
+		titles.push( titleElement );
+	});
+
+	// Remove all markers because we don't need them anymore.
+	titleMarkers = document.querySelectorAll( '[data-pbs-title-marker-post-id]' );
+	Array.prototype.forEach.call( titleMarkers, function( marker ) {
+		marker.parentNode.removeChild( marker );
+	} );
+
+	if ( ! titles.length ) {
+		return;
+	}
+
+	var editor = ContentTools.EditorApp.get();
+
+	PBSEditor.Title = ( function() {
+
+		function Title( domElement ) {
+			this._domElement = domElement;
+		}
+
+		Title.prototype.mount = function() {
+			this._domElement.setAttribute( 'contenteditable', 'true' );
+
+			this._onPasteBound = Title.prototype._onPaste.bind( this );
+			this._domElement.addEventListener( 'paste', this._onPasteBound );
+
+			this._onKeyDownBound = Title.prototype._onKeyDown.bind( this );
+			this._domElement.addEventListener( 'keydown', this._onKeyDownBound );
+
+			this._onFocusBound = Title.prototype._onFocus.bind( this );
+			this._domElement.addEventListener( 'focus', this._onFocusBound );
+
+			this._onBlurBound = Title.prototype._onBlur.bind( this );
+			this._domElement.addEventListener( 'blur', this._onBlurBound );
+
+			this._onMouseEnterBound = Title.prototype._onMouseEnter.bind( this );
+			this._domElement.addEventListener( 'mouseenter', this._onMouseEnterBound );
+
+			this._onMouseLeaveBound = Title.prototype._onMouseLeave.bind( this );
+			this._domElement.addEventListener( 'mouseleave', this._onMouseLeaveBound );
+		};
+
+		Title.prototype.unmount = function() {
+			this._domElement.removeEventListener( 'paste', this._onKeyDownBound );
+			this._domElement.removeEventListener( 'keydown', this._onKeyDownBound );
+			this._domElement.removeEventListener( 'focus', this._onFocusBound );
+			this._domElement.removeEventListener( 'blur', this._onBlurBound );
+			this._domElement.removeEventListener( 'mouseenter', this._onMouseEnterBound );
+			this._domElement.removeEventListener( 'mouseleave', this._onMouseLeaveBound );
+
+			this._domElement.removeAttribute( 'contenteditable' );
+
+			this._domElement.classList.remove( 'ce-element--focused' );
+		};
+
+		Title.prototype._onKeyDown = function( ev ) {
+			if ( ev.ctrlKey || ev.metaKey ) {
+				// R, I, B
+				if ( [ 82, 73, 66 ].indexOf( ev.keyCode ) !== -1 ) {
+					ev.preventDefault();
+				}
+				// Z (Undo should only work with the title only when focused)
+				if ( [ 90 ].indexOf( ev.keyCode ) !== -1 ) {
+					ev.stopPropagation();
+				}
+			}
+		};
+
+		// Turn all pastes into plain text for the title.
+		// @see http://stackoverflow.com/questions/12027137/javascript-trick-for-paste-as-plain-text-in-execcommand
+		Title.prototype._onPaste = function( ev ) {
+			ev.preventDefault();
+		    var text = '';
+		    if ( ev.clipboardData || ev.originalEvent.clipboardData ) {
+				text = ( ev.originalEvent || ev ).clipboardData.getData( 'text/plain' );
+		    } else if ( window.clipboardData ) {
+				text = window.clipboardData.getData( 'Text' );
+		    }
+		    if ( document.queryCommandSupported( 'insertText' ) ) {
+				document.execCommand( 'insertText', false, text );
+		    } else {
+				document.execCommand( 'paste', false, text );
+		    }
+		};
+
+		Title.prototype._onFocus = function() {
+			var root = ContentEdit.Root.get();
+			if ( root.focused() ) {
+				root.focused().blur();
+			}
+			this._domElement.classList.add( 'ce-element--focused' );
+			PBSEditor.Overlay.hideOtherOverlays( null );
+		};
+
+		Title.prototype._onBlur = function() {
+			this._domElement.classList.remove( 'ce-element--focused' );
+		};
+
+		Title.prototype._onMouseEnter = function() {
+			wp.hooks.doAction( 'pbs.element.over', this );
+		};
+
+		Title.prototype._onMouseLeave = function() {
+		};
+
+		Title.prototype.parent = function() {
+			return null;
+		};
+
+		return Title;
+	} )();
+
+
+	for ( i = 0; i < titles.length; i++ ) {
+		titles[ i ] = new PBSEditor.Title( titles[ i ] );
+	}
+
+	editor.bind( 'start', function() {
+		origTitles = [];
+		for ( var i = 0; i < titles.length; i++ ) {
+			titles[ i ].mount();
+			origTitles.push( titles[ i ]._domElement.textContent );
+		}
+	} );
+	editor.bind( 'stop', function() {
+		for ( var i = 0; i < titles.length; i++ ) {
+			titles[ i ].unmount();
+		}
+	} );
+
+	wp.hooks.addAction( 'pbs.save.payload', function( payload ) {
+		for ( var i = titles.length - 1; i >= 0; i-- ) {
+			if ( origTitles[ i ] !== titles[ i ]._domElement.textContent ) {
+				payload.append( 'title', titles[ i ]._domElement.textContent );
+				break;
+			}
+		}
+	} );
+} );
 
 /* globals PBSEditor, __extends */
 
@@ -4189,6 +4565,9 @@ PBSEditor.Toolbar = ( function( _super ) {
 		if ( ! element ) {
 			element = this.element;
 		}
+		if ( ! element ) {
+			return false;
+		}
 
 		if ( element.constructor.name === this.elementName ) {
 
@@ -4254,30 +4633,37 @@ PBSEditor.Toolbar = ( function( _super ) {
 PBSEditor.ToolbarElement = ( function( _super ) {
 	__extends( ToolbarElement, _super );
 
+	var toolbars = [];
+
+	toolbars.push(
+		{
+			id: 'move',
+			tooltip: pbsParams.labels.move,
+			display: function( element ) {
+				return ! element.content.isWhitespace();
+			},
+			onMouseDown: function( element, toolbar, ev ) {
+				ev.stopPropagation();
+				element.drag( ev.pageX, ev.pageY );
+			}
+		}
+	);
+
+	toolbars.push(
+		{
+			id: 'remove',
+			tooltip: pbsParams.labels['delete'],
+			onClick: function( element ) {
+				element.parent().detach( element );
+			}
+		}
+	);
+
 	function ToolbarElement() {
 
 		ToolbarElement.__super__.constructor.call( this,
 			'Text',
-			[
-				{
-					id: 'move',
-					tooltip: pbsParams.labels.move,
-					display: function( element ) {
-						return ! element.content.isWhitespace();
-					},
-					onMouseDown: function( element, toolbar, ev ) {
-						ev.stopPropagation();
-						element.drag( ev.pageX, ev.pageY );
-					}
-				},
-				{
-					id: 'remove',
-					tooltip: pbsParams.labels['delete'],
-					onClick: function( element ) {
-						element.parent().detach( element );
-					}
-				}
-			]
+			toolbars
 		);
 	}
 
@@ -4290,59 +4676,64 @@ PBSEditor.ToolbarElement = ( function( _super ) {
 PBSEditor.ToolbarImage = ( function( _super ) {
 	__extends( ToolbarImage, _super );
 
+
+	var toolbars = [];
+
+	toolbars.push(
+		{
+			id: 'align-left',
+			tooltip: pbsParams.labels.align_left,
+			onClick: function( element ) {
+				element.removeCSSClass( 'alignleft' );
+				element.removeCSSClass( 'alignright' );
+				element.removeCSSClass( 'aligncenter' );
+				element.removeCSSClass( 'alignnone' );
+				element.addCSSClass( 'alignleft' );
+			}
+		},
+		{
+			id: 'align-center',
+			tooltip: pbsParams.labels.align_center,
+			onClick: function( element ) {
+				element.removeCSSClass( 'alignleft' );
+				element.removeCSSClass( 'alignright' );
+				element.removeCSSClass( 'aligncenter' );
+				element.removeCSSClass( 'alignnone' );
+				element.addCSSClass( 'aligncenter' );
+			}
+		},
+		{
+			id: 'align-right',
+			tooltip: pbsParams.labels.align_right,
+			onClick: function( element ) {
+				element.removeCSSClass( 'alignleft' );
+				element.removeCSSClass( 'alignright' );
+				element.removeCSSClass( 'aligncenter' );
+				element.removeCSSClass( 'alignnone' );
+				element.addCSSClass( 'alignright' );
+			}
+		},
+		{
+			id: 'edit',
+			tooltip: pbsParams.labels.edit,
+			onClick: function( element ) {
+				element.openMediaManager();
+			}
+		},
+		{
+			id: 'remove',
+			tooltip: pbsParams.labels['delete'],
+			onClick: function( element ) {
+				element.parent().detach( element );
+			}
+		}
+	);
+
 	function ToolbarImage() {
 
 		ToolbarImage.__super__.constructor.call( this,
 			'Image',
-			[
-				{
-					id: 'align-left',
-					tooltip: pbsParams.labels.align_left,
-					onClick: function( element ) {
-						element.removeCSSClass( 'alignleft' );
-						element.removeCSSClass( 'alignright' );
-						element.removeCSSClass( 'aligncenter' );
-						element.removeCSSClass( 'alignnone' );
-						element.addCSSClass( 'alignleft' );
-					}
-				},
-				{
-					id: 'align-center',
-					tooltip: pbsParams.labels.align_center,
-					onClick: function( element ) {
-						element.removeCSSClass( 'alignleft' );
-						element.removeCSSClass( 'alignright' );
-						element.removeCSSClass( 'aligncenter' );
-						element.removeCSSClass( 'alignnone' );
-						element.addCSSClass( 'aligncenter' );
-					}
-				},
-				{
-					id: 'align-right',
-					tooltip: pbsParams.labels.align_right,
-					onClick: function( element ) {
-						element.removeCSSClass( 'alignleft' );
-						element.removeCSSClass( 'alignright' );
-						element.removeCSSClass( 'aligncenter' );
-						element.removeCSSClass( 'alignnone' );
-						element.addCSSClass( 'alignright' );
-					}
-				},
-				{
-					id: 'edit',
-					tooltip: pbsParams.labels.edit,
-					onClick: function( element ) {
-						element.openMediaManager();
-					}
-				},
-				{
-					id: 'remove',
-					tooltip: pbsParams.labels['delete'],
-					onClick: function( element ) {
-						element.parent().detach( element );
-					}
-				}
-			]
+			toolbars
 		);
 	}
 
@@ -4925,6 +5316,9 @@ PBSEditor.ToolbarRow = ( function( _super ) {
 		if ( typeof element === 'undefined' ) {
 			element = this.element;
 		}
+		if ( ! element ) {
+			return false;
+		}
 		if ( element.constructor.name === 'DivRow' ) {
 			return true;
 		}
@@ -5118,6 +5512,9 @@ PBSEditor.ToolbarColumn = ( function( _super ) {
 		if ( typeof element === 'undefined' ) {
 			element = this.element;
 		}
+		if ( ! element ) {
+			return false;
+		}
 		if ( element.constructor.name === 'DivCol' ) {
 			return true;
 		}
@@ -5254,37 +5651,44 @@ PBSEditor.ToolbarColumn = ( function( _super ) {
 PBSEditor.ToolbarTabContainer = ( function( _super ) {
 	__extends( ToolbarTabContainer, _super );
 
+	var toolbar = [];
+
+	toolbar.push(
+		{
+			label: pbsParams.labels.tabs
+		},
+		{
+			id: 'move',
+			tooltip: pbsParams.labels.move,
+			onMouseDown: function( element, toolbar, ev ) {
+				ev.stopPropagation();
+				element.parent().drag( ev.pageX, ev.pageY );
+			}
+		},
+		{
+			id: 'add',
+			tooltip: pbsParams.labels.add_tab,
+			onClick: function( element ) {
+				element.parent().addTab();
+			}
+		}
+	);
+
+	toolbar.push(
+		{
+			id: 'remove',
+			tooltip: pbsParams.labels['delete'],
+			onClick: function( element ) {
+				element.parent().parent().detach( element.parent() );
+			}
+		}
+	);
+
 	function ToolbarTabContainer() {
 
 		ToolbarTabContainer.__super__.constructor.call( this,
 			'TabContainer',
-			[
-				{
-					label: pbsParams.labels.tabs
-				},
-				{
-					id: 'move',
-					tooltip: pbsParams.labels.move,
-					onMouseDown: function( element, toolbar, ev ) {
-						ev.stopPropagation();
-						element.parent().drag( ev.pageX, ev.pageY );
-					}
-				},
-				{
-					id: 'add',
-					tooltip: pbsParams.labels.add_tab,
-					onClick: function( element ) {
-						element.parent().addTab();
-					}
-				},
-				{
-					id: 'remove',
-					tooltip: pbsParams.labels['delete'],
-					onClick: function( element ) {
-						element.parent().parent().detach( element.parent() );
-					}
-				}
-			]
+			toolbar
 		);
 	}
 
@@ -5340,6 +5744,27 @@ PBSEditor.ToolbarTable = ( function( _super ) {
 	}
 
 	return ToolbarTable;
+
+} )( PBSEditor.Toolbar );
+
+/* globals PBSEditor, __extends, ContentTools, pbsParams */
+
+PBSEditor.ToolbarTitle = ( function( _super ) {
+	__extends( ToolbarTitle, _super );
+
+	function ToolbarTitle() {
+
+		ToolbarTitle.__super__.constructor.call( this,
+			'Title',
+			[
+				{
+					label: 'Post Title', //pbsParams.labels.title
+				}
+			]
+		);
+	}
+
+	return ToolbarTitle;
 
 } )( PBSEditor.Toolbar );
 
@@ -6394,1383 +6819,748 @@ ContentEdit.StaticEditable = (function(_super) {
 })();
 
 
+/* globals ContentEdit, HTMLString, ContentSelect */
 
-/* globals ContentEdit, HTMLString, pbsParams, __extends, console */
+(function() {
+	var proxied = ContentEdit.Text.prototype._onKeyUp;
+	ContentEdit.Text.prototype._onKeyUp = function(ev) {
+
+	   var ret = proxied.call( this, ev );
+
+	   if ( ev.keyCode === 9 ) {
+		   if ( this.content.text().toLowerCase() === 'lorem' ) {
+			   this.content = new HTMLString.String( 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. At dolor sed numquam? Sapiente autem adipisci, minus expedita enim, suscipit laboriosam deleniti possimus sequi pariatur explicabo numquam alias atque officia sit.' );
+			   this.updateInnerHTML();
+			   this.taint();
+
+			   var selection = new ContentSelect.Range( this.content.length(), this.content.length() );
+			   selection.select( this._domElement );
+		   }
+	   }
+
+	   return ret;
+	};
+})();
 
 
+(function() {
+	var proxied = ContentEdit.Text.prototype.blur;
+	ContentEdit.Text.prototype.blur = function(ev) {
+
+		if ( this.content.text().toLowerCase() === 'lorem' ) {
+			this.content = new HTMLString.String( 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. At dolor sed numquam? Sapiente autem adipisci, minus expedita enim, suscipit laboriosam deleniti possimus sequi pariatur explicabo numquam alias atque officia sit.' );
+			this.updateInnerHTML();
+			this.taint();
+
+			var selection = new ContentSelect.Range( this.content.length(), this.content.length() );
+			selection.select( this._domElement );
+		}
+
+		return proxied.call( this, ev );
+
+	};
+})();
+
+/* globals ContentEdit, HTMLString, pbsParams, __extends, PBSEditor */
 
 ContentEdit.Shortcode = (function(_super) {
-
 	__extends(Shortcode, _super);
 
-
-
 	Shortcode.sc_raw = '';
-
 	Shortcode.sc_hash = '';
-
 	Shortcode.sc_base = '';
 
-
-
 	// Used for checking whether we should do an ajax update
-
 	Shortcode.sc_prev_raw = '';
 
-
-
 	function Shortcode(tagName, attributes, content) {
-
 		this.sc_hash = attributes['data-shortcode'];
-
 		this.sc_base = attributes['data-base'];
-
 		this.sc_raw = Shortcode.atob( this.sc_hash );
-
 		this.sc_prev_raw = this.sc_raw;
-
 		this.model = new Backbone.Model({});
-
 		this.parseShortcode();
-
 		this.model.element = this;
-
 		this.model.listenTo( this.model, 'change', this.modelChanged.bind(this) );
-
-
 
 		this._doubleClickCount = 0;
 
-
-
 		Shortcode.__super__.constructor.call(this, tagName, attributes);
 
-
-
 		this._content = content;
-
 	}
 
-
-
 	Shortcode.btoa = function(str) {
-
 	    return btoa( encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
-
 	        return String.fromCharCode('0x' + p1);
-
 	    }));
-
 	};
-
-
 
 	Shortcode.atob = function(str) {
-
 		return decodeURIComponent( Array.prototype.map.call( window.atob( str ), function( c ) {
-
 	        return '%' + ( '00' + c.charCodeAt( 0 ).toString( 16 ) ).slice( -2 );
-
 	    } ).join( '' ) );
-
 	};
-
-
 
 	Shortcode.prototype.mount = function() {
-
 		var ret = Shortcode.__super__.mount.call( this );
 
-
-
 		var scStyles = getComputedStyle( this._domElement );
-
 		if ( scStyles.height === '0px' ) {
-
 			this._domElement.classList.add('pbs--blank');
-
 		} else {
-
 			this._domElement.classList.remove('pbs--blank');
-
 		}
-
-
 
 		setTimeout( function() {
-
 			if ( this._domElement ) {
-
 				var scStyles = getComputedStyle( this._domElement );
-
 				if ( scStyles.height === '0px' ) {
-
 					this._domElement.classList.add('pbs--blank');
-
 				} else {
-
 					this._domElement.classList.remove('pbs--blank');
-
 				}
-
 			}
-
 		}.bind( this ), 1 );
 
-
-
 		return ret;
-
 	};
-
-
 
 	// Creates the base element of the shortcode div.
-
 	// Does not have any contents, need to run `ajaxUpdate` after attaching to update.
-
 	Shortcode.createShortcode = function( shortcode ) {
 
-
-
 		var o = document.createElement('DIV');
-
 		o.setAttribute( 'data-ce-moveable', '' );
-
 		o.setAttribute( 'data-ce-tag', 'shortcode' );
-
 		o.setAttribute( 'data-base', shortcode.shortcode.tag );
-
 		// o.setAttribute( 'data-shortcode', btoa( shortcode.content ) );
-
 		o.setAttribute( 'data-shortcode', Shortcode.btoa( shortcode.shortcode.string() ) );
 
-
-
 		return ContentEdit.Shortcode.fromDOMElement( o );
-
 	};
 
+	Shortcode.fromDOMElement = function( domElement ) {
+	    var newElement = new this( domElement.tagName, this.getDOMElementAttributes(domElement), domElement.innerHTML );
 
+		// This global variable is set to TRUE when we have just added a pre-designed element,
+		// in this case, we need to refresh the shortcode to make it's render updated.
+		if ( PBSEditor._justAddedDesignElement ) {
+			newElement.ajaxUpdate( true );
+		}
+
+		return newElement;
+	};
 
 	Shortcode.prototype.convertToText = function() {
-
 		var innerHTML = this._domElement.innerHTML;
-
 		var elem = Shortcode.__super__.convertToText.call( this, this.sc_raw );
 
-
-
 		elem.origShortcode = this.sc_raw;
-
 		elem.origInnerHTML = innerHTML;
-
 		elem.isShortcodeEditing = true;
 
-
-
 		return elem;
-
 	};
-
-
 
 	Shortcode.prototype.parseShortcode = function() {
-
 		var sc = wp.shortcode.next( this.sc_base, this.sc_raw, 0 );
 
-
-
 		for ( var attributeName in sc.shortcode.attrs.named ) {
-
 			if ( sc.shortcode.attrs.named.hasOwnProperty( attributeName ) ) {
-
 				this.model.set( attributeName, sc.shortcode.attrs.named[ attributeName ], { silent: true } );
-
 			}
-
 		}
-
-
 
 		for ( var i = 0; i < sc.shortcode.attrs.numeric.length; i++ ) {
-
 			this.model.set( i, sc.shortcode.attrs.numeric[ i ], { silent: true } );
-
 		}
-
-
 
 		this.model.set( 'content', sc.shortcode.content, { silent: true } );
-
 	};
-
-
 
 	Shortcode.prototype._onDoubleClick = function() {
-
 		if ( ! wp.hooks.applyFilters( 'pbs.shortcode.allow_raw_edit', true, this.sc_base, this ) ) {
-
 			return;
-
 		}
-
 		this.convertToText();
-
 	};
-
-
 
 	Shortcode.prototype.cssTypeName = function() {
-
 		return 'shortcode';
-
 	};
-
-
 
 	Shortcode.prototype.typeName = function() {
-
 		return 'Shortcode';
-
 	};
-
-
 
 	Shortcode.prototype.clone = function() {
-
         var root = ContentEdit.Root.get();
-
         if (root.focused() === this) {
-
 			root.focused().blur();
-
         }
-
 		var clone = document.createElement('div');
-
 		clone.innerHTML = this.html();
-
 		var newElement = Shortcode.fromDOMElement( clone.childNodes[0] );
-
 		var index = this.parent().children.indexOf( this );
-
 		this.parent().attach( newElement, index + 1 );
 
-
-
 		newElement.focus();
-
 	};
-
-
 
 	Shortcode.prototype.modelChanged = function() {
-
 		this.updateSCRaw();
-
 		this.updateSCHash();
 
-
-
 		clearTimeout( this._scRefreshTrigger );
-
 		var _this = this;
-
 		this._scRefreshTrigger = setTimeout(function() {
-
 			_this.ajaxUpdate();
-
 		}, 500 );
-
 	};
-
-
 
 	Shortcode.prototype.setSCAttr = function( name, value ) {
-
 		this.model.set( name, value );
-
 	};
-
-
 
 	Shortcode.prototype.setSCContent = function( value ) {
-
 		this.model.set( 'content', value );
-
 	};
 
-
-
 	Shortcode.prototype.updateSCRaw = function() {
-
 		var sc = '';
-
 		sc += '[' + this.sc_base;
 
-
-
 		var keys = this.model.keys();
-
 		for ( var i = 0; i < keys.length; i++ ) {
-
 			var attrName = keys[ i ];
-
 			if ( attrName !== 'content' ) {
-
 				var value = this.model.get( attrName ) || '';
-
 				value = value.replace( /\n/g, '<br>' );
-
 				sc += ' ' + attrName + '="' + value + '"';
-
 			}
-
 		}
-
 		sc += ']';
 
-
-
 		if ( this.model.get('content') ) {
-
 			sc += this.model.get('content');
-
 		}
-
-
 
 		sc += '[/' + this.sc_base + ']';
 
-
-
 		this.sc_raw = sc;
-
 	};
-
-
 
 	Shortcode.prototype.updateSCHash = function() {
-
 		this.sc_hash = Shortcode.btoa( this.sc_raw );
-
 		this.attr( 'data-shortcode', this.sc_hash );
-
 	};
-
-
-
 
 
 	Shortcode.prototype.unmount = function() {
-
 		Shortcode.__super__.unmount.call( this );
 
-
-
 		// Re-init the shortcode scripts to make sure it still works.
-
 		setTimeout( function() {
-
 			this.runInitScripts();
-
 		}.bind( this ), 100 );
-
 	};
-
-
 
 	Shortcode.prototype.runInitScripts = function() {
 
-
-
 		var ranInitCode = false;
 
-
-
 		if ( this._scriptsToRun ) {
-
 			for ( var i = 0; i < this._scriptsToRun.length; i++ ) {
-
 				try {
 
-
-
 					/**
-
 					 * Yes, this is a form of eval'ed code, but we can do this because:
-
 					 * 1. We only do this when editing,
-
 					 * 2. Logged out users will never see this code,
-
 					 * 3. Script init code comes from the plugin's rendered shortcode,
-
 					 * 4. This is only performed when refreshing shortcodes
-
 					 */
 
-
-
 					// jshint evil:true
-
 					( new Function( this._scriptsToRun[ i ] ) )();
 
-
-
 					ranInitCode = true;
-
-
 
 				} catch ( err ) {
 
-
-
 					// Shortcode init failed.
-
 					console.log( 'PBS:', this.sc_base, 'init code errored out.' );
-
 				}
-
 			}
-
 		}
-
-
 
 		// Run shortcode mapping init code.
-
 		if ( typeof pbsParams.shortcode_mappings[ this.sc_base ] !== 'undefined' ) {
-
 			var map = pbsParams.shortcode_mappings[ this.sc_base ];
-
 			if ( typeof map.init_code !== 'undefined' ) {
-
 				try {
 
-
-
 					/**
-
 					 * Yes, this is a form of eval'ed code, but we can do this because:
-
 					 * 1. We only do this when editing,
-
 					 * 2. Logged out users will never see this code,
-
 					 * 3. map.init_code doesn't come from any user input like GET vars,
-
 					 * 4. This is only performed when refreshing shortcodes
-
 					 */
 
-
-
 					// jshint evil:true
-
 					if ( this._domElement ) {
-
 						( new Function( map.init_code ) ).bind( this._domElement.firstChild )();
-
 					} else {
-
 						( new Function( map.init_code ) )();
-
 					}
-
-
 
 					ranInitCode = true;
 
-
-
 				} catch ( err ) {
 
-
-
 					// Shortcode init failed.
-
 					console.log( 'PBS:', this.sc_base, 'init code errored out.' );
-
 				}
-
 			}
-
 		}
-
-
 
 		// Refresh the dom element if some init code was used.
-
 		if ( ranInitCode ) {
-
 			setTimeout( function() {
-
 				if ( this._domElement ) {
-
 					this._content = this._domElement.innerHTML;
-
 				}
-
 			}.bind( this ), 10 );
-
 		} else if ( this._domElement ) {
-
 			this._content = this._domElement.innerHTML;
-
 		}
 
-
-
 	};
-
-
 
 	Shortcode.prototype.ajaxUpdate = function( forceUpdate ) {
-
 		clearTimeout( this._ajaxUpdateTimeout );
-
 		this._ajaxUpdateTimeout = setTimeout( function() {
-
 			this._ajaxUpdate( forceUpdate );
-
 		}.bind( this ), 500 );
-
 	};
 
-
-
 	Shortcode.prototype._ajaxUpdate = function( forceUpdate ) {
-
 		// If nothing was changed, don't update.
-
 		if ( this.sc_prev_raw === this.sc_raw && ! forceUpdate ) {
-
 			return;
-
 		}
 
-
-
 		var payload = new FormData();
-
 		payload.append( 'action', 'pbs_shortcode_render' );
-
 		payload.append( 'shortcode', this.sc_hash );
-
 		payload.append( 'nonce', pbsParams.nonce );
-
-
 
 		this._domElement.classList.add('pbs--rendering');
 
-
-
 		var _this = this;
-
 		var request = new XMLHttpRequest();
-
 		request.open('POST', window.location.href );
 
-
-
 		request.onload = function() {
-
 			if (request.status >= 200 && request.status < 400) {
-
-
 
 				var i, node, response;
 
-
-
 				// The response should be a JSON object,
-
 				// If not we probably encountered an error during rendering.
-
 				try {
-
 					response = JSON.parse( request.responseText );
-
 				} catch ( err ) {
-
-
 
 					console.log( 'PBS: Error getting rendered shortcode' );
 
-
-
 					_this._domElement.classList.remove('pbs--rendering');
 
-
-
 					// Min-height is set during editing, remove it
-
 					_this._domElement.style.minHeight = '';
-
 					_this._domElement.style.marginBottom = '';
 
-
-
 					// Take note of the new hash to prevent unnecessary updating.
-
 					_this.sc_prev_raw = _this.sc_raw;
-
 					return;
-
 				}
 
-
-
 				// Create a dummy container for the scripts and styles the shortcode needs
-
 				var enqueued = response.scripts + response.styles;
-
 				var dummyContainer = document.createElement('div');
-
 				dummyContainer.innerHTML = enqueued.trim();
 
-
-
 				// Add the scripts & styles if they aren't in yet.
-
 				var currentHead = document.querySelector('html').innerHTML;
-
 				var enqueuedScriptsPending = 0;
-
 				var scriptsToRun = [];
 
-
-
 				if ( enqueued.trim().length ) {
-
 					for ( i = dummyContainer.childNodes.length - 1; i >= 0; i-- ) {
-
 						if ( dummyContainer.childNodes[i].getAttribute ) {
-
 							node = dummyContainer.childNodes[i];
 
-
-
 							// Scripts.
-
 							if ( node.tagName === 'SCRIPT' ) {
 
-
-
 								// JS scripts added are most likely initialization code.
-
 								if ( ! node.getAttribute( 'src' ) ) {
-
 									scriptsToRun.unshift( node.innerHTML );
-
 									continue;
-
-
 
 								} else {
 
-
-
 									// Dynamically load these scripts.
-
 									var scriptURL = node.getAttribute( 'src' );
-
 									if ( ! document.querySelector( 'script[src="' + scriptURL + '"]' ) ) {
 
-
-
 										// We count these so we can run initialization
-
 										// when everything has completed loading.
-
 										enqueuedScriptsPending++;
 
-
-
 										/* jshint loopfunc:true */
-
 										jQuery.getScript( node.getAttribute( 'src' ) )
-
 										.done( function() {
-
 											enqueuedScriptsPending--;
-
 										} )
-
 										.fail( function() {
-
 											enqueuedScriptsPending--;
-
 										} );
-
 									}
-
-
 
 									continue;
-
 								}
-
-
 
 							// Styles.
-
 							} else if ( node.tagName === 'LINK' ) {
 
-
-
 								// Include the style files if they aren't added in yet.
-
 								if ( node.getAttribute( 'rel' ) === 'stylesheet' && node.getAttribute( 'href' ) ) {
-
 									var styleURL = node.getAttribute( 'href' );
-
 									if ( document.querySelector( 'link[href="' + styleURL + '"]' ) ) {
-
 										continue;
-
 									}
-
 								}
-
 							}
-
-
 
 							// Add the script or styles.
-
 							if ( currentHead.indexOf( node.outerHTML ) === -1 ) {
-
 								document.body.appendChild( node );
-
 							}
-
 						}
-
 					}
-
 				}
-
-
 
 				// Add the results
-
 				dummyContainer = document.createElement('div');
-
 				dummyContainer.innerHTML = response.output.trim();
 
-
-
 				// Add the rendered shortcode output.
-
 				_this._domElement.innerHTML = '';
-
 				if ( dummyContainer.innerHTML.length ) {
-
 					for ( i = dummyContainer.childNodes.length - 1; i >= 0; i-- ) {
-
 						node = dummyContainer.childNodes[ i ];
-
 						if ( dummyContainer.childNodes[ i ].nodeType === 3 ) {
-
 							_this._domElement.insertBefore( node, _this._domElement.firstChild );
-
 						} else {
 
-
-
 							// If a script was outputted, we can use this to
-
 							// initialize the shortcode.
-
 							if ( node.tagName === 'SCRIPT' ) {
-
 								scriptsToRun.unshift( node.innerHTML );
-
 								continue;
-
 							}
 
-
-
 							// Insert rendered output.
-
 							_this._domElement.insertBefore( node, _this._domElement.firstChild );
-
 						}
-
 					}
-
 				}
-
 				_this._content = dummyContainer.innerHTML;
 
-
-
 				// Run initialization scripts.
-
 				if ( scriptsToRun ) {
-
 					_this._scriptsToRun = scriptsToRun;
-
 					_this._scriptRunInterval = setInterval( function() {
-
 						if ( ! enqueuedScriptsPending ) {
-
 							this.runInitScripts();
-
 							clearInterval( this._scriptRunInterval );
-
 						}
-
 					}.bind( _this ), 100 );
-
 				}
-
-
 
 				// If the first element is floated, mimic the float so that the shortcode can be selectable.
-
 				_this.style('float', '');
-
 				if ( _this._domElement.children.length === 1 ) {
-
 					try {
-
 						var style = getComputedStyle( _this._domElement.firstChild );
-
 						if ( style['float'] === 'left' || style['float'] === 'right' ) {
-
 							_this.style('float', style['float']);
-
 						}
-
 					} catch ( err ) {}
-
 				}
 
-
-
 				// Trigger the shortcode to render.
-
 				// This should be listened to by plugins/shortcodes so that they can render correctly upon showing up in the page
-
 				document.dispatchEvent( new CustomEvent( 'pbs:shortcode-render', { detail: document.querySelector('.pbs--rendering') } ) );
-
 			}
-
 			_this._domElement.classList.remove('pbs--rendering');
-
 			_this._domElement.classList.remove('pbs--blank');
 
-
-
 			// Min-height is set during editing, remove it
-
 			_this._domElement.style.minHeight = '';
-
 			_this._domElement.style.marginBottom = '';
 
-
-
 			// Take note of the new hash to prevent unnecessary updating.
-
 			_this.sc_prev_raw = _this.sc_raw;
-
-
 
 			var scStyles = getComputedStyle( _this._domElement );
-
 			if ( scStyles.height === '0px' ) {
-
 				_this._domElement.classList.add('pbs--blank');
-
 			} else {
-
 				_this._domElement.classList.remove('pbs--blank');
-
 			}
 
-
-
 		};
-
-
 
 		// There was a connection error of some sort.
-
 		request.onerror = function() {
-
 			_this._domElement.classList.remove('pbs--rendering');
 
-
-
 			// Min-height is set during editing, remove it
-
 			_this._domElement.style.minHeight = '';
-
 			_this._domElement.style.marginBottom = '';
 
-
-
 			// Take note of the new hash to prevent unnecessary updating.
-
 			_this.sc_prev_raw = _this.sc_raw;
-
 		};
-
 		request.send( payload );
-
 	};
-
-
 
 	return Shortcode;
 
-
-
 })(ContentEdit.StaticEditable);
-
-
 
 ContentEdit.TagNames.get().register(ContentEdit.Shortcode, 'shortcode');
 
 
 
-
-
-
-
 /****************************************************************
-
  * Checks the contents of the element then converts shortcodes
-
  * into shortcode elements. Also retains normal text
-
  * into text elements.
-
  ****************************************************************/
-
 ContentEdit.Text.prototype.convertShortcodes = function() {
 
-
-
 	// Find shortcodes
-
 	var html = this.content.html();
-
 	var textParts = [];
-
 	var shortcodes = [];
 
-
-
 	if ( html.trim() === '' ) {
-
 		return;
-
 	}
-
-
 
 	var shortcodeRegex = /\[([^\/][^\s\]\[]+)[^\]]*\]/g;
-
 	var shortcodeMatch = shortcodeRegex.exec( html );
 
-
-
 	if ( ! shortcodeMatch ) {
-
 		return;
-
 	}
-
-
 
 	var prevIndex = 0;
-
 	while ( shortcodeMatch ) {
 
-
-
 		// Don't render shortcodes that do not exist.
-
 		if ( pbsParams.shortcodes.indexOf( shortcodeMatch[1] ) === -1 ) {
-
 			shortcodeMatch = shortcodeRegex.exec( html );
-
 			continue;
-
 		}
-
-
 
 		// The regex can capture nested shortcodes, ignore those and let the parent shortcode
-
 		// handle the rendering
-
 		if ( shortcodeMatch.index < prevIndex ) {
-
 			shortcodeMatch = shortcodeRegex.exec( html );
-
 			continue;
-
 		}
-
-
 
 		var base = shortcodeMatch[1];
-
 		var sc = wp.shortcode.next( base, html, shortcodeMatch.index );
-
 		textParts.push( html.substr( prevIndex, shortcodeMatch.index - prevIndex ) );
-
 		shortcodes.push( sc );
 
-
-
 		prevIndex = shortcodeMatch.index + sc.content.length;
-
 		shortcodeMatch = shortcodeRegex.exec( html );
-
 	}
-
-
 
 	// Don't continue if no shortcodes are found.
-
 	if ( shortcodes.length === 0 ) {
-
 		return;
-
 	}
-
-
 
 	// Get the last part of the text.
-
 	textParts.push( html.substr( prevIndex ) );
 
-
-
 	var elem,
-
 		insertAt = this.parent().children.indexOf( this ),
-
 		parent = this.parent(),
-
 		dom = this._domElement,
-
 		minHeight, bottomMargin;
 
-
-
 	if ( dom && dom.style.minHeight ) {
-
 		minHeight = dom.style.minHeight;
-
 		bottomMargin = dom.style.bottomMargin;
-
 	}
 
-
-
 	// Modify the current element and create the shortcodes seen.
-
 	for ( var i = 0; i < textParts.length + shortcodes.length; i++ ) {
 
-
-
 		var isShortcode = i % 2 === 1;
-
 		elem = null;
 
-
-
 		// The first element is always the original text element that will be altered.
-
 		if ( i === 0 ) {
-
 			this.content = new HTMLString.String( textParts[ i ], true);
-
 			this.updateInnerHTML();
-
 			this.taint();
-
 			continue;
-
 		}
-
-
 
 		// Create either a shortcode or a text element.
-
 		if ( isShortcode ) {
-
 			elem = ContentEdit.Shortcode.createShortcode( shortcodes[ Math.floor( i / 2 ) ] );
-
 		} else {
-
 			// Don't create empty text elements.
-
 			if ( textParts[ i / 2 ].trim() ) {
-
 				elem = document.createElement('P');
-
 				elem.innerHTML = textParts[ i / 2 ];
-
 				elem = ContentEdit.Text.fromDOMElement( elem );
-
 			}
-
 		}
 
-
-
 		// Attach the new elements.
-
 		if ( elem ) {
-
-
 
 			insertAt++;
 
-
-
 			parent.attach( elem, insertAt );
 
-
-
 			// If we just edited a shortcode (turned it into a text element), we will have a minHeight,
-
 			// Copy it over to prevent the screen from jumping around because the heights are changing.
-
 			// Only do this for the first shortcode.
-
 			if ( i === 1 ) {
-
 				if ( dom && minHeight ) {
-
 					elem._domElement.style.minHeight = minHeight;
-
 					elem._domElement.style.bottomMargin = bottomMargin;
-
 				}
-
 			}
-
-
 
 			if ( elem.constructor.name === 'Shortcode' ) {
 
-
-
 				// If we just edited a shortcode (turned it into a text element), we will have the original
-
 				// shortcode remembered in this.origShortcode. If unedited, then just bring back the old
-
 				// shortcode contents instead of doing an ajax call again.
-
 				var doAjax = true;
-
 				if ( i === 1 ) {
-
 					if ( elem.sc_raw === this.origShortcode ) {
-
 						elem._domElement.innerHTML = this.origInnerHTML;
-
 						elem._content = this.origInnerHTML;
 
-
-
 						var scStyles = getComputedStyle( elem._domElement );
-
 						if ( scStyles.height === '0px' ) {
-
 							elem._domElement.classList.add('pbs--blank');
-
 						} else {
-
 							elem._domElement.classList.remove('pbs--blank');
-
 						}
 
-
-
 						doAjax = false;
-
 					}
-
 				}
-
-
 
 				if ( doAjax ) {
-
 					elem.ajaxUpdate( true );
-
 				}
 
-
-
 			}
-
 		}
-
 	}
-
-
 
 	// If the current element was converted into a blank, remove it.
-
 	if ( this.parent() && this.content.isWhitespace() ) {
-
 		this.parent().detach( this );
-
 	}
-
-
-
 
 
 };
 
 
-
-
-
 /********************************************************************************
-
  * Event handlers to listen for typing shortcodes inside text elements
-
  ********************************************************************************/
-
-
 
 // When hitting return.
-
 (function() {
-
 	var proxied = ContentEdit.Text.prototype._keyReturn;
-
 	ContentEdit.Text.prototype._keyReturn = function(ev) {
-
 		if ( this.isShortcodeEditing ) {
-
 			this.blur();
-
 			return this.convertShortcodes();
-
 		}
-
-
 
 		var ret = proxied.call( this, ev );
-
 		this.convertShortcodes();
-
 		return ret;
-
 	};
-
 })();
 
-
-
 // On text element blur.
-
 window.addEventListener( 'DOMContentLoaded', function() {
-
 	ContentEdit.Root.get().bind('blur', function (element) {
-
 		if ( element.constructor.name === 'Text' ) {
-
 			element.convertShortcodes();
-
 		}
-
 	});
-
-
 
 	// Saving WHILE shortcodes are being edited get an error, blur the text before being able to save to prevent this.
-
 	document.querySelector('#wpadminbar').addEventListener('mouseover', function() {
-
 		var root = ContentEdit.Root.get();
-
 		var focused = root.focused();
-
 		if ( focused ) {
-
 			if ( focused.constructor.name === 'Text' ) {
-
 				if ( focused.content ) {
-
 					// Only do this IN shortcodes, or else the blur gets annoying.
-
 					if ( focused.content.html().match( /\[\w+[^\]]+\]/ ) ) {
-
 						focused.blur();
-
 					}
-
 				}
-
 			}
-
 		}
-
 	});
-
 });
-
-
-
-
 
 
 
 /********************************************************************************
-
  * Float left/right shortcodes that have their only child as floated left/right.
-
  ********************************************************************************/
-
 window.addEventListener( 'DOMContentLoaded', function() {
 
-
-
 	// Carry over the float property to the parent shortcode div to make the behavior the same
-
 	var shortcodes = document.querySelectorAll('[data-name="main-content"] [data-shortcode]');
-
 	Array.prototype.forEach.call(shortcodes, function(el){
-
 		if ( el.children.length === 1 ) {
-
 			try {
-
 				var style = getComputedStyle(el.firstChild);
-
 				if ( style['float'] === 'left' || style['float'] === 'right' ) {
-
 					el.style['float'] = style['float'];
-
 				}
-
 			} catch (err) {}
-
 		}
-
 	});
 
-
-
 });
-
 
 /* globals ContentEdit, __extends, PBSEditor */
 
@@ -12480,7 +12270,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 });
 
-/* globals ContentTools, ContentEdit, __extends */
+/* globals ContentTools, ContentEdit, __extends, pbsParams */
 
 ContentTools.ToolboxBarUI = ( function( _super ) {
 	__extends( ToolboxBarUI, _super );
@@ -12682,6 +12472,23 @@ ContentTools.ToolboxBarUI = ( function( _super ) {
 	};
 
 } )();
+
+
+/**
+ * Make labels translatable.
+ */
+ContentTools.Tools.Bold.label = pbsParams.labels.bold;
+ContentTools.Tools.Italic.label = pbsParams.labels.italic;
+ContentTools.Tools.Link.label = pbsParams.labels.link;
+ContentTools.Tools.AlignLeft.label = pbsParams.labels.align_left;
+ContentTools.Tools.AlignCenter.label = pbsParams.labels.align_center;
+ContentTools.Tools.AlignRight.label = pbsParams.labels.align_right;
+ContentTools.Tools.OrderedList.label = pbsParams.labels.numbered_list;
+ContentTools.Tools.UnorderedList.label = pbsParams.labels.bullet_list;
+ContentTools.Tools.Indent.label = pbsParams.labels.indent;
+ContentTools.Tools.Unindent.label = pbsParams.labels.unindent;
+ContentTools.Tools.Undo.label = pbsParams.labels.undo;
+ContentTools.Tools.Redo.label = pbsParams.labels.redo;
 
 /* globals ContentTools, ContentEdit, __extends, pbsParams */
 
@@ -12902,11 +12709,13 @@ ContentTools.ToolboxFixedUI = ( function( _super ) {
 		this._toolboxElements = null;
 	};
 
-	// var startProxy = _EditorApp.prototype.start;
-	// _EditorApp.prototype.start = function() {
-	// 	startProxy.call( this );
-	// 	this._toolboxElements.show();
-	// };
+	var startProxy = _EditorApp.prototype.start;
+	_EditorApp.prototype.start = function() {
+		startProxy.call( this );
+		if ( ! this._toolboxElements.isMounted() ) {
+			this._toolboxElements.mount();
+		}
+	};
 
 	var stopProxy = _EditorApp.prototype.stop;
 	_EditorApp.prototype.stop = function() {
@@ -13300,7 +13109,7 @@ ContentTools.ToolboxPropertiesUI = (function(_super) {
 				if ( numWithGroups && numNoGroup ) {
 					for ( k = 0; k < shortcodeProperties.options.length; k++ ) {
 						if ( ! shortcodeProperties.options[ k ].group ) {
-							shortcodeProperties.options[ k ].group = 'General';
+							shortcodeProperties.options[ k ].group = pbsParams.labels.general;
 						}
 					}
 				}
@@ -13358,7 +13167,7 @@ ContentTools.ToolboxPropertiesUI = (function(_super) {
 			if ( numWithGroups && numNoGroup ) {
 				for ( k = 0; k < PBSInspectorOptions[ optionIndex ].options.length; k++ ) {
 					if ( ! PBSInspectorOptions[ optionIndex ].options[ k ].group ) {
-						PBSInspectorOptions[ optionIndex ].options[ k ].group = 'General';
+						PBSInspectorOptions[ optionIndex ].options[ k ].group = pbsParams.labels.general;
 					}
 				}
 			}
@@ -15713,6 +15522,7 @@ PBSOption.Checkbox = PBSBaseView.extend({
 		if ( this.optionSettings.change ) {
 			this.optionSettings.change( this.model.get('element'), value, this );
 		}
+
 		this.model.set( this.optionSettings.id, value );
 		wp.hooks.doAction( 'pbs.option.changed' );
 	},
@@ -16439,6 +16249,70 @@ PBSOption.Button2 = PBSBaseView.extend({
 
 
 
+var options = [];
+
+
+
+options.push(
+
+	{
+
+		'name': pbsParams.labels.icon_frame_change_title,
+
+		'button': pbsParams.labels.pick_an_icon,
+
+		'type': 'button2',
+
+		'group': pbsParams.labels.general,
+
+		'click': function( element ) {
+
+			PBSEditor.iconFrame.open({
+
+				title: pbsParams.labels.choose_icon,
+
+				button: pbsParams.labels.choose_icon,
+
+				successCallback: function( frameView ) {
+
+					element.change( frameView.selected.firstChild );
+
+				}
+
+			});
+
+		}
+
+	},
+
+	{
+
+		'name': pbsParams.labels.icon_color,
+
+		'type': 'color',
+
+		'group': pbsParams.labels.general,
+
+		'value': function( element ) {
+
+			return element._domElement.style.fill;
+
+		},
+
+		'change': function( element, value ) {
+
+			element.style( 'fill', value );
+
+		}
+
+	}
+
+);
+
+
+
+
+
 window.pbsAddInspector( 'Icon', {
 
 	'label': pbsParams.labels.icon,
@@ -16457,61 +16331,7 @@ window.pbsAddInspector( 'Icon', {
 
 	},
 
-	'options': [
-
-		{
-
-			'name': pbsParams.labels.icon_frame_change_title,
-
-			'button': pbsParams.labels.pick_an_icon,
-
-			'type': 'button2',
-
-			'group': pbsParams.labels.general,
-
-			'click': function( element ) {
-
-				PBSEditor.iconFrame.open({
-
-					title: pbsParams.labels.choose_icon,
-
-					button: pbsParams.labels.choose_icon,
-
-					successCallback: function( frameView ) {
-
-						element.change( frameView.selected.firstChild );
-
-					}
-
-				});
-
-			}
-
-		},
-
-		{
-
-			'name': pbsParams.labels.icon_color,
-
-			'type': 'color',
-
-			'group': pbsParams.labels.general,
-
-			'value': function( element ) {
-
-				return element._domElement.style.fill;
-
-			},
-
-			'change': function( element, value ) {
-
-				element.style( 'fill', value );
-
-			}
-
-		}
-
-	]
+	'options': options
 
 } );
 
@@ -16732,507 +16552,515 @@ window.pbsAddInspector('pbs_sidebar', {
 
 var options = [];
 
-options.push( {
+options.push(
 
-	'name': pbsParams.labels.row_width,
+	{
 
-	'desc': pbsParams.labels.desc_row_width,
+		'name': pbsParams.labels.row_width,
 
-	'type': 'select',
+		'desc': pbsParams.labels.desc_row_width,
 
-	'group': pbsParams.labels.general,
+		'type': 'select',
 
-	'options': {
+		'group': pbsParams.labels.general,
 
-		'': pbsParams.labels.normal_width,
+		'options': {
 
-		'full-width-retain-content': pbsParams.labels.full_width_retained_content_width,
+			'': pbsParams.labels.normal_width,
 
-		'full-width': pbsParams.labels.full_width
+			'full-width-retain-content': pbsParams.labels.full_width_retained_content_width,
 
-	},
+			'full-width': pbsParams.labels.full_width
 
-	'getRootRow': function( element ) {
+		},
 
-		var rootRow = element;
+		'getRootRow': function( element ) {
+
+			var rootRow = element;
 
 
 
-		// Get the root row element, we can only set the root row as full width
+			// Get the root row element, we can only set the root row as full width
 
-		var currElem = element._domElement;
+			var currElem = element._domElement;
 
-		while ( currElem && currElem._ceElement ) {
+			while ( currElem && currElem._ceElement ) {
 
-			if ( currElem.classList.contains( 'pbs-row' ) ) {
+				if ( currElem.classList.contains( 'pbs-row' ) ) {
 
-				rootRow = currElem._ceElement;
+					rootRow = currElem._ceElement;
+
+				}
+
+				currElem = currElem.parentNode;
 
 			}
 
-			currElem = currElem.parentNode;
 
-		}
 
+			return rootRow;
 
+		},
 
-		return rootRow;
+		'value': function ( element ) {
 
-	},
+			return element._domElement.getAttribute( 'data-width' ) || '';
 
-	'value': function ( element ) {
+			// return wp.hooks.applyFilters( 'inspector.row.change_width.can_apply', true, element );
 
-		return element._domElement.getAttribute( 'data-width' ) || '';
+		},
 
-		// return wp.hooks.applyFilters( 'inspector.row.change_width.can_apply', true, element );
+		'render': function( element, view ) {
 
-	},
+			// Get the root row element, we can only set the root row as full width.
 
-	'render': function( element, view ) {
+			var rootRow = view.optionSettings.getRootRow( element );
 
-		// Get the root row element, we can only set the root row as full width.
 
-		var rootRow = view.optionSettings.getRootRow( element );
 
+			var val = rootRow._domElement.getAttribute('data-width');
 
+			if ( ! val ) {
 
-		var val = rootRow._domElement.getAttribute('data-width');
-
-		if ( ! val ) {
-
-			val = '';
-
-		}
-
-
-
-		view.el.classList.remove('full');
-
-		view.el.classList.remove('full-retain');
-
-		if ( val === 'full-width' ) {
-
-			view.el.classList.add('full');
-
-		} else if ( val === 'full-width-retain-content' ) {
-
-			view.el.classList.add('full-retain');
-
-		}
-
-
-
-		// Set the model width so other views can detect the value.
-
-		view.model.set( view.optionSettings.id, val );
-
-	},
-
-	'change': function( element, value, view ) {
-
-		// Get the root row element, we can only set the root row as full width.
-
-		var rootRow = view.optionSettings.getRootRow( element );
-
-
-
-		// var val = rootRow._domElement.getAttribute('data-width');
-
-		// if ( ! val ) {
-
-			// val = '';
-
-		// }
-
-
-
-		rootRow.style('margin-left', '');
-
-		rootRow.style('margin-right', '');
-
-		rootRow.style('padding-left', '');
-
-		rootRow.style('padding-right', '');
-
-
-
-		view.el.classList.remove('full');
-
-		view.el.classList.remove('full-retain');
-
-		// if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-
-			// val = '';
-
-		// } else if ( window.PBSEditor.isCtrlDown ) {
-
-		// 	if ( val === 'full-width' ) {
-
-		// 		val = 'full-width-retain-content';
-
-		// 		view.el.classList.add('full-retain');
-
-		// 	} else if ( val === 'full-width-retain-content' ) {
-
-		// 		val = '';
-
-		// 	} else {
-
-		// 		val = 'full-width';
-
-		// 		view.el.classList.add('full');
-
-		// 	}
-
-		// } else {
-
-			// if ( value === 'full-width' ) {
-
-				// value = '';
-
-			if ( value === 'full-width' ) {
-
-				// value = 'full-width';
-
-				view.el.classList.add( 'full' );
-
-			} else if ( value === 'full-width-retain-content' ) {
-
-				// value = 'full-width-retain-content';
-
-				view.el.classList.add( 'full-retain' );
+				val = '';
 
 			}
 
-		// }
 
 
+			view.el.classList.remove('full');
 
-		rootRow.attr( 'data-width', value );
+			view.el.classList.remove('full-retain');
 
-		window._pbsFixRowWidth( rootRow._domElement );
+			if ( val === 'full-width' ) {
 
-		rootRow.taint();
+				view.el.classList.add('full');
 
+			} else if ( val === 'full-width-retain-content' ) {
 
-
-		view.model.set( view.optionSettings.id, value );
-
-	}
-
-},
-
-{
-
-	'name': pbsParams.labels.full_height,
-
-	'type': 'checkbox',
-
-	'group': pbsParams.labels.general,
-
-	'value': function( element ) {
-
-		return element._domElement.style['min-height'] === '100vh';
-
-	},
-
-	'change': function( element, value ) {
-
-		element.style( 'min-height', value ? '100vh' : '' );
-
-	}
-
-},
-
-{
-
-	'name': pbsParams.labels.background_color,
-
-	'type': 'color',
-
-	'group': pbsParams.labels.background,
-
-	'initialize': function( element, view ) {
-
-		view.listenTo( view.model, 'change:background-color', view.render );
-
-	},
-
-	'value': function( element ) {
-
-		return element._domElement.style.backgroundColor || '';
-
-	},
-
-	'change': function( element, value ) {
-
-
-
-		var bgImage = element._domElement.style['background-image'];
-
-		var url = bgImage.match( /url\([^\)]+\)/i ) || '';
-
-
-
-		element.style( 'background-color', value );
-
-
-
-		// If there's a gradient, change that also.
-
-		if ( bgImage.indexOf( 'gradient' ) !== -1 ) {
-
-			element.style( 'background-image', 'linear-gradient(' + value + ', ' + value + '), ' + url );
-
-		}
-
-	}
-
-},
-
-{
-
-	'name': pbsParams.labels.background_image,
-
-	'type': 'image',
-
-	'group': pbsParams.labels.background,
-
-	'value': function( element ) {
-
-		if ( element._domElement.style.backgroundImage ) {
-
-			var matches = element._domElement.style.backgroundImage.match( /url\([^,$]+/ );
-
-			if ( matches ) {
-
-				return matches[0];
+				view.el.classList.add('full-retain');
 
 			}
 
-			return element._domElement.style.backgroundImage;
+
+
+			// Set the model width so other views can detect the value.
+
+			view.model.set( view.optionSettings.id, val );
+
+		},
+
+		'change': function( element, value, view ) {
+
+			// Get the root row element, we can only set the root row as full width.
+
+			var rootRow = view.optionSettings.getRootRow( element );
+
+
+
+			// var val = rootRow._domElement.getAttribute('data-width');
+
+			// if ( ! val ) {
+
+				// val = '';
+
+			// }
+
+
+
+			rootRow.style('margin-left', '');
+
+			rootRow.style('margin-right', '');
+
+			rootRow.style('padding-left', '');
+
+			rootRow.style('padding-right', '');
+
+
+
+			view.el.classList.remove('full');
+
+			view.el.classList.remove('full-retain');
+
+			// if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
+
+				// val = '';
+
+			// } else if ( window.PBSEditor.isCtrlDown ) {
+
+			// 	if ( val === 'full-width' ) {
+
+			// 		val = 'full-width-retain-content';
+
+			// 		view.el.classList.add('full-retain');
+
+			// 	} else if ( val === 'full-width-retain-content' ) {
+
+			// 		val = '';
+
+			// 	} else {
+
+			// 		val = 'full-width';
+
+			// 		view.el.classList.add('full');
+
+			// 	}
+
+			// } else {
+
+				// if ( value === 'full-width' ) {
+
+					// value = '';
+
+				if ( value === 'full-width' ) {
+
+					// value = 'full-width';
+
+					view.el.classList.add( 'full' );
+
+				} else if ( value === 'full-width-retain-content' ) {
+
+					// value = 'full-width-retain-content';
+
+					view.el.classList.add( 'full-retain' );
+
+				}
+
+			// }
+
+
+
+			rootRow.attr( 'data-width', value );
+
+			window._pbsFixRowWidth( rootRow._domElement );
+
+			rootRow.taint();
+
+
+
+			view.model.set( view.optionSettings.id, value );
 
 		}
 
-		return '';
-
 	},
 
-	'change': function( element, attachmentIDs, attachmentURLs ) {
+	{
 
-		var backgrounds = '';
+		'name': pbsParams.labels.full_height,
 
-		for ( var i = 0; i < attachmentURLs.length; i++ ) {
+		'type': 'checkbox',
 
-			backgrounds += backgrounds ? ',' : '';
+		'group': pbsParams.labels.general,
 
-			backgrounds += 'url(' + attachmentURLs[ i ] + ')';
+		'value': function( element ) {
 
-		}
+			return element._domElement.style['min-height'] === '100vh';
 
-		var background = element.style( 'background-image' );
+		},
 
-		if ( background.match( /url\(/ ) ) {
+		'change': function( element, value ) {
 
-			background = background.replace( /url\([^\)]+\)/, backgrounds );
-
-			element.style( 'background-image', background );
-
-		} else {
-
-			element.style( 'background-image', backgrounds );
+			element.style( 'min-height', value ? '100vh' : '' );
 
 		}
 
 	},
 
-	'remove': function( element, attachmentIDs, view ) {
+	{
 
-		element.style( 'background-image', '' );
+		'name': pbsParams.labels.background_color,
 
-		view.model.set( 'background-image', '' );
+		'type': 'color',
 
-	}
+		'group': pbsParams.labels.background,
 
-},
+		'initialize': function( element, view ) {
 
-{
+			view.listenTo( view.model, 'change:background-color', view.render );
 
-	'name': pbsParams.labels.border_style,
+		},
 
-	'type': 'select',
+		'value': function( element ) {
 
-	'group': pbsParams.labels.borders,
+			return element._domElement.style.backgroundColor || '';
 
-	'options': {
+		},
 
-		'': pbsParams.labels.none,
+		'change': function( element, value ) {
 
-		'solid': pbsParams.labels.solid,
 
-		'dashed': pbsParams.labels.dashed,
 
-		'dotted': pbsParams.labels.dotted
+			var bgImage = element._domElement.style['background-image'];
 
-	},
+			var url = bgImage.match( /url\([^\)]+\)/i ) || '';
 
-	'value': function ( element ) {
 
-		return element._domElement.style['border-style'];
 
-	},
+			element.style( 'background-color', value );
 
-	'change': function( element, value, view ) {
 
-		element.style( 'border-style', value );
 
-		if ( value ) {
+			// If there's a gradient, change that also.
 
-			if ( element._domElement.style['border-width'] === '' || element._domElement.style['border-width'] === 'transparent' ) {
+			if ( bgImage.indexOf( 'gradient' ) !== -1 ) {
 
-				element.style( 'border-width', '1px' );
-
-				view.model.set( 'border-width', '1' );
+				element.style( 'background-image', 'linear-gradient(' + value + ', ' + value + '), ' + url );
 
 			}
 
-			if ( element._domElement.style['border-color'] === '' || element._domElement.style['border-color'] === '0px' ) {
+		}
 
-				element.style( 'border-color', '#000000' );
+	},
 
-				view.model.set( 'border-color', '#000000' );
+	{
+
+		'name': pbsParams.labels.background_image,
+
+		'type': 'image',
+
+		'group': pbsParams.labels.background,
+
+		'value': function( element ) {
+
+			if ( element._domElement.style.backgroundImage ) {
+
+				var matches = element._domElement.style.backgroundImage.match( /url\([^,$]+/ );
+
+				if ( matches ) {
+
+					return matches[0];
+
+				}
+
+				return element._domElement.style.backgroundImage;
 
 			}
 
-		} else {
+			return '';
 
-			element.style( 'border-width', '' );
+		},
 
-			element.style( 'border-color', '' );
+		'change': function( element, attachmentIDs, attachmentURLs ) {
 
-			view.model.set( 'border-width', '' );
+			var backgrounds = '';
 
-			view.model.set( 'border-color', '' );
+			for ( var i = 0; i < attachmentURLs.length; i++ ) {
+
+				backgrounds += backgrounds ? ',' : '';
+
+				backgrounds += 'url(' + attachmentURLs[ i ] + ')';
+
+			}
+
+			var background = element.style( 'background-image' );
+
+			if ( background.match( /url\(/ ) ) {
+
+				background = background.replace( /url\([^\)]+\)/, backgrounds );
+
+				element.style( 'background-image', background );
+
+			} else {
+
+				element.style( 'background-image', backgrounds );
+
+			}
+
+		},
+
+		'remove': function( element, attachmentIDs, view ) {
+
+			element.style( 'background-image', '' );
+
+			view.model.set( 'background-image', '' );
+
+		}
+
+	}
+
+);
+
+
+
+options.push(
+
+	{
+
+		'name': pbsParams.labels.border_style,
+
+		'type': 'select',
+
+		'group': pbsParams.labels.borders,
+
+		'options': {
+
+			'': pbsParams.labels.none,
+
+			'solid': pbsParams.labels.solid,
+
+			'dashed': pbsParams.labels.dashed,
+
+			'dotted': pbsParams.labels.dotted
+
+		},
+
+		'value': function ( element ) {
+
+			return element._domElement.style['border-style'];
+
+		},
+
+		'change': function( element, value, view ) {
+
+			element.style( 'border-style', value );
+
+			if ( value ) {
+
+				if ( element._domElement.style['border-width'] === '' || element._domElement.style['border-width'] === 'transparent' ) {
+
+					element.style( 'border-width', '1px' );
+
+					view.model.set( 'border-width', '1' );
+
+				}
+
+				if ( element._domElement.style['border-color'] === '' || element._domElement.style['border-color'] === '0px' ) {
+
+					element.style( 'border-color', '#000000' );
+
+					view.model.set( 'border-color', '#000000' );
+
+				}
+
+			} else {
+
+				element.style( 'border-width', '' );
+
+				element.style( 'border-color', '' );
+
+				view.model.set( 'border-width', '' );
+
+				view.model.set( 'border-color', '' );
+
+			}
+
+		}
+
+	},
+
+	{
+
+		'name': pbsParams.labels.border_color,
+
+		'type': 'color',
+
+		'group': pbsParams.labels.borders,
+
+		'initialize': function( element, view ) {
+
+			view.listenTo( view.model, 'change:border-color', view.render );
+
+		},
+
+		'value': function( element ) {
+
+			return element._domElement.style.borderColor || '';
+
+		},
+
+		'change': function( element, value ) {
+
+			element.style( 'border-color', value );
+
+		}
+
+	},
+
+	{
+
+		'name': pbsParams.labels.border_thickness,
+
+		'type': 'number',
+
+		'group': pbsParams.labels.borders,
+
+		'step': '1',
+
+		'min': '0',
+
+		'max': '20',
+
+		'initialize': function( element, view ) {
+
+			view.listenTo( view.model, 'change:border-width', view.render );
+
+		},
+
+		'value': function( element ) {
+
+			var size = parseInt( element._domElement.style['border-width'], 10 );
+
+			if ( isNaN( size ) ) {
+
+				return 0;
+
+			}
+
+			return size;
+
+		},
+
+		'change': function( element, value ) {
+
+			element.style( 'border-width', value + 'px' );
+
+		}
+
+	},
+
+	{
+
+		'name': pbsParams.labels.border_radius,
+
+		'type': 'number',
+
+		'group': pbsParams.labels.borders,
+
+		'step': '1',
+
+		'min': '0',
+
+		'max': '1000',
+
+		'initialize': function( element ) {
+
+			this.max = parseInt( parseInt( element._domElement.getBoundingClientRect().height, 10 ) / 2 + 1, 10 );
+
+		},
+
+		'value': function( element ) {
+
+			var size = parseInt( element._domElement.style['border-radius'], 10 );
+
+			if ( isNaN( size ) ) {
+
+				return 0;
+
+			}
+
+			return size;
+
+		},
+
+		'change': function( element, value ) {
+
+			element.style( 'border-radius', value + 'px' );
 
 		}
 
 	}
 
-},
-
-{
-
-	'name': pbsParams.labels.border_color,
-
-	'type': 'color',
-
-	'group': pbsParams.labels.borders,
-
-	'initialize': function( element, view ) {
-
-		view.listenTo( view.model, 'change:border-color', view.render );
-
-	},
-
-	'value': function( element ) {
-
-		return element._domElement.style.borderColor || '';
-
-	},
-
-	'change': function( element, value ) {
-
-		element.style( 'border-color', value );
-
-	}
-
-},
-
-{
-
-	'name': pbsParams.labels.border_thickness,
-
-	'type': 'number',
-
-	'group': pbsParams.labels.borders,
-
-	'step': '1',
-
-	'min': '0',
-
-	'max': '20',
-
-	'initialize': function( element, view ) {
-
-		view.listenTo( view.model, 'change:border-width', view.render );
-
-	},
-
-	'value': function( element ) {
-
-		var size = parseInt( element._domElement.style['border-width'], 10 );
-
-		if ( isNaN( size ) ) {
-
-			return 0;
-
-		}
-
-		return size;
-
-	},
-
-	'change': function( element, value ) {
-
-		element.style( 'border-width', value + 'px' );
-
-	}
-
-},
-
-{
-
-	'name': pbsParams.labels.border_radius,
-
-	'type': 'number',
-
-	'group': pbsParams.labels.borders,
-
-	'step': '1',
-
-	'min': '0',
-
-	'max': '1000',
-
-	'initialize': function( element ) {
-
-		this.max = parseInt( parseInt( element._domElement.getBoundingClientRect().height, 10 ) / 2 + 1, 10 );
-
-	},
-
-	'value': function( element ) {
-
-		var size = parseInt( element._domElement.style['border-radius'], 10 );
-
-		if ( isNaN( size ) ) {
-
-			return 0;
-
-		}
-
-		return size;
-
-	},
-
-	'change': function( element, value ) {
-
-		element.style( 'border-radius', value + 'px' );
-
-	}
-
-
-
-} );
+);
 
 
 
@@ -17366,7 +17194,9 @@ options.push(
 			element.style( 'background-image', '' );
 			view.model.set( 'background-image', '' );
 		}
-	},
+	}
+);
+options.push(
 	{
 		'name': pbsParams.labels.border_style,
 		'type': 'select',
@@ -17629,159 +17459,140 @@ ContentTools.ToolboxUI.prototype.createShortcodeMappingOptions = function( short
 
 /* globals google, pbsParams, PBSEditor */
 
- window.pbsAddInspector( 'Map', {
- 	'label': pbsParams.labels.map,
-	'footer': pbsParams.labels.map_lite_footer, // LITE-ONLY
- 	'options': [
-		{
-			'name': pbsParams.labels.latitude_longitude_and_address,
-			'type': 'text',
-			'desc': pbsParams.labels.latitude_longitude_desc,
-			'initialize': function( element, view ) {
-				view.listenTo( view.model, 'change:data-center', view.render );
-			},
-			'value': function( element ) {
-				return element.attr( 'data-center' );
-			},
-			'change': _.debounce( function( element, value, view ) {
-				if ( element.attr( 'data-center' ) === value ) {
-					return;
-				}
-				element.attr( 'data-center', value );
+var options = [];
 
-				view.$el.find( 'input' ).removeClass( 'pbs-option-error' );
-
-				var center = value.trim() || '37.09024, -95.712891';
-
-				// Remove all existing markers.
-				if ( element._domElement.map.marker ) {
-					element._domElement.map.marker.setMap( null );
-					delete( element._domElement.map.marker );
-				}
-
-				var latLonMatch = center.match( /^([-+]?\d{1,2}([.]\d+)?)\s*,?\s*([-+]?\d{1,3}([.]\d+)?)$/ );
-				if ( latLonMatch ) {
-					element.attr( 'data-lat', latLonMatch[1] );
-					element.attr( 'data-lng', latLonMatch[3] );
-					center = { lat: parseFloat( latLonMatch[1] ), lng: parseFloat( latLonMatch[3] ) };
-					element._domElement.map.setCenter( center );
-
-					// Put back the map marker.
-					if ( element.attr( 'data-marker-image' ) ) {
-						element._domElement.map.marker = new google.maps.Marker({
-							position: element._domElement.map.getCenter(),
-							map: element._domElement.map,
-							icon: element.attr( 'data-marker-image' )
-						});
-					} else if ( element.attr( 'data-marker' ) ) {
-						element._domElement.map.marker = new google.maps.Marker({
-						    position: element._domElement.map.getCenter(),
-						    map: element._domElement.map
-						});
-					}
-
-				} else {
-					var geocoder = new google.maps.Geocoder();
-					geocoder.geocode( { 'address': center }, function( results, status ) {
-					    if ( status === google.maps.GeocoderStatus.OK ) {
-							element.attr( 'data-lat', results[0].geometry.location.lat() );
-							element.attr( 'data-lng', results[0].geometry.location.lng() );
-							center = { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() };
-							element._domElement.map.setCenter( center );
-
-							// Put back the map marker.
-							if ( element.attr( 'data-marker-image' ) ) {
-								element._domElement.map.marker = new google.maps.Marker({
-									position: element._domElement.map.getCenter(),
-									map: element._domElement.map,
-									icon: element.attr( 'data-marker-image' )
-								});
-							} else if ( element.attr( 'data-marker' ) ) {
-								element._domElement.map.marker = new google.maps.Marker({
-								    position: element._domElement.map.getCenter(),
-								    map: element._domElement.map
-								});
-							}
-						} else {
-							view.$el.find( 'input' ).addClass( 'pbs-option-error' );
-					    }
-					});
-				}
-			}, 300 )
+options.push(
+	{
+		'name': pbsParams.labels.latitude_longitude_and_address,
+		'type': 'text',
+		'desc': pbsParams.labels.latitude_longitude_desc,
+		'initialize': function( element, view ) {
+			view.listenTo( view.model, 'change:data-center', view.render );
 		},
-		{
-			'name': pbsParams.labels.map_controls,
-			'type': 'checkbox',
-			'value': function( element ) {
-				return ! element._domElement.getAttribute( 'data-disable-ui' );
-			},
-			'change': function( element, value ) {
-				element.attr( 'data-disable-ui', value ? '1' : '' );
-				element._domElement.map.setOptions( { disableDefaultUI: ! value } );
+		'value': function( element ) {
+			return element.attr( 'data-center' );
+		},
+		'change': _.debounce( function( element, value, view ) {
+			if ( element.attr( 'data-center' ) === value ) {
+				return;
 			}
-		},
-		{
-			'name': pbsParams.labels.map_marker,
-			'type': 'checkbox',
-			'value': function( element ) {
-				return !! element._domElement.getAttribute( 'data-marker' );
-			},
-			'change': function( element, value ) {
+			element.attr( 'data-center', value );
 
-				// Remove any existing map markers.
-				if ( element._domElement.map.marker ) {
-					element._domElement.map.marker.setMap( null );
-					delete( element._domElement.map.marker );
-				}
+			view.$el.find( 'input' ).removeClass( 'pbs-option-error' );
 
-				if ( ! value ) {
-					element.attr( 'data-marker', '' );
-					element.attr( 'data-marker-image', '' );
-				} else {
-					element.attr( 'data-marker', '1' );
+			var center = value.trim() || '37.09024, -95.712891';
 
-					// Add the marker.
+			// Remove all existing markers.
+			if ( element._domElement.map.marker ) {
+				element._domElement.map.marker.setMap( null );
+				delete( element._domElement.map.marker );
+			}
+
+			var latLonMatch = center.match( /^([-+]?\d{1,2}([.]\d+)?)\s*,?\s*([-+]?\d{1,3}([.]\d+)?)$/ );
+			if ( latLonMatch ) {
+				element.attr( 'data-lat', latLonMatch[1] );
+				element.attr( 'data-lng', latLonMatch[3] );
+				center = { lat: parseFloat( latLonMatch[1] ), lng: parseFloat( latLonMatch[3] ) };
+				element._domElement.map.setCenter( center );
+
+				// Put back the map marker.
+				if ( element.attr( 'data-marker-image' ) ) {
 					element._domElement.map.marker = new google.maps.Marker({
-					    position: element._domElement.map.getCenter(),
-					    map: element._domElement.map
+						position: element._domElement.map.getCenter(),
+						map: element._domElement.map,
+						icon: element.attr( 'data-marker-image' )
+					});
+				} else if ( element.attr( 'data-marker' ) ) {
+					element._domElement.map.marker = new google.maps.Marker({
+						position: element._domElement.map.getCenter(),
+						map: element._domElement.map
 					});
 				}
+
+			} else {
+				var geocoder = new google.maps.Geocoder();
+				geocoder.geocode( { 'address': center }, function( results, status ) {
+					if ( status === google.maps.GeocoderStatus.OK ) {
+						element.attr( 'data-lat', results[0].geometry.location.lat() );
+						element.attr( 'data-lng', results[0].geometry.location.lng() );
+						center = { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() };
+						element._domElement.map.setCenter( center );
+
+						// Put back the map marker.
+						if ( element.attr( 'data-marker-image' ) ) {
+							element._domElement.map.marker = new google.maps.Marker({
+								position: element._domElement.map.getCenter(),
+								map: element._domElement.map,
+								icon: element.attr( 'data-marker-image' )
+							});
+						} else if ( element.attr( 'data-marker' ) ) {
+							element._domElement.map.marker = new google.maps.Marker({
+								position: element._domElement.map.getCenter(),
+								map: element._domElement.map
+							});
+						}
+					} else {
+						view.$el.find( 'input' ).addClass( 'pbs-option-error' );
+					}
+				});
+			}
+		}, 300 )
+	},
+	{
+		'name': pbsParams.labels.map_controls,
+		'type': 'checkbox',
+		'value': function( element ) {
+			return ! element._domElement.getAttribute( 'data-disable-ui' );
+		},
+		'change': function( element, value ) {
+			element.attr( 'data-disable-ui', value ? '1' : '' );
+			element._domElement.map.setOptions( { disableDefaultUI: ! value } );
+		}
+	},
+	{
+		'name': pbsParams.labels.map_marker,
+		'type': 'checkbox',
+		'value': function( element ) {
+			return !! element._domElement.getAttribute( 'data-marker' );
+		},
+		'change': function( element, value ) {
+
+			// Remove any existing map markers.
+			if ( element._domElement.map.marker ) {
+				element._domElement.map.marker.setMap( null );
+				delete( element._domElement.map.marker );
+			}
+
+			if ( ! value ) {
+				element.attr( 'data-marker', '' );
+				element.attr( 'data-marker-image', '' );
+			} else {
+				element.attr( 'data-marker', '1' );
+
+				// Add the marker.
+				element._domElement.map.marker = new google.maps.Marker({
+					position: element._domElement.map.getCenter(),
+					map: element._domElement.map
+				});
 			}
 		}
-	]
+	}
+);
+
+window.pbsAddInspector( 'Map', {
+ 	'label': pbsParams.labels.map,
+	'footer': pbsParams.is_lite ? pbsParams.labels.map_lite_footer : '',
+ 	'options': options
 } );
-
-/**
- * TODO:
- add tab
- remove tab
-tab:
-	 icon
- Tabs:
-	 General
-	 	horizontal / vertical
-	 	tab alignment (left, center, right, stretch or when vertical top, center, bottom, stretch)
-   	 	icon location
-	style buttons:
-		tab active accent color
-	 	panel bg color (will also carry to the bg color of the active tab)
-	 	enable/disable border effect
-		 style
-		 	- classic tabs
-			- modern tabs
-			- minimalist (line with arrow)
-			- minimalist (clean with underline)
-*/
-
-
 
 /* globals pbsParams */
 
+var options = [];
+
 window.pbsAddInspector( 'Tabs', {
 	'label': pbsParams.labels.tabs,
-	'footer': pbsParams.labels.tabs_lite_footer, // LITE-ONLY
-	'options': [
-	]
+	'footer': pbsParams.is_lite ? pbsParams.labels.tabs_lite_footer : '',
+	'options': options
 } );
 
 
@@ -17791,8 +17602,7 @@ window.pbsAddInspector( 'Tabs', {
 /**
  * These are all the common options.
  */
-var options = [
-];
+var options = [];
 
 
 /**
@@ -18733,9 +18543,9 @@ ContentTools.Tools.Shortcode = (function(_super) {
 				var option = PBSInspectorOptions.Shortcode[ base ].options[ i ];
 				if ( option.id ) {
 					if ( option.id === 'content' ) {
-						scData.content = option['default'];
+						scData.content = option['default'] || '';
 					} else {
-						scData.attrs[ option.id ] = option['default'];
+						scData.attrs[ option.id ] = option['default'] || '';
 					}
 				}
 			}
@@ -20138,9 +19948,10 @@ ContentTools.Tools.Link.apply = function(element, selection, callback) {
 	}
 
 	// Set the field values.
-	document.querySelector('#wp-link-url').value = url;
-	document.querySelector('#wp-link-text').value = text;
-	document.querySelector('#wp-link-target').checked = target !== '';
+	// #link-options are backward compatible with 4.1.x.
+	document.querySelector('#wp-link-url, #link-options #url-field').value = url;
+	document.querySelector('#wp-link-text, #link-options #link-title-field').value = text;
+	document.querySelector('#wp-link-target, #link-options #link-target-checkbox').checked = target !== '';
 
 	window._pbsCurrentLink = {
 		element: element,
@@ -20184,9 +19995,10 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			// }
 			element.content = element.content.unformat(from, to, 'a');
 
-			var url = document.querySelector('#wp-link-url').value,
-				text = document.querySelector('#wp-link-text').value,
-				target = document.querySelector('#wp-link-target').checked;
+			// #link-options are backward compatible with 4.1.x.
+			var url = document.querySelector('#wp-link-url, #link-options #url-field').value,
+				text = document.querySelector('#wp-link-text, #link-options #link-title-field').value,
+				target = document.querySelector('#wp-link-target, #link-options #link-target-checkbox').checked;
 
 			if ( url ) {
 				var args = {
@@ -20889,7 +20701,6 @@ ContentTools.Tools.paragraphPicker = (function(_super) {
 		forceAdd = app.ctrlDown();
 
 		// Reset some styles.
-
 
 		if ( ContentTools.Tools.Bold.isApplied( element, selection ) ) {
 			ContentTools.Tools.Bold.apply( element, selection, function() {} );
@@ -21700,114 +21511,6 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 
 
-/* globals ContentTools, __extends, pbsParams */
-
-
-
-
-
-/**
-
- * The main "Get Premium" button class.
-
- */
-
-ContentTools.Tools.GetPremium = (function(_super) {
-
-	__extends(GetPremium, _super);
-
-	function GetPremium() {
-
-		return GetPremium.__super__.constructor.apply(this, arguments);
-
-	}
-
-	ContentTools.ToolShelf.stow(GetPremium, 'get-premium');
-
-	GetPremium.type = 'get-premium';
-
-	return GetPremium;
-
-})(ContentTools.Tool);
-
-
-
-
-
-/**
-
- * Add the special behavior of the "Get Premium" button.
-
- */
-
-(function() {
-
-	var proxied = ContentTools.ToolUI.prototype.mount;
-
-	ContentTools.ToolUI.prototype.mount = function( domParent, before ) {
-
-		var ret = proxied.call( this, domParent, before );
-
-
-
-		if ( this.tool.type === 'get-premium' ) {
-
-			this._domElement.classList.remove( 'ct-tool' );
-
-			this._domElement.classList.add( 'pbs-get-more-features' );
-
-			this._domElement.classList.add( 'pbs-get-more-features-dark' );
-
-			this._domElement.innerHTML = '<a href="https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=inspector-top&utm_campaign=Page%20Builder%20Sandwich" target="_blank">' + pbsParams.labels.get_the_premium_plugin + '</a>';
-
-		}
-
-
-
-		return ret;
-
-	};
-
-})();
-
-
-
-
-
-/**
-
- * Create "Get Premium" buttons on the end of inspector areas.
-
- */
-
-// wp.hooks.addAction( 'pbs.inspector.add_section', function( container, label ) {
-
-// 	var getMore = document.createElement( 'div' );
-
-// 	getMore.classList.add( 'pbs-get-more-features' );
-
-// 	// if ( label.toLowerCase() === 'row' ) {
-
-// 	// 	getMore.innerHTML = '<a href="https://pagebuildersandwich.com/?utm_source=lite-plugin&utm_medium=inspector-row&utm_campaign=Page%20Builder%20Sandwich" target="_blank">Get more tools like full-width rows, image, parallax, and video backgrounds</a>';
-
-// 	// } else if ( label.toLowerCase() === 'column' ) {
-
-// 	// 	getMore.innerHTML = '<a href="https://pagebuildersandwich.com/?utm_source=lite-plugin&utm_medium=inspector-column&utm_campaign=Page%20Builder%20Sandwich" target="_blank">Get more column styling tools with the Premium Plugin</a>';
-
-// 	// } else {
-
-// 		getMore.innerHTML = '<a href="https://pagebuildersandwich.com/?utm_source=lite-plugin&utm_medium=inspector-' + label.toLowerCase() + '&utm_campaign=Page%20Builder%20Sandwich" target="_blank">Get the Premium Plugin to get more ' + label + ' tools and features</a>';
-
-// 	// }
-
-// 	container.appendChild( getMore );
-
-// } );
-
-
-
-
-
 /**
 
  * Click handler for the "Get Premium" Admin bar button.
@@ -21816,18 +21519,199 @@ ContentTools.Tools.GetPremium = (function(_super) {
 
 document.addEventListener( 'DOMContentLoaded', function() {
 
-	document.querySelector( '#wp-admin-bar-pbs_go_premium' ).addEventListener( 'click', function() {
+	var goPremiumButton = document.querySelector( '#wp-admin-bar-pbs_go_premium' );
 
-		var win = window.open( 'https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=adminbar&utm_campaign=Page%20Builder%20Sandwich', '_blank');
-
-  		win.focus();
-
-	});
-
-});
+	if ( goPremiumButton ) {
 
 
-////= include ../inc/hopscotch/hopscotch.js
+
+		goPremiumButton.addEventListener( 'click', function() {
+
+
+
+			// Create the modal.
+
+			var div = document.createElement( 'DIV' );
+
+			div.innerHTML = wp.template( 'pbs-learn-premium' )();
+
+			div.setAttribute( 'id', 'pbs-learn-premium-wrapper' );
+
+			document.body.appendChild( div );
+
+
+
+			// Play the entrance animation.
+
+			setTimeout( function() {
+
+				div.classList.add( 'pbs-shown' );
+
+			}, 50 );
+
+
+
+			// Close handler.
+
+			document.querySelector( '#pbs-learn-premium-wrapper .pbs-tour-close' ).addEventListener( 'click', function() {
+
+				document.body.removeChild( div );
+
+			} );
+
+
+
+			/**
+
+			 * All these below are for the feature carousel.
+
+			 */
+
+			var carousel = document.querySelector( '.pbs-learn-carousel' );
+
+			var speed = 7000; // 5 seconds
+
+
+
+			function carouselHide(num) {
+
+			    indicators[num].setAttribute('data-state', '');
+
+			    slides[num].setAttribute('data-state', '');
+
+
+
+			    slides[num].style.opacity=0;
+
+			}
+
+
+
+			function carouselShow(num) {
+
+			    indicators[num].checked = true;
+
+			    indicators[num].setAttribute('data-state', 'active');
+
+			    slides[num].setAttribute('data-state', 'active');
+
+
+
+			    slides[num].style.opacity=1;
+
+			}
+
+
+
+			function setSlide(slide) {
+
+			    return function() {
+
+			        // Reset all slides
+
+			        for (var i = 0; i < indicators.length; i++) {
+
+			            indicators[i].setAttribute('data-state', '');
+
+			            slides[i].setAttribute('data-state', '');
+
+
+
+			            carouselHide(i);
+
+			        }
+
+
+
+			        // Set defined slide as active
+
+			        indicators[slide].setAttribute('data-state', 'active');
+
+			        slides[slide].setAttribute('data-state', 'active');
+
+			        carouselShow(slide);
+
+
+
+			        // Stop the auto-switcher
+
+			        clearInterval(switcher);
+
+			    };
+
+			}
+
+
+
+			function switchSlide() {
+
+			    var nextSlide = 0;
+
+
+
+			    // Reset all slides
+
+			    for (var i = 0; i < indicators.length; i++) {
+
+			        // If current slide is active & NOT equal to last slide then increment nextSlide
+
+			        if ( ( indicators[i].getAttribute('data-state') === 'active' ) && ( i !== (indicators.length-1))) {
+
+			            nextSlide = i + 1;
+
+			        }
+
+
+
+			        // Remove all active states & hide
+
+			        carouselHide(i);
+
+			    }
+
+
+
+			    // Set next slide as active & show the next slide
+
+			    carouselShow(nextSlide);
+
+			}
+
+
+
+			if (carousel) {
+
+			    var slides = carousel.querySelectorAll('.pbs-learn-slide');
+
+			    var indicators = carousel.querySelectorAll('.pbs-learn-indicators label');
+
+
+
+			    var switcher = setInterval(function() {
+
+			        switchSlide();
+
+			    }, speed);
+
+
+
+			    for (var i = 0; i < indicators.length; i++) {
+
+			        indicators[i].querySelector( 'input' ).addEventListener( 'click', setSlide(i));
+
+			    }
+
+			}
+
+
+
+		} );
+
+	}
+
+} );
+
+
 /* globals pbsParams, ContentTools */
 
 
@@ -21894,191 +21778,76 @@ wp.hooks.addAction( 'pbs.ct.ready', function() {
 	editor.bind( 'start', window.pbsPlayTour );
 });
 
+/* globals pbsParams */
+
 /**
- * Tracks usage. Pings backend every 15 seconds while editing.
- * Presents a rate us notice after 60, 120, 180 minutes of usage.
+ * Asks the user to rate PBS.
  */
-
-/* globals pbsParams, ContentTools */
 window.addEventListener( 'DOMContentLoaded', function() {
-	if ( ! pbsParams.is_lite ) {
-		return;
-	}
-	if ( pbsParams.lite_tracking_rated ) {
-		return;
-	}
 
-    var editor = ContentTools.EditorApp.get();
-	var trackerInterval;
+ 	// Send out heartbeat stuff.
+ 	jQuery( document ).on( 'heartbeat-send', function( e, data ) {
 
-	editor.bind( 'start', function() {
-		if ( pbsParams.lite_tracking_rated ) {
+ 		// Only do this when editing.
+ 		if ( ! window.PBSEditor.isEditing() ) {
+ 			return;
+ 		}
+
+		data.tracking_interval = wp.heartbeat.interval();
+	} );
+
+	// Handle heartbeat responses.
+	jQuery( document ).on( 'heartbeat-tick', function( e, data ) {
+
+		// Only do this when editing.
+		if ( ! window.PBSEditor.isEditing() ) {
 			return;
 		}
-		trackerInterval = setInterval( function() {
-			if ( ! isHidden ) {
-				sendPing();
-			}
-		}, 15000 );
+
+		if ( data.ask_for_rating ) {
+			document.querySelector( '#pbs-rate-desc' ).innerHTML = data.ask_for_rating;
+			document.querySelector( '#wp-admin-bar-pbs_rate' ).classList.remove( 'pbs-hidden' );
+			document.querySelector( '#pbs-rate-no' ).addEventListener( 'click', function( ev ) {
+				ev.preventDefault();
+				document.querySelector( '#wp-admin-bar-pbs_rate' ).classList.add( 'pbs-hidden' );
+			} );
+			document.querySelector( '#pbs-rate-go' ).addEventListener( 'click', function( ev ) {
+				ev.preventDefault();
+				document.querySelector( '#wp-admin-bar-pbs_rate' ).classList.add( 'pbs-hidden' );
+
+				var payload = new FormData();
+				payload.append( 'action', 'pbs_ask_rating_rated' );
+				payload.append( 'nonce', pbsParams.nonce );
+
+				var xhr = new XMLHttpRequest();
+				xhr.open( 'POST', pbsParams.ajax_url );
+				xhr.send( payload );
+			} );
+		}
 	} );
-
-	editor.bind( 'stop', function() {
-		clearInterval( trackerInterval );
-	} );
-
-	var sendPing = function() {
-		var request = new XMLHttpRequest();
-		request.open( 'POST', pbsParams.ajax_url, true );
-		request.setRequestHeader( 'Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8' );
-		request.onload = function() {
-			if (request.status >= 200 && request.status < 400) {
-				if ( request.responseText === 'show' ) {
-					showRateBox();
-				}
-			}
-		};
-		request.send( 'action=pbs_lite_tracking_ping&nonce=' + pbsParams.nonce );
-	};
-
-	var showRateBox = function() {
-		document.querySelector( '#wp-admin-bar-pbs_rate' ).classList.remove( 'pbs-hidden' );
-	};
-
-	var rated = function() {
-		var request = new XMLHttpRequest();
-		request.open( 'POST', pbsParams.ajax_url, true );
-		request.setRequestHeader( 'Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8' );
-		request.send( 'action=pbs_lite_tracking_rated&nonce=' + pbsParams.nonce );
-
-		pbsParams.lite_tracking_rated = '1';
-		clearInterval( trackerInterval );
-
-		window.open( 'https://wordpress.org/plugins/page-builder-sandwich/', '_blank' );
-	};
-
-	/**
-	 * Use Visibility API to detect whether the page is focused.
-	 * @from https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API
-	 */
-
-	// Set the name of the hidden property and the change event for visibility
-	var hidden, visibilityChange, isHidden = false;
-	if ( typeof document.hidden !== 'undefined' ) { // Opera 12.10 and Firefox 18 and later support
-		hidden = 'hidden';
-		visibilityChange = 'visibilitychange';
-	} else if (typeof document.mozHidden !== 'undefined') {
-		hidden = 'mozHidden';
-		visibilityChange = 'mozvisibilitychange';
-	} else if (typeof document.msHidden !== 'undefined') {
-		hidden = 'msHidden';
-		visibilityChange = 'msvisibilitychange';
-	} else if (typeof document.webkitHidden !== 'undefined') {
-		hidden = 'webkitHidden';
-		visibilityChange = 'webkitvisibilitychange';
-	}
-
-	// If the page is hidden, pause the video;
-	// if the page is shown, play the video
-	function handleVisibilityChange() {
-		isHidden = !! document[ hidden ];
-	}
-
-	// Warn if the browser doesn't support addEventListener or the Page Visibility API
-	if ( typeof document.addEventListener === 'undefined' || typeof document[ hidden ] === 'undefined' ) {
-	} else {
-		// Handle page visibility change
-		document.addEventListener( visibilityChange, handleVisibilityChange, false );
-	}
-
-	/**
-	 * Rate box click handlers
-	 */
-
- 	 document.querySelector( '#pbs-rate-no' ).addEventListener( 'click', function() {
- 		 document.querySelector( '#wp-admin-bar-pbs_rate' ).classList.add( 'pbs-hidden' );
- 	 } );
- 	 document.querySelector( '#pbs-rate-go' ).addEventListener( 'click', function() {
- 		 document.querySelector( '#wp-admin-bar-pbs_rate' ).classList.add( 'pbs-hidden' );
-		 rated();
- 	 } );
 } );
 
 /**
- * This script is in charge of displaying and sending the answer to opt-in or out
- * of stats tracking by PBS.com.
+ * Send usage stats to PBS.com if opted in.
  *
  * @since 2.11
+ * @since 3.2 Now uses Freemius instead of our own opt-in modal.
  *
  * @see class-stats-tracking.php
  */
 
-/* globals ContentTools, pbsParams */
+/* globals pbsParams */
 
 window.addEventListener( 'DOMContentLoaded', function() {
 
-	// Sends the opt-in answer.
-	var doOptin = function( yesno, callback ) {
-
-	    // Collect the contents of each region into a FormData instance
-	    var payload = new FormData();
-		payload.append( 'action', 'pbs_optin_answer' );
-		payload.append( 'optin', yesno );
-		payload.append( 'nonce', pbsParams.nonce );
-
-	    var xhr = new XMLHttpRequest();
-
-		xhr.onload = function() {
-			if ( xhr.status >= 200 && xhr.status < 400 ) {
-				if ( typeof callback !== 'undefined' ) {
-					callback();
-				}
-			} else {
-				window.alert( pbsParams.labels.optin_error );
-			}
-		};
-
-	    xhr.open('POST', pbsParams.ajax_url );
-	    xhr.send( payload );
-	};
-
-
-    var editor = ContentTools.EditorApp.get();
-	editor.bind('start', function() {
-		if ( typeof pbsParams.show_opt_in_stats_track === 'undefined' ) {
-			return;
-		}
-		if ( ! pbsParams.show_opt_in_stats_track ) {
-			return;
-		}
-
-		// Show opt-in message.
-		var div = document.createElement( 'DIV' );
-		div.innerHTML = wp.template( 'pbs-stats-tracking-optin' )();
-		div.classList.add( 'pbs-stats-tracking-optin-wrapper' );
-		document.body.appendChild( div );
-
-		// Fade in the modal.
-		var optin = document.querySelector( '.pbs-stats-tracking-optin-wrapper' );
-		setTimeout( function() {
-			optin.classList.add( 'pbs-show' );
-		}, 10 );
-
-		// Optin answer listeners.
-		document.querySelector( '.pbs-stats-tracking-optin-yes' ).addEventListener( 'click', function(ev) {
-			doOptin( 'yes', function() {
-				optin.parentNode.removeChild( optin );
-				delete pbsParams.show_opt_in_stats_track;
-			} );
+	if ( pbsParams.tracking_opted_in ) {
+		wp.hooks.addAction( 'pbs.save.payload.post', function( payload ) {
+		    var xhrTracking = new XMLHttpRequest();
+		    xhrTracking.open( 'POST', pbsParams.ajax_url );
+			payload.append( 'action', 'pbs_save_content_tracking' );
+		    xhrTracking.send( payload );
 		} );
-
-		document.querySelector( '.pbs-stats-tracking-optin-no' ).addEventListener( 'click', function(ev) {
-			doOptin( 'no', function() {
-				optin.parentNode.removeChild( optin );
-				delete pbsParams.show_opt_in_stats_track;
-			} );
-		} );
-
-	} );
+	}
 } );
 
 /**
@@ -22116,6 +21885,10 @@ window.addEventListener( 'DOMContentLoaded', function() {
 /* globals ContentTools, pbsParams */
 
 window.addEventListener( 'DOMContentLoaded', function() {
+
+	if ( ! wp.heartbeat ) {
+		return;
+	}
 
 	// Set heartbeat to the slowest at the beginning because we cannot disable it.
 	wp.heartbeat.interval( 120 );
@@ -22158,6 +21931,9 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 		// Refresh our own nonce regularly.
 		data.pbs_nonce = pbsParams.nonce;
+
+		// Refresh our media manager nonce (this is difference from our pbs nonce).
+		data.media_manager_editor_nonce = wp.media.view.settings.nonce.sendToEditor;
 
 		// Needed for nonces and post locking.
 		data.post_id = pbsParams.post_id;
@@ -22210,11 +21986,21 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			if ( nonces.pbs_nonce_new ) {
 				pbsParams.nonce = nonces.pbs_nonce_new;
 			}
+
+			// Refresh our media manager nonce (this is difference from our pbs nonce).
+			if ( data.media_manager_editor_nonce_new ) {
+				wp.media.view.settings.nonce.sendToEditor = data.media_manager_editor_nonce_new;
+			}
 		}
 
 		// Update the PBS nonce if invalid already.
 		if ( data.pbs_nonce_new ) {
 			pbsParams.nonce = data.pbs_nonce_new;
+		}
+
+		// Refresh our media manager nonce (this is difference from our pbs nonce).
+		if ( data.media_manager_editor_nonce_new ) {
+			wp.media.view.settings.nonce.sendToEditor = data.media_manager_editor_nonce_new;
 		}
 
 		if ( modalIsOpen ) {
@@ -22290,6 +22076,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 		payload.append( 'action', 'pbs_heartbeat_check' );
 		payload.append( 'post_id', pbsParams.post_id );
 		payload.append( 'nonce', pbsParams.nonce );
+		payload.append( 'media_manager_editor_nonce', wp.media.view.settings.nonce.sendToEditor );
 
 	    var xhr = new XMLHttpRequest();
 
@@ -22333,6 +22120,11 @@ window.addEventListener( 'DOMContentLoaded', function() {
 					// Update the PBS nonce if given.
 					if ( response.nonce ) {
 						pbsParams.nonce = response.nonce;
+					}
+
+					// Update the Media Manager nonce if given.
+					if ( response.media_manager_editor_nonce ) {
+						wp.media.view.settings.nonce.sendToEditor = response.media_manager_editor_nonce;
 					}
 				}
 	   		}
@@ -22453,146 +22245,65 @@ window.PBSEditor.rgbToHsl = function( r, g, b ) {
 /***************************************************************************
  * These are the tools in the inspector, overriding the defaults of CT.
  ***************************************************************************/
-window.PBSEditor.formattingTools = [
-	[
-		'insertElement',
-		'paragraphPicker',
-		'|',
-		'color',
-		// 'remove',
-		'bold',
-		'italic',
-		'underline',
-		'strikethrough',
-		'link',
-		// 'unlink',
-		// 'blockquote',
-		'|',
-		'align-left',
-		'align-center',
-		'align-right',
-		'align-justify',
-		'|',
-		'hr',
+window.PBSEditor.formattingTools = [[]];
+window.PBSEditor.formattingTools[0].push(
+	'insertElement',
+	'paragraphPicker',
+	'|',
+	'color',
+	// 'remove',
+	'bold',
+	'italic',
+	'underline',
+	'strikethrough',
+	'link',
+	// 'unlink',
+	// 'blockquote',
+	'|',
+	'align-left',
+	'align-center',
+	'align-right',
+	'align-justify',
+	'|',
+	'hr'
+);
+window.PBSEditor.formattingTools[0].push(
+	'code',
+	'|',
+	'unordered-list',
+	'ordered-list',
+	'indent',
+	'unindent',
+	'|',
+	'clear-formatting',
+	'undo', 'redo'				// These are automatically moved into the admin bar.
+);
+window.PBSEditor.insertElements = [[]];
+window.PBSEditor.insertElements[0].push(
+	'onecolumn',
+	'twocolumn',
+	'threecolumn',
+	'fourcolumn',
+	'text',
+	'pbs-media',
+	'shortcode'
+);
+window.PBSEditor.insertElements[0].push(
+	'widget',
+	'sidebar',
+	'icon'
+);
+window.PBSEditor.insertElements[0].push(
+	'html',
+	'map',
+	'tabs'
+);
 
-
-
-		'code',
-		'|',
-		'unordered-list',
-		'ordered-list',
-		'indent',
-		'unindent',
-		'|',
-		'clear-formatting',
-		'undo', 'redo'				// These are automatically moved into the admin bar.
-	]
-];
-window.PBSEditor.insertElements = [
-	[
-		'onecolumn',
-		'twocolumn',
-		'threecolumn',
-		'fourcolumn',
-		'text',
-		'pbs-media',
-		'shortcode',
-
-		'widget',
-		'sidebar',
-		'icon',
-
-
-
-		'html',
-
-		'map',
-
-		'tabs'
-	]
-];
-
+// We're not using CT's default tools.
 ContentTools.DEFAULT_TOOLS = [[]];
-	// [
-	// 	'paragraphPicker',
-	// 	'color',
-	// 	'clear-formatting',
-	// 	'remove',
-	// 	'bold',
-	// 	'italic',
-	// 	'underline',
-	// 	'link',
-	// 	'strikethrough',
-	// 	// 'blockquote',
-	// 	'hr',
-	// 	'align-left',
-	// 	'align-center',
-	// 	'align-right',
-	// 	'align-justify',
-	// 	'indent',
-	// 	'unindent',
-	// 	'unordered-list',
-	// 	'ordered-list',
 
-
-
-	// 	'code',
-	// 	'undo', 'redo'				// These are automatically moved into the admin bar.
-	// ],
-	// [
-		// 'paragraph',
-		// 'h1',
-		// 'h2',
-		// 'h3',
-		// 'h4',
-		// 'h5',
-		// 'h6',
-		// 'video',
-		// 'blockquote',
-		// 'preformatted',
-		// 'unordered-list',
-		// 'ordered-list',
-	// ],
-
-
-
-
-
-
-
-// 	[
-// 		// 'pbs-media',
-
-// 		// 'widget',
-// 		// 'sidebar',
-// 		// 'icon',
-
-
-
-// 		// 'shortcode',
-// 		// 'html',
-
-// 		// 'map',
-// 		// 'tabs',
-// 		// 'onecolumn',
-// 		// 'twocolumn',
-// 		// 'threecolumn',
-// 		// 'fourcolumn'
-// 	// [
-// 	// 	'row', 'column2', 'column3', 'column4', 'column233', 'column424'
-// 	// ],
-// 	],								// LITE-ONLY
-// 	[								// LITE-ONLY
-// 		'get-premium'				// LITE-ONLY
-// 	]
-// ];
-
-window.PBSEditor.toolHeadings = [
-	// { 'label': pbsParams.labels.text_formatting, 'class': 'text-formatting' },
-	// { 'label': pbsParams.labels.change_type, 'class': 'change-type' },
-	// { 'label': pbsParams.labels.insert_content, 'class': 'interactive-elements' }
-	// { 'label': pbsParams.labels.rows_and_columns, 'class': 'rows-columns' }
-];
+// No longer needed.
+window.PBSEditor.toolHeadings = [];
 
 // window.PBSEditor.advancedTools = [
 // 	'h3', 'h4', 'h5', 'h6', 'table', 'preformatted', 'indent', 'unindent', 'code', 'align-justify', 'uppercase', 'strikethrough',
@@ -22628,6 +22339,10 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	new PBSEditor.ToolbarList();
 	new PBSEditor.ToolbarTabContainer();
 	new PBSEditor.ToolbarTable();
+	new PBSEditor.ToolbarTitle();
+	if ( ! pbsParams.is_lite ) {
+
+	}
 
 	new PBSEditor.TooltipLink();
 	new PBSEditor.TooltipButton();

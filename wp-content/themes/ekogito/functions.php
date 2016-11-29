@@ -497,12 +497,6 @@ function my_add_excerpts_to_pages() {
 }
 
 
-function jetpackme_more_related_posts( $options ) {
-    $options['size'] = 3;
-    return $options;
-}
-add_filter( 'jetpack_relatedposts_filter_options', 'jetpackme_more_related_posts' );
-
 
 
 
@@ -578,5 +572,7 @@ function initMap() {
 }
 
 add_shortcode('ekogito_carte', 'ekogito_carte');
+
+
 
 

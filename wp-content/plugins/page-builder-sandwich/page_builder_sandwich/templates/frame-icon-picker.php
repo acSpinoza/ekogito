@@ -5,6 +5,7 @@
  * @package Page Builder Sandwich
  */
 
+global $pbs_fs;
 ?>
 <script type="text/html" id="tmpl-pbs-icon-frame">
 	<div class="media-frame-title">
@@ -21,7 +22,7 @@
 	<div class="media-frame-toolbar">
 		<div class="media-toolbar">
 			<div class="media-toolbar-secondary">
-				<?php if ( PBS_IS_LITE ) { ?>
+				<?php if ( PBS_IS_LITE || ! $pbs_fs->can_use_premium_code() ) { ?>
 					<p>
 						<?php printf( __( 'Only %sDashicons%s are available. %sUpgrading to Premium%s will unlock more icons, bullet & button icons and the ability to upload your own.', PAGE_BUILDER_SANDWICH ),
 							'<a href="https://developer.wordpress.org/resource/dashicons/">',

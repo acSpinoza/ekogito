@@ -355,6 +355,8 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'play_animation_once' => __( 'Play Animation Once', PAGE_BUILDER_SANDWICH ),
 				'desc_play_animation_once' => __( 'Animations play every time they get into view, turn this on to only play it once. Does not apply to looped animations.', PAGE_BUILDER_SANDWICH ),
 				'toggle' => __( 'Toggle', PAGE_BUILDER_SANDWICH ),
+				'fade_animation' => __( 'Fade Animation', PAGE_BUILDER_SANDWICH ),
+				'desc_fade_animation' => __( 'Check this to use fade instead of a sliding animation for each slide.', PAGE_BUILDER_SANDWICH ),
 
 				// Tools.
 				'text_style' => __( 'Text Style', PAGE_BUILDER_SANDWICH ),
@@ -418,6 +420,13 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				's_attribute' => __( '%s attribute', PAGE_BUILDER_SANDWICH ),
 				'select_one' => __( 'Select one', PAGE_BUILDER_SANDWICH ),
 				'select_a_post_type' => __( 'Select a post type', PAGE_BUILDER_SANDWICH ),
+				'bold' => __( 'Bold', PAGE_BUILDER_SANDWICH ),
+				'italic' => __( 'Italic', PAGE_BUILDER_SANDWICH ),
+				'link' => __( 'Link', PAGE_BUILDER_SANDWICH ),
+				'bullet_list' => __( 'Bullet List', PAGE_BUILDER_SANDWICH ),
+				'numbered_list' => __( 'Numbered List', PAGE_BUILDER_SANDWICH ),
+				'indent' => __( 'Indent', PAGE_BUILDER_SANDWICH ),
+				'unindent' => __( 'Unindent', PAGE_BUILDER_SANDWICH ),
 
 				// Tooltips.
 				'visit_link' => __( 'Visit Link', PAGE_BUILDER_SANDWICH ),

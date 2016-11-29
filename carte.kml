@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<kml xmlns='http://www.opengis.net/kml/2.2'>
+	<Document>
+		<name>Carte Gourmande de MTL</name>
+		<description><![CDATA[La carte des bonnes adresses gourmandes et des initiatives autour de la bouffe]]></description>
+		<NetworkLink>
+			<name>Carte Gourmande de MTL</name>
+			<Link>
+				<href>http://www.google.com/maps/d/u/0/kml?forcekml=1&amp;mid=1MHDetQrHq9kRt8XbkhPN0OWbXzc</href>
+			</Link>
+		</NetworkLink>
+	</Document>
+</kml>

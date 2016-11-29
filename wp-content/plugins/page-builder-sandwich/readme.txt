@@ -1,10 +1,10 @@
 === Page Builder Sandwich - Front-End Drag and Drop Page Builder  ===
-Contributors: bfintal, gambitph
+Contributors: bfintal, gambitph, freemius
 Donate link: https://pagebuildersandwich.com
 Tags: page builder, page builder plugin, builder, layout builder, page, landing page builder, home page builder, landing page builder, page layout, drag and drop builder, frontend editor, visual, frontend builder, front-end builder, site builder, drag and drop, editor, column, columns, shortcode mapping, website builder, website builder plugin
 Requires at least: 4.2
 Tested up to: 4.6.1
-Stable tag: 3.1
+Stable tag: 3.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -137,6 +137,44 @@ Watch this video for a tour of the new interface:
 The new Page Builder Sandwich is completely different from the old one. We've ditched the old backend page builder for the more awesome frontend page building experience. If you're upgrading from version 1.x, a migration notice should appear on the top of your admin which should help you migrate your content into the new system.
 
 == Changelog ==
+
+= 3.3 =
+* New: Page/Post titles can now be changed!
+* New: Added full-width option for buttons (Premium)
+* New: Added animation speed option for carousel.
+* New: Added fade animation type for carousel.
+* New: Shortcode mappings for themes now display the theme's screenshot.png as the shortcode icon.
+* Enhanced: Updated Glide script to 2.0.8
+* Enhanced: The carousel can now be swiped to move.
+* Enhanced: Dragging elements outside other elements are now handled properly.
+* Enhanced: Better overlay mouse over handling.
+* Fixed: Carousels now hide the slides before initialization.
+* Fixed: When resizing images, the height is now set to auto to preserve height in smaller widths.
+* Fixed: Untranslatable strings in the text formatting bar are now translatable.
+* Fixed: Activating your license no longer redirects to an invalid URL containing escaped ampersands.
+* Fixed: Modified the opt-int message to Freemius to conform to guidelines.
+* Fixed: The first checkbox in multicheck options for shortcodes do not handle clicks properly.
+
+= 3.2 =
+* New: Now using Freemius!
+* New: Welcome admin page
+* New: Markdown support (Premium)
+* New: Typing lorem then hitting enter or tab places a placeholder "lorem ipsum" paragraph.
+* Enhanced: The "Edit with Page Builder Sandwich" button now just reads "Page Builder Sandwich" and is no longer color blue to blend with the admin menu.
+* Enhanced: Better "Learn More About Premium" area.
+* Change: Rating ask favor note, now asks after 5 hours of editing or 5 edited pages.
+* Change: Rating ask now uses heartbeat API instead of using normal ajax.
+* Change: Removed PBS opt-in form for stats tracking.
+* Change: Removed deactivation question (switched to Freemius).
+* Change: Completely removed Hopscotch script that wasn't used anymore.
+* Fixed: HTML elements now only have mouse events disabled during editing.
+* Fixed: Hovering your mouse over elements with nested HTML elements inside them didn't show outlines and the toolbar.
+* Fixed: The outlines now do not show above the text formatting toolbar.
+* Fixed: Clicking on a field on a link creation/edit dialog removes the cursor completely and disables you from inputting values in the fields.
+* Fixed: Super backward compatibility with 4.1.x for adding links and buttons.
+* Fixed: Searching for icons are now case-insensitive.
+* Fixed: Dragging images into the browser while editing now works properly.
+* Fixed: Now also updates the nonce of the Media Manager when necessary.
 
 = 3.1 =
 * Fixed: (Major bug) Shortcodes are not properly detected when there are no HTML tags before or after a shortcode.
