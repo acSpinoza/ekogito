@@ -7,7 +7,7 @@ body {
 }
 
 p {
-  margin: 0 0 24px;
+  margin: 0 0 1em;
 }
 
 .pbs-main-wrapper input:not([type='submit']):not([type='button']):not([type='reset']) {
@@ -27,6 +27,17 @@ p {
   width: 1px;
   /* many screen reader and browser combinations announce broken words as they would appear visually */
   word-wrap: normal !important;
+}
+
+.pbs-main-wrapper.pbs-main-wrapper.pbs-main-wrapper .pbs-col p,
+.pbs-main-wrapper.pbs-main-wrapper.pbs-main-wrapper .pbs-col h1,
+.pbs-main-wrapper.pbs-main-wrapper.pbs-main-wrapper .pbs-col h2,
+.pbs-main-wrapper.pbs-main-wrapper.pbs-main-wrapper .pbs-col h3,
+.pbs-main-wrapper.pbs-main-wrapper.pbs-main-wrapper .pbs-col h4,
+.pbs-main-wrapper.pbs-main-wrapper.pbs-main-wrapper .pbs-col h5,
+.pbs-main-wrapper.pbs-main-wrapper.pbs-main-wrapper .pbs-col h6 {
+  width: 100%;
+  max-width: 100%;
 }
 
 .pbs-col hr {

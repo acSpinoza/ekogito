@@ -3,7 +3,7 @@ Contributors: bfintal, gambitph, freemius
 Tags: page builder, page builder plugin, page, builder, visual editor, front-end editor, drag and drop builder, front-end builder, home page builder, landing page builder, site builder, template builder, visual builder, site builder, layout builder, website builder, editor, wysiwyg
 Requires at least: 4.2
 Tested up to: 4.7.2
-Stable tag: 4.2
+Stable tag: 4.2.1
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -137,6 +137,11 @@ Watch this video for a tour of the new interface:
 The new Page Builder Sandwich is completely different from the old one. We've ditched the old backend page builder for the more awesome frontend page building experience. If you're upgrading from version 1.x, a migration notice should appear on the top of your admin which should help you migrate your content into the new system.
 
 == Changelog ==
+
+= 4.2.1 =
+* Enhanced: Updated Freemius SDK to v1.2.1.5
+* Fixed: Some themes forced paragraphs & headings to have a fixed width inside columns, we now get around this.
+* Fixed: Added page-template-sample to prevent php errors upon deactivation.
 
 = 4.2 =
 * Enhanced: Huge speed and performance optimizations.

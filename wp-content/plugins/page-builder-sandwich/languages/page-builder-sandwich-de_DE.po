@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Page Builder Sandwich\n"
-"PO-Revision-Date: 2017-02-14 10:28+0000\n"
+"PO-Revision-Date: 2017-02-14 17:10+0000\n"
 "Last-Translator: Gambit Technologies <info@gambit.ph>\n"
 "Language-Team: German (Germany) (http://www.transifex.com/gambit-technologies-inc/page-builder-sandwich/language/de_DE/)\n"
 "MIME-Version: 1.0\n"
@@ -124,7 +124,7 @@ msgid "Settings Saved"
 msgstr ""
 
 #: class-admin-welcome.php36, class-admin-welcome.php45,
-#: class-page-builder-sandwich.php330,
+#: class-page-builder-sandwich.php334,
 #: page_builder_sandwich/templates/iframe.php:14
 msgid "Page Builder Sandwich"
 msgstr ""
@@ -230,38 +230,38 @@ msgstr ""
 msgid "Rate us on WordPress"
 msgstr ""
 
-#: class-element-countdown.php47, class-translations.php133,
-#: class-translations.php:142
+#: class-element-countdown.php47, class-translations.php136,
+#: class-translations.php:145
 msgid "Years"
 msgstr ""
 
-#: class-element-countdown.php48, class-translations.php134,
-#: class-translations.php:143
+#: class-element-countdown.php48, class-translations.php137,
+#: class-translations.php:146
 msgid "Months"
 msgstr ""
 
-#: class-element-countdown.php49, class-translations.php135,
-#: class-translations.php:144
+#: class-element-countdown.php49, class-translations.php138,
+#: class-translations.php:147
 msgid "Weeks"
 msgstr ""
 
-#: class-element-countdown.php50, class-translations.php136,
-#: class-translations.php:145
+#: class-element-countdown.php50, class-translations.php139,
+#: class-translations.php:148
 msgid "Days"
 msgstr ""
 
-#: class-element-countdown.php51, class-translations.php137,
-#: class-translations.php:146
+#: class-element-countdown.php51, class-translations.php140,
+#: class-translations.php:149
 msgid "Hours"
 msgstr ""
 
-#: class-element-countdown.php52, class-translations.php138,
-#: class-translations.php:147
+#: class-element-countdown.php52, class-translations.php141,
+#: class-translations.php:150
 msgid "Minutes"
 msgstr ""
 
-#: class-element-countdown.php53, class-translations.php139,
-#: class-translations.php:148
+#: class-element-countdown.php53, class-translations.php142,
+#: class-translations.php:151
 msgid "Seconds"
 msgstr ""
 
@@ -352,7 +352,7 @@ msgstr "%sStreamline%s von %sWebalys - Mehr icons bekommen%s"
 msgid "Icons by %sTaras Shypka%s"
 msgstr "Icons von %sTaras Shypka%s"
 
-#: class-inspector.php63, class-inspector.php145, class-translations.php494,
+#: class-inspector.php63, class-inspector.php145, class-translations.php497,
 #: page_builder_sandwich/templates/option-text-dummy.php:43
 msgid "Select one"
 msgstr ""
@@ -365,8 +365,8 @@ msgstr ""
 msgid "Visit this %s in your front-end to begin editing."
 msgstr "Rufen Sie diese %s in Ihrem Frontend auf, um mit der Bearbeitung zu beginnen."
 
-#: class-meta-box.php90, class-plugin.php307, class-plugin.php309,
-#: class-plugin.php315, class-plugin.php:317
+#: class-meta-box.php90, class-plugin.php306, class-plugin.php308,
+#: class-plugin.php314, class-plugin.php:316
 msgid "Edit with Page Builder Sandwich"
 msgstr "Mit Page Builder Sandwich bearbeiten."
 
@@ -392,45 +392,45 @@ msgstr "Dieser Eingliederungsprozess wird die alte Spaltenstruktur bei %d betrof
 msgid "Start the migration process"
 msgstr "Eingliederungsprozess starten"
 
-#: class-page-builder-sandwich.php:341
+#: class-page-builder-sandwich.php:345
 msgid "Learn More About Premium"
 msgstr "Erfahren Sie mehr über Premium"
 
-#: class-page-builder-sandwich.php361, class-translations.php:526
+#: class-page-builder-sandwich.php365, class-translations.php:529
 msgid "Save and Update"
 msgstr "Speichern und Update"
 
-#: class-page-builder-sandwich.php366, class-page-builder-sandwich.php384,
-#: class-translations.php:527
+#: class-page-builder-sandwich.php370, class-page-builder-sandwich.php388,
+#: class-translations.php:530
 msgid "Save as Draft"
 msgstr "Speichern als Entwurf"
 
-#: class-page-builder-sandwich.php368, class-page-builder-sandwich.php383,
-#: class-translations.php:528
+#: class-page-builder-sandwich.php372, class-page-builder-sandwich.php387,
+#: class-translations.php:531
 msgid "Save as Pending Review"
 msgstr "Speichern als ausstehendes Review"
 
-#: class-page-builder-sandwich.php:382
+#: class-page-builder-sandwich.php:386
 msgid "Save and Publish"
 msgstr "Speichern und veröffentlichen"
 
-#: class-page-builder-sandwich.php:392
+#: class-page-builder-sandwich.php:396
 msgid "Cancel"
 msgstr "Abbrechen"
 
-#: class-page-builder-sandwich.php:399
+#: class-page-builder-sandwich.php:403
 msgid "Saving, Please wait..."
 msgstr ""
 
-#: class-page-builder-sandwich.php:425
+#: class-page-builder-sandwich.php:429
 msgid "CSS"
 msgstr "CSS"
 
-#: class-page-builder-sandwich.php:432
+#: class-page-builder-sandwich.php:436
 msgid "Javascript"
 msgstr "Javascript"
 
-#: class-page-builder-sandwich.php:439
+#: class-page-builder-sandwich.php:443
 msgid "Source"
 msgstr "Quelltext"
 
@@ -438,22 +438,22 @@ msgstr "Quelltext"
 msgid "Templates"
 msgstr ""
 
-#: class-plugin.php:182
+#: class-plugin.php:181
 msgid "Go Premium"
 msgstr "Go Premium"
 
-#: class-plugin.php:187
+#: class-plugin.php:186
 msgid "Get Customer Support"
 msgstr "Kundensupport erhalten"
 
-#: class-plugin.php:261
+#: class-plugin.php:260
 msgid ""
 "Thanks for activating Page Builder Sandwich! To get started, visit any page "
 "or post in your site. %sOr let's create a new %s right now and I'll tour you"
 " on how to use PB Sandwich.%s (This will create a new draft %s)"
 msgstr "Vielen Dank für das Aktivieren von Page Builder Sandwich! Um zu beginnen, rufen Sie eine beliebige Seite oder einen Beitrag in Ihrer Website auf. %sOder erstellen wir eine(n) neue(n)%s gleich jetzt, und ich begleite Sie auf einer Tour, wie man PB Sandwich benutzt. %s (Dies legt einen neuen Entwurf an %s)"
 
-#: class-plugin.php:278
+#: class-plugin.php:277
 msgid ""
 "Thanks for activating Page Builder Sandwich! To get started, visit any page "
 "or post in your site to begin using Page Builder Sandwich. You will need to "
@@ -659,1780 +659,855 @@ msgid "Page Heading"
 msgstr ""
 
 #: class-translations.php:115
-msgid "Testimonial"
+msgid "Team Members"
 msgstr ""
 
 #: class-translations.php:116
-msgid "Call To Action"
+msgid "Featurette"
 msgstr ""
 
 #: class-translations.php:117
-msgid "Pricing"
+msgid "Gallery"
 msgstr ""
 
 #: class-translations.php:118
-msgid "Icon List 1"
+msgid "Testimonial"
 msgstr ""
 
 #: class-translations.php:119
-msgid "Icon List 2"
+msgid "Call To Action"
 msgstr ""
 
 #: class-translations.php:120
-msgid "Image Box"
+msgid "Pricing"
 msgstr ""
 
 #: class-translations.php:121
-msgid "Instagram Feed"
+msgid "Icon List 1"
 msgstr ""
 
 #: class-translations.php:122
-msgid "Youtube"
+msgid "Icon List 2"
 msgstr ""
 
 #: class-translations.php:123
-msgid "Contact Details"
+msgid "Image Box"
 msgstr ""
 
 #: class-translations.php:124
-msgid "Contact Form 7"
+msgid "Instagram Feed"
 msgstr ""
 
 #: class-translations.php:125
-msgid "WooCommerce"
+msgid "Youtube"
 msgstr ""
 
 #: class-translations.php:126
-msgid "ACF"
+msgid "Contact Details"
 msgstr ""
 
 #: class-translations.php:127
-msgid "NextGEN"
+msgid "Contact Form 7"
 msgstr ""
 
 #: class-translations.php:128
-msgid "Events Calendar"
+msgid "WooCommerce"
 msgstr ""
 
 #: class-translations.php:129
-msgid "Countdown to Date"
+msgid "ACF"
 msgstr ""
 
 #: class-translations.php:130
+msgid "NextGEN"
+msgstr ""
+
+#: class-translations.php:131
+msgid "Events Calendar"
+msgstr ""
+
+#: class-translations.php:132
+msgid "Countdown to Date"
+msgstr ""
+
+#: class-translations.php:133
 msgid ""
 "Enter a future date to countdown to. Use the format YYYY/MM/DD HH:MM:SS. "
 "This can also be a past date. For Example: 2018/01/20 00:00:00"
 msgstr ""
 
-#: class-translations.php:131
+#: class-translations.php:134
 msgid "Display Size"
 msgstr ""
 
-#: class-translations.php:132
+#: class-translations.php:135
 msgid "Display these dates"
 msgstr ""
 
-#: class-translations.php:140
+#: class-translations.php:143
 msgid "Countdown"
 msgstr ""
 
-#: class-translations.php:141
+#: class-translations.php:144
 msgid "Count Up"
 msgstr ""
 
-#: class-translations.php142, class-translations.php143,
-#: class-translations.php144, class-translations.php145,
-#: class-translations.php146, class-translations.php147,
-#: class-translations.php:148
+#: class-translations.php145, class-translations.php146,
+#: class-translations.php147, class-translations.php148,
+#: class-translations.php149, class-translations.php150,
+#: class-translations.php:151
 msgid "%s Label"
 msgstr ""
 
-#: class-translations.php:149
+#: class-translations.php:152
 msgid "Count Up Numbers"
 msgstr ""
 
-#: class-translations.php:150
+#: class-translations.php:153
 msgid "Count Up Time"
 msgstr ""
 
-#: class-translations.php:151
+#: class-translations.php:154
 msgid "Count Up Delay"
 msgstr ""
 
-#: class-translations.php:152
+#: class-translations.php:155
 msgid "Enable to animate number counting"
 msgstr ""
 
-#: class-translations.php:153
+#: class-translations.php:156
 msgid "Count duration in milliseconds"
 msgstr ""
 
-#: class-translations.php:154
+#: class-translations.php:157
 msgid "Count delay per tick in milliseconds"
 msgstr ""
 
-#: class-translations.php:155
+#: class-translations.php:158
 msgid "Input Field"
 msgstr ""
 
-#: class-translations.php156, class-translations.php482,
-#: class-translations.php488, class-translations.php506,
-#: class-translations.php:510
+#: class-translations.php159, class-translations.php485,
+#: class-translations.php491, class-translations.php509,
+#: class-translations.php:513
 msgid "Edit %s"
 msgstr "Bearbeiten %s"
 
-#: class-translations.php156, class-translations.php498,
-#: class-translations.php:506
+#: class-translations.php159, class-translations.php501,
+#: class-translations.php:509
 msgid "Link"
 msgstr "Link"
 
-#: class-translations.php:157
+#: class-translations.php:160
 msgid "Button Padding"
 msgstr ""
 
-#: class-translations.php:158
+#: class-translations.php:161
 msgid "Use this to make your button larger."
 msgstr ""
 
-#: class-translations.php:159
+#: class-translations.php:162
 msgid "Pick an icon"
 msgstr ""
 
-#: class-translations.php:160
+#: class-translations.php:163
 msgid "Button Color"
 msgstr "Buttonfarbe"
 
-#: class-translations.php:161
+#: class-translations.php:164
 msgid "Button Text Color"
 msgstr "Buttontextfarbe"
 
-#: class-translations.php:162
+#: class-translations.php:165
 msgid "Vertical Padding"
 msgstr "Vertikales Padding"
 
-#: class-translations.php:163
+#: class-translations.php:166
 msgid "Horizontal Padding"
 msgstr "Horizontales Padding"
 
-#: class-translations.php:164
+#: class-translations.php:167
 msgid "Ghost Button Style"
 msgstr "Geisterbutton Style"
 
-#: class-translations.php:165
+#: class-translations.php:168
 msgid ""
 "Turn your button into a ghost button. Ghost buttons are outlined buttons "
 "that blend into your design."
 msgstr ""
 
-#: class-translations.php:166
+#: class-translations.php:169
 msgid "Choose Button Icon"
 msgstr "Button Icon auswählen"
 
-#: class-translations.php:167
+#: class-translations.php:170
 msgid "Button Icon"
 msgstr "Button Icon"
 
-#: class-translations.php:168
+#: class-translations.php:171
 msgid "Use Icon"
 msgstr "Icon benutzen"
 
-#: class-translations.php:169
+#: class-translations.php:172
 msgid "Icon Color"
 msgstr "Icon Farbe"
 
-#: class-translations.php:170
+#: class-translations.php:173
 msgid "Move"
 msgstr ""
 
-#: class-translations.php:171
+#: class-translations.php:174
 msgid "Move %s"
 msgstr ""
 
-#: class-translations.php171, class-translations.php197,
-#: class-translations.php:446
+#: class-translations.php174, class-translations.php200,
+#: class-translations.php:449
 msgid "Carousel"
 msgstr "Slider"
 
-#: class-translations.php:172
+#: class-translations.php:175
 msgid "Move Left"
 msgstr ""
 
-#: class-translations.php:173
+#: class-translations.php:176
 msgid "Move Right"
 msgstr ""
 
-#: class-translations.php:174
+#: class-translations.php:177
 msgid "Default"
 msgstr ""
 
-#: class-translations.php:175
+#: class-translations.php:178
 msgid "Inside Left"
 msgstr ""
 
-#: class-translations.php:176
+#: class-translations.php:179
 msgid "Inside Center"
 msgstr ""
 
-#: class-translations.php:177
+#: class-translations.php:180
 msgid "Inside Right"
 msgstr ""
 
-#: class-translations.php:178
+#: class-translations.php:181
 msgid "Icon Size"
 msgstr "Icon Größe"
 
-#: class-translations.php:179
+#: class-translations.php:182
 msgid "Full Height"
 msgstr ""
 
-#: class-translations.php:180
+#: class-translations.php:183
 msgid "Full-Width"
 msgstr "Volle Breite"
 
-#: class-translations.php:181
+#: class-translations.php:184
 msgid "Normal Width"
 msgstr "Normale Breite"
 
-#: class-translations.php:182
+#: class-translations.php:185
 msgid "Full-Height"
 msgstr "Volle Höhe"
 
-#: class-translations.php:183
+#: class-translations.php:186
 msgid "Automatic Height"
 msgstr "Automatische Höhe"
 
-#: class-translations.php:184
+#: class-translations.php:187
 msgid "Move Slide Left"
 msgstr "Slide nach links verschieben"
 
-#: class-translations.php:185
+#: class-translations.php:188
 msgid "Slides"
 msgstr "Slides"
 
-#: class-translations.php:186
+#: class-translations.php:189
 msgid "Move Slide Right"
 msgstr "Slide nach rechts verschieben"
 
-#: class-translations.php187, class-translations.php264,
-#: class-translations.php351, class-translations.php:509
+#: class-translations.php190, class-translations.php267,
+#: class-translations.php354, class-translations.php:512
 msgid "Remove %s"
 msgstr "Entfernen %s"
 
-#: class-translations.php187, class-translations.php188,
-#: class-translations.php:189
+#: class-translations.php190, class-translations.php191,
+#: class-translations.php:192
 msgid "Slide"
 msgstr "Slide"
 
-#: class-translations.php188, class-translations.php224,
-#: class-translations.php350, class-translations.php357,
-#: class-translations.php:450
+#: class-translations.php191, class-translations.php227,
+#: class-translations.php353, class-translations.php360,
+#: class-translations.php:453
 msgid "Add %s"
 msgstr "Hinzufügen %s"
 
-#: class-translations.php189, class-translations.php226,
-#: class-translations.php:231
+#: class-translations.php192, class-translations.php229,
+#: class-translations.php:234
 msgid "Clone %s"
 msgstr "Klonen %s"
 
-#: class-translations.php:190
+#: class-translations.php:193
 msgid "Bullet"
 msgstr ""
 
-#: class-translations.php:191
+#: class-translations.php:194
 msgid "Bullet Color"
 msgstr "Bullet Farbe"
 
-#: class-translations.php:192
+#: class-translations.php:195
 msgid "Bullets"
 msgstr "Bullets"
 
-#: class-translations.php:193
+#: class-translations.php:196
 msgid "Bullet Location"
 msgstr "Bullet Ort"
 
-#: class-translations.php:194
+#: class-translations.php:197
 msgid "Slide Delay"
 msgstr "Slide Verzögerung"
 
-#: class-translations.php:195
+#: class-translations.php:198
 msgid "Embedded URL"
 msgstr ""
 
-#: class-translations.php:196
+#: class-translations.php:199
 msgid "Delete"
 msgstr ""
 
-#: class-translations.php197, class-translations.php227,
-#: class-translations.php232, class-translations.php:352
+#: class-translations.php200, class-translations.php230,
+#: class-translations.php235, class-translations.php:355
 msgid "Delete %s"
 msgstr "Löschen %s"
 
-#: class-translations.php:198
+#: class-translations.php:201
 msgid "Row Width"
 msgstr "Zeilenbreite"
 
-#: class-translations.php:199
+#: class-translations.php:202
 msgid ""
 "Let your row occupy the whole browser width. This only affects the outer-"
 "most row."
 msgstr ""
 
-#: class-translations.php:200
+#: class-translations.php:203
 msgid "Full-Width Retained Content Width"
 msgstr "Vollständig ausfüllende Inhaltsbreite"
 
-#: class-translations.php:201
+#: class-translations.php:204
 msgid "Normal"
 msgstr "Normal"
 
-#: class-translations.php:202
+#: class-translations.php:205
 msgid "Fixed Image Background"
 msgstr ""
 
-#: class-translations.php:203
+#: class-translations.php:206
 msgid "Make your background image stick to the window as an effect"
 msgstr ""
 
-#: class-translations.php:204
+#: class-translations.php:207
 msgid "Background Color"
 msgstr "Hintergrundfarbe"
 
-#: class-translations.php:205
+#: class-translations.php:208
 msgid "Background Color (When Focused)"
 msgstr ""
 
-#: class-translations.php:206
+#: class-translations.php:209
 msgid ""
 "Place something in this field to show a tooltip when the mouse is hovered on"
 " the icon."
 msgstr ""
 
-#: class-translations.php:207
+#: class-translations.php:210
 msgid "Background"
 msgstr "Hintergrund"
 
-#: class-translations.php:208
+#: class-translations.php:211
 msgid ""
 "Add color to your background. Use the color picker above to change the tint."
 " This works for image, parallax and video backgrounds."
 msgstr ""
 
-#: class-translations.php:209
+#: class-translations.php:212
 msgid "Background Size"
 msgstr ""
 
-#: class-translations.php:210
+#: class-translations.php:213
 msgid ""
 "Background image size in pixels. Can be used to make your background a "
 "pattern. Use 0 (or blank) to make the background cover the whole area."
 msgstr ""
 
-#: class-translations.php:211
+#: class-translations.php:214
 msgid "Image"
 msgstr ""
 
-#: class-translations.php:212
+#: class-translations.php:215
 msgid "Background Image"
 msgstr "Hintergrundbild"
 
-#: class-translations.php:213
+#: class-translations.php:216
 msgid "Vertical Column Alignment"
 msgstr "Vertikale Spaltenausrichtung"
 
-#: class-translations.php:214
+#: class-translations.php:217
 msgid ""
 "The alignment of the column vertically. Helpful if the row is tall because "
 "of other columns, and this column is short."
 msgstr ""
 
-#: class-translations.php:215
+#: class-translations.php:218
 msgid "Occupy entire space"
 msgstr ""
 
-#: class-translations.php:216
+#: class-translations.php:219
 msgid "Alignment"
 msgstr "Ausrichtung"
 
-#: class-translations.php:217
+#: class-translations.php:220
 msgid "Reset Alignment"
 msgstr ""
 
-#: class-translations.php:218
+#: class-translations.php:221
 msgid "Vertical Content Alignment"
 msgstr "Vertikale Inhaltsausrichtung"
 
-#: class-translations.php:219
+#: class-translations.php:222
 msgid ""
 "The alignment of the content inside this column vertically. Helpful if the "
 "column is tall and only has a short content."
 msgstr ""
 
-#: class-translations.php:220
+#: class-translations.php:223
 msgid "Spread evenly from top to bottom (space-between)"
 msgstr ""
 
-#: class-translations.php:221
+#: class-translations.php:224
 msgid "Each item is equally spaced (space-around)"
 msgstr ""
 
-#: class-translations.php:222
+#: class-translations.php:225
 msgid "Horizontal Content Alignment"
 msgstr "Horizontale Inhaltsausrichtung"
 
-#: class-translations.php:223
+#: class-translations.php:226
 msgid ""
 "The alignment of the content inside this column horizontally. Helpful for "
 "specifying alignment all at once."
 msgstr ""
 
-#: class-translations.php224, class-translations.php230,
-#: class-translations.php231, class-translations.php232,
-#: class-translations.php:509
+#: class-translations.php227, class-translations.php233,
+#: class-translations.php234, class-translations.php235,
+#: class-translations.php:512
 msgid "Column"
 msgstr "Spalte"
 
-#: class-translations.php:225
+#: class-translations.php:228
 msgid "Clear All Row Styles"
 msgstr "Sämtliche Zeilenstyles aufheben"
 
-#: class-translations.php226, class-translations.php227,
-#: class-translations.php229, class-translations.php:450
+#: class-translations.php229, class-translations.php230,
+#: class-translations.php232, class-translations.php:453
 msgid "Row"
 msgstr "Zeile"
 
-#: class-translations.php:228
+#: class-translations.php:231
 msgid "Clear All Column Styles"
 msgstr "Sämtliche Spaltenstyles aufheben"
 
-#: class-translations.php:233
+#: class-translations.php:236
 msgid "The color of the success message when someone subscribes."
 msgstr ""
 
-#: class-translations.php:234
+#: class-translations.php:237
 msgid "The color of the error message when something went wrong."
 msgstr ""
 
-#: class-translations.php:235
+#: class-translations.php:238
 msgid "Border Color"
 msgstr "Rahmenfarbe"
 
-#: class-translations.php:236
+#: class-translations.php:239
 msgid "List"
 msgstr ""
 
-#: class-translations.php:237
+#: class-translations.php:240
 msgid "Borders"
 msgstr "Rahmen"
 
-#: class-translations.php238,
+#: class-translations.php241,
 #: page_builder_sandwich/templates/option-border.php:8
 msgid "Solid"
 msgstr "Durchgezogen"
 
-#: class-translations.php239,
+#: class-translations.php242,
 #: page_builder_sandwich/templates/option-border.php:9
 msgid "Dashed"
 msgstr "Gestrichelt"
 
-#: class-translations.php240,
+#: class-translations.php243,
 #: page_builder_sandwich/templates/option-border.php:10
 msgid "Dotted"
 msgstr "Gepunktet"
 
-#: class-translations.php:241
+#: class-translations.php:244
 msgid "Border Style"
 msgstr "Rahmenstyle"
 
-#: class-translations.php:242
+#: class-translations.php:245
 msgid "Border Thickness"
 msgstr "Rahmendicke"
 
-#: class-translations.php:243
+#: class-translations.php:246
 msgid "Border Radius"
 msgstr "Rahmen Radius"
 
-#: class-translations.php:244
+#: class-translations.php:247
 msgid "Toggle Background Tint"
 msgstr ""
 
-#: class-translations.php245, class-translations.php247,
-#: class-translations.php248, class-translations.php249,
-#: class-translations.php250, class-translations.php251,
-#: class-translations.php:252
+#: class-translations.php248, class-translations.php250,
+#: class-translations.php251, class-translations.php252,
+#: class-translations.php253, class-translations.php254,
+#: class-translations.php:255
 msgid "Convert to %s"
 msgstr "Konvertieren nach %s"
 
-#: class-translations.php:245
+#: class-translations.php:248
 msgid "1 Column"
 msgstr "1 Spalte"
 
-#: class-translations.php:246
+#: class-translations.php:249
 msgid "Change %s"
 msgstr "Ändern %s"
 
-#: class-translations.php:246
+#: class-translations.php:249
 msgid "Columns"
 msgstr "Spalten"
 
-#: class-translations.php247, class-translations.php249,
-#: class-translations.php:251
+#: class-translations.php250, class-translations.php252,
+#: class-translations.php:254
 msgid "Even %d Columns"
 msgstr "Gerade %d Spalten"
 
-#: class-translations.php248, class-translations.php250,
-#: class-translations.php:252
+#: class-translations.php251, class-translations.php253,
+#: class-translations.php:255
 msgid "Uneven %d Columns"
 msgstr "Ungerade %d Spalten"
 
-#: class-translations.php:253
+#: class-translations.php:256
 msgid "Spacing"
 msgstr "Abstand"
 
-#: class-translations.php:254
+#: class-translations.php:257
 msgid "Column Width"
 msgstr "Spaltenbreite"
 
-#: class-translations.php:255
+#: class-translations.php:258
 msgid "Column Gap"
 msgstr "Spaltenabstand"
 
-#: class-translations.php:256
+#: class-translations.php:259
 msgid "Custom Class"
 msgstr "Selbstdefinierte Class"
 
-#: class-translations.php:257
+#: class-translations.php:260
 msgid ""
 "Assign custom classes to this element that you can reference inside your CSS"
 " or Javascript."
 msgstr ""
 
-#: class-translations.php:258
+#: class-translations.php:261
 msgid "Custom ID"
 msgstr "Selbstdefinierte ID"
 
-#: class-translations.php:259
+#: class-translations.php:262
 msgid ""
 "Assign a custom unique ID to this element that you can reference inside your"
 " CSS or Javascript."
 msgstr ""
 
-#: class-translations.php:260
+#: class-translations.php:263
 msgid "Advanced"
 msgstr "Fortgeschritten"
 
-#: class-translations.php:261
+#: class-translations.php:264
 msgid "Choose Icon"
 msgstr "Icon auswählen"
 
-#: class-translations.php262,
+#: class-translations.php265,
 #: page_builder_sandwich/templates/option-margins-and-paddings.php:27
 msgid "Padding"
 msgstr "Abstand"
 
-#: class-translations.php:263
+#: class-translations.php:266
 msgid "Use this to make your input field larger"
 msgstr ""
 
-#: class-translations.php264, class-translations.php312,
-#: class-translations.php464,
+#: class-translations.php267, class-translations.php315,
+#: class-translations.php467,
 #: page_builder_sandwich/templates/frame-icon-picker.php:14
 msgid "Icon"
 msgstr "Icon"
 
-#: class-translations.php:265
+#: class-translations.php:268
 msgid "Width"
 msgstr "Breite"
 
-#: class-translations.php:266
+#: class-translations.php:269
 msgid "Shadows"
 msgstr ""
 
-#: class-translations.php:267
+#: class-translations.php:270
 msgid "Shadow Strength"
 msgstr ""
 
-#: class-translations.php:268
+#: class-translations.php:271
 msgid "Simple Shadow Small"
 msgstr ""
 
-#: class-translations.php:269
+#: class-translations.php:272
 msgid "Simple Shadow Normal"
 msgstr ""
 
-#: class-translations.php:270
+#: class-translations.php:273
 msgid "Simple Shadow Medium"
 msgstr ""
 
-#: class-translations.php:271
+#: class-translations.php:274
 msgid "Simple Shadow Large"
 msgstr ""
 
-#: class-translations.php:272
+#: class-translations.php:275
 msgid "Simple Shadow Huge"
 msgstr ""
 
-#: class-translations.php:273
+#: class-translations.php:276
 msgid "Fancy Bottom Tilted (Needs Background Color)"
 msgstr ""
 
-#: class-translations.php:274
+#: class-translations.php:277
 msgid "Fancy Vertical (Needs Background Color)"
 msgstr ""
 
-#: class-translations.php:275
+#: class-translations.php:278
 msgid "Fancy Horizontal (Needs Background Color)"
 msgstr ""
 
-#: class-translations.php:276
+#: class-translations.php:279
 msgid "Fancy Center Bottom (Needs Background Color)"
 msgstr ""
 
-#: class-translations.php:277
+#: class-translations.php:280
 msgid "Tooltip"
 msgstr "Hinweis"
 
-#: class-translations.php:278
+#: class-translations.php:281
 msgid "Tooltip Location"
 msgstr "Ort des Hinweises"
 
-#: class-translations.php:279
+#: class-translations.php:282
 msgid "Toggle %s"
 msgstr "Umschalten %s"
 
-#: class-translations.php:279
+#: class-translations.php:282
 msgid "Shadow"
 msgstr "Schatten"
 
-#: class-translations.php:280
+#: class-translations.php:283
 msgid "Tooltip Text (Shows on Hover)"
 msgstr "Hinweistext (wird beim Überfahren mit der Maus angezeigt)"
 
-#: class-translations.php:281
+#: class-translations.php:284
 msgid "Note: this can be overridden by other elements."
 msgstr ""
 
-#: class-translations.php:282
+#: class-translations.php:285
 msgid "Text Color"
 msgstr "Textfarbe"
 
-#: class-translations.php:283
+#: class-translations.php:286
 msgid "Text Color (When Focused)"
 msgstr ""
 
-#: class-translations.php:284
+#: class-translations.php:287
 msgid "Text Alignment"
 msgstr "Textausrichtung"
 
-#: class-translations.php285,
+#: class-translations.php288,
 #: page_builder_sandwich/templates/option-margins-and-paddings.php:20
 msgid "Border"
 msgstr "Rahmen"
 
-#: class-translations.php:286
+#: class-translations.php:289
 msgid "All Sides"
 msgstr "Alle Seiten"
 
-#: class-translations.php:287
+#: class-translations.php:290
 msgid "Top & Bottom"
 msgstr "Oben & Unten"
 
-#: class-translations.php:288
+#: class-translations.php:291
 msgid "Left & Right"
 msgstr "Links & Rechts"
 
-#: class-translations.php:289
+#: class-translations.php:292
 msgid "Top"
 msgstr "Oben"
 
-#: class-translations.php:290
+#: class-translations.php:293
 msgid "Right"
 msgstr "Rechts"
 
-#: class-translations.php:291
+#: class-translations.php:294
 msgid "Bottom"
 msgstr "Unten"
 
-#: class-translations.php:292
+#: class-translations.php:295
 msgid "Left"
 msgstr "Links"
 
-#: class-translations.php293,
+#: class-translations.php296,
 #: page_builder_sandwich/templates/option-border.php:7
 msgid "None"
 msgstr "Nirgends"
 
-#: class-translations.php:294
+#: class-translations.php:297
 msgid "All"
 msgstr ""
 
-#: class-translations.php:295
+#: class-translations.php:298
 msgid "Center"
 msgstr ""
 
-#: class-translations.php:296
+#: class-translations.php:299
 msgid "Colors"
 msgstr "Farben"
 
-#: class-translations.php:297
+#: class-translations.php:300
 msgid "Placeholder Color"
 msgstr "Platzhalterfarbe"
 
-#: class-translations.php:298
+#: class-translations.php:301
 msgid "Placeholder Color (When Focused)"
 msgstr ""
 
-#: class-translations.php299, class-translations.php300,
-#: class-translations.php:301
+#: class-translations.php302, class-translations.php303,
+#: class-translations.php:304
 msgid "Bullet Icon"
 msgstr "Bullet Icon"
 
-#: class-translations.php300, class-translations.php306,
-#: class-translations.php:316
+#: class-translations.php303, class-translations.php309,
+#: class-translations.php:319
 msgid "Reset %s"
 msgstr "Reset %s"
 
-#: class-translations.php:301
+#: class-translations.php:304
 msgid "Choose %s"
 msgstr "Wähen Sie %s"
 
-#: class-translations.php:302
+#: class-translations.php:305
 msgid "Use As Bullet"
 msgstr "Als Bullet benutzen"
 
-#: class-translations.php303, class-translations.php304,
-#: class-translations.php305, class-translations.php:306
+#: class-translations.php306, class-translations.php307,
+#: class-translations.php308, class-translations.php:309
 msgid "Font Size"
 msgstr "Schriftgröße"
 
-#: class-translations.php304, class-translations.php:314
+#: class-translations.php307, class-translations.php:317
 msgid "Increase %s"
 msgstr "Erhöhen %s"
 
-#: class-translations.php305, class-translations.php:315
+#: class-translations.php308, class-translations.php:318
 msgid "Decrease %s"
 msgstr "Verringern %s"
 
-#: class-translations.php307, class-translations.php436,
-#: class-translations.php437, class-translations.php438,
-#: class-translations.php439, class-translations.php440,
-#: class-translations.php:441
+#: class-translations.php310, class-translations.php439,
+#: class-translations.php440, class-translations.php441,
+#: class-translations.php442, class-translations.php443,
+#: class-translations.php:444
 msgid "Heading %d"
 msgstr "Überschrift %d"
 
-#: class-translations.php:308
+#: class-translations.php:311
 msgid "Horizontal Rule"
 msgstr "Horizontale Trennlinie"
 
-#: class-translations.php:309
+#: class-translations.php:312
 msgid "Map"
 msgstr ""
 
-#: class-translations.php:310
+#: class-translations.php:313
 msgid "Google Map"
 msgstr ""
 
-#: class-translations.php:311
+#: class-translations.php:314
 msgid "Text"
 msgstr ""
 
-#: class-translations.php312, class-translations.php356,
-#: class-translations.php:481
+#: class-translations.php315, class-translations.php359,
+#: class-translations.php:484
 msgid "Insert %s"
 msgstr "Einfügen %s"
 
-#: class-translations.php313, class-translations.php314,
-#: class-translations.php315, class-translations.php:316
+#: class-translations.php316, class-translations.php317,
+#: class-translations.php318, class-translations.php:319
 msgid "Line Height"
 msgstr "Linienhöhe"
 
-#: class-translations.php:317
+#: class-translations.php:320
 msgid "Text Formatting"
 msgstr "Textformatierung"
 
-#: class-translations.php:318
+#: class-translations.php:321
 msgid "Change Type"
 msgstr "Typ wechseln"
 
-#: class-translations.php319, class-translations.php:356
+#: class-translations.php322, class-translations.php:359
 msgid "Elements"
 msgstr "Elemente"
 
-#: class-translations.php:320
+#: class-translations.php:323
 msgid "Rows & Columns"
 msgstr "Zeilen & Spalten"
 
-#: class-translations.php321,
+#: class-translations.php324,
 #: page_builder_sandwich/templates/frame-predesigned-picker.php:13
 msgid "Pre-Designed Sections"
 msgstr "Vorgefertigte Bereiche"
 
-#: class-translations.php:322
+#: class-translations.php:325
 msgid "Map Controls"
 msgstr ""
 
-#: class-translations.php:323
+#: class-translations.php:326
 msgid "Map Marker"
 msgstr ""
 
-#: class-translations.php:324
+#: class-translations.php:327
 msgid "Custom Map Marker"
 msgstr ""
 
-#: class-translations.php:325
+#: class-translations.php:328
 msgid "Tint Map"
 msgstr ""
 
-#: class-translations.php:326
+#: class-translations.php:329
 msgid "Latitude & Longitude / Address"
 msgstr ""
 
-#: class-translations.php:327
+#: class-translations.php:330
 msgid ""
 "A number pair separated by a comma e.g. \"37.09024, -95.712891\" or enter an"
 " address"
 msgstr ""
 
-#: class-translations.php:328
+#: class-translations.php:331
 msgid "Custom Map Styles"
 msgstr ""
 
-#: class-translations.php:329
-msgid ""
-"Enter custom map styles here. Read about <a "
-"href=\"https://developers.google.com/maps/documentation/javascript/styling#styling_the_default_map\""
-" target=\"_blank\">Google's styling guide</a>. You can use sites like <a "
-"href=\"https://snazzymaps.com\" target=\"_blank\">SnazzyMaps.com</a> to "
-"create custom map styles."
-msgstr ""
-
-#: class-translations.php:330
-msgid "Auto"
-msgstr ""
-
-#: class-translations.php:331
-msgid "Move Above %s"
-msgstr ""
-
 #: class-translations.php:332
-msgid "Move Below %s"
-msgstr ""
-
-#: class-translations.php:333
-msgid "Move Inside Column"
-msgstr ""
-
-#: class-translations.php:334
-msgid "Tab Style"
-msgstr ""
-
-#: class-translations.php:335
-msgid "Tab Styles"
-msgstr ""
-
-#: class-translations.php:336
-msgid "Active Tab Background Color"
-msgstr ""
-
-#: class-translations.php:337
-msgid "Active Tab Text Color"
-msgstr ""
-
-#: class-translations.php:338
-msgid "Inactive Tab Text Color"
-msgstr ""
-
-#: class-translations.php:339
-msgid "Tab Content Background Color"
-msgstr ""
-
-#: class-translations.php:340
-msgid "Tab Content Text Color"
-msgstr ""
-
-#: class-translations.php:341
-msgid "Overflow Hidden"
-msgstr ""
-
-#: class-translations.php:342
 msgid ""
-"Turning this on will hide or clip elements that go outside this container."
-msgstr ""
-
-#: class-translations.php:343
-msgid "Classic"
-msgstr ""
-
-#: class-translations.php:344
-msgid "Clean"
-msgstr ""
-
-#: class-translations.php:345
-msgid "Vertical tabs"
-msgstr ""
-
-#: class-translations.php:346
-msgid "Tab Alignment"
-msgstr ""
-
-#: class-translations.php:347
-msgid "Stretch"
-msgstr ""
-
-#: class-translations.php:348
-msgid "Properties"
-msgstr ""
-
-#: class-translations.php349,
-#: page_builder_sandwich/templates/option-margins-and-paddings.php:5
-msgid "Margin"
-msgstr "Rand"
-
-#: class-translations.php350, class-translations.php351,
-#: class-translations.php:491
-msgid "Tab"
-msgstr ""
-
-#: class-translations.php352, class-translations.php:492
-msgid "Tabs"
-msgstr ""
-
-#: class-translations.php:353
-msgid "Open"
-msgstr ""
-
-#: class-translations.php:354
-msgid "Loading Options"
-msgstr ""
-
-#: class-translations.php:355
-msgid "Error loading options"
-msgstr ""
-
-#: class-translations.php:357
-msgid "Element"
-msgstr ""
-
-#: class-translations.php:358
-msgid "Fade"
-msgstr ""
-
-#: class-translations.php:359
-msgid "Fade Up"
-msgstr ""
-
-#: class-translations.php:360
-msgid "Fade Down"
-msgstr ""
-
-#: class-translations.php:361
-msgid "Fade Left"
-msgstr ""
-
-#: class-translations.php:362
-msgid "Fade Right"
-msgstr ""
-
-#: class-translations.php:363
-msgid "Fade Up Right"
-msgstr ""
-
-#: class-translations.php:364
-msgid "Fade Up Left"
-msgstr ""
-
-#: class-translations.php:365
-msgid "Fade Down Right"
-msgstr ""
-
-#: class-translations.php:366
-msgid "Fade Down Left"
-msgstr ""
-
-#: class-translations.php:367
-msgid "Flip Up"
-msgstr ""
-
-#: class-translations.php:368
-msgid "Flip Down"
-msgstr ""
-
-#: class-translations.php:369
-msgid "Flip Left"
-msgstr ""
-
-#: class-translations.php:370
-msgid "Flip Right"
-msgstr ""
-
-#: class-translations.php:371
-msgid "Roll 3D Bottom to Top"
-msgstr ""
-
-#: class-translations.php:372
-msgid "Roll 3D Left to Right"
-msgstr ""
-
-#: class-translations.php:373
-msgid "Roll 3D Right to Left"
-msgstr ""
-
-#: class-translations.php:374
-msgid "Spin"
-msgstr ""
-
-#: class-translations.php:375
-msgid "Spin Reverse"
-msgstr ""
-
-#: class-translations.php:376
-msgid "Spin 3D"
-msgstr ""
-
-#: class-translations.php:377
-msgid "Spin 3D Reverse"
-msgstr ""
-
-#: class-translations.php:378
-msgid "Slide Up"
-msgstr ""
-
-#: class-translations.php:379
-msgid "Slide Down"
-msgstr ""
-
-#: class-translations.php:380
-msgid "Slide Left"
-msgstr ""
-
-#: class-translations.php:381
-msgid "Slide Right"
-msgstr ""
-
-#: class-translations.php:382
-msgid "Rotate Top Left"
-msgstr ""
-
-#: class-translations.php:383
-msgid "Rotate Top Right"
-msgstr ""
-
-#: class-translations.php:384
-msgid "Rotate Bottom Left"
-msgstr ""
-
-#: class-translations.php:385
-msgid "Rotate Bottom Right"
-msgstr ""
-
-#: class-translations.php:386
-msgid "Zoom In"
-msgstr ""
-
-#: class-translations.php:387
-msgid "Zoom In Up"
-msgstr ""
-
-#: class-translations.php:388
-msgid "Zoom In Down"
-msgstr ""
-
-#: class-translations.php:389
-msgid "Zoom In Left"
-msgstr ""
-
-#: class-translations.php:390
-msgid "Zoom In Right"
-msgstr ""
-
-#: class-translations.php:391
-msgid "Zoom Out"
-msgstr ""
-
-#: class-translations.php:392
-msgid "Zoom Out Up"
-msgstr ""
-
-#: class-translations.php:393
-msgid "Zoom Out Down"
-msgstr ""
-
-#: class-translations.php:394
-msgid "Zoom Out Left"
-msgstr ""
-
-#: class-translations.php:395
-msgid "Zoom Out Right"
-msgstr ""
-
-#: class-translations.php:396
-msgid "Pulsate (Loop)"
-msgstr ""
-
-#: class-translations.php:397
-msgid "Pulsate Fade (Loop)"
-msgstr ""
-
-#: class-translations.php:398
-msgid "Hover (Loop)"
-msgstr ""
-
-#: class-translations.php:399
-msgid "Hover Floar (Loop)"
-msgstr ""
-
-#: class-translations.php:400
-msgid "Wobble (Loop)"
-msgstr ""
-
-#: class-translations.php:401
-msgid "Wobble 3D (Loop)"
-msgstr ""
-
-#: class-translations.php:402
-msgid "Dangle (Loop)"
-msgstr ""
-
-#: class-translations.php:403
-msgid "Animation"
-msgstr ""
-
-#: class-translations.php:404
-msgid "Play an animation when the element enters the view."
-msgstr ""
-
-#: class-translations.php:405
-msgid "Animation Speed"
-msgstr ""
-
-#: class-translations.php:406
-msgid "In milliseconds"
-msgstr ""
-
-#: class-translations.php:407
-msgid "Animation Start Delay"
-msgstr ""
-
-#: class-translations.php:408
-msgid "In milliseconds. Does not apply to looped animations."
-msgstr ""
-
-#: class-translations.php:409
-msgid "Elastic Animation"
-msgstr ""
-
-#: class-translations.php:410
-msgid "Turn this on for a bouncy/elastic animation effect."
-msgstr ""
-
-#: class-translations.php:411
-msgid "Play Animation Once"
-msgstr ""
-
-#: class-translations.php:412
-msgid ""
-"Animations play every time they get into view, turn this on to only play it "
-"once. Does not apply to looped animations."
-msgstr ""
-
-#: class-translations.php:413
-msgid "Toggle"
-msgstr ""
-
-#: class-translations.php:414
-msgid "Fade Animation"
-msgstr ""
-
-#: class-translations.php:415
-msgid "Check this to use fade instead of a sliding animation for each slide."
-msgstr ""
-
-#: class-translations.php:416
-msgid "Parallax"
-msgstr ""
-
-#: class-translations.php:417
-msgid ""
-"A positive number will add an upward parallax. You'll need to have a "
-"background image to make this work. You can also use tint. Enter blank or 0 "
-"to turn off parallax."
-msgstr ""
-
-#: class-translations.php:418
-msgid "Video Background"
-msgstr ""
-
-#: class-translations.php:419
-msgid "Normal Background Image"
-msgstr ""
-
-#: class-translations.php:420
-msgid "Fixed Background Image"
-msgstr ""
-
-#: class-translations.php:421
-msgid "Parallax Image"
-msgstr ""
-
-#: class-translations.php:422
-msgid "Video Background (YouTube or Vimeo)"
-msgstr ""
-
-#: class-translations.php:423
-msgid "Video Background (Uploaded Video)"
-msgstr ""
-
-#: class-translations.php:424
-msgid "Background Image Type"
-msgstr ""
-
-#: class-translations.php:425
-msgid "You can select an effect or special background here."
-msgstr ""
-
-#: class-translations.php:426
-msgid ""
-"Paste a URL to a YouTube or Vimeo video here to turn it into a background. "
-"Video backgrounds do not work in mobile devices, the color or image above "
-"will be used as a fallback."
-msgstr ""
-
-#: class-translations.php:427
-msgid "Background .WEBM Video"
-msgstr ""
-
-#: class-translations.php:428
-msgid ""
-"Pick a video of a WEBM format. You'll need to pick this and the MP4 format "
-"below. Video backgrounds do not work in mobile devices, the color or image "
-"above will be used as a fallback."
-msgstr ""
-
-#: class-translations.php:429
-msgid "Video Background .MP4 Video"
-msgstr ""
-
-#: class-translations.php:430
-msgid ""
-"Pick a video of an MP4 format. You'll need to pick this and the WEBM format "
-"above. Video backgrounds do not work in mobile devices, the color or image "
-"above will be used as a fallback."
-msgstr ""
-
-#: class-translations.php:431
-msgid "Ken Burns Images"
-msgstr ""
-
-#: class-translations.php:432
-msgid "Pick 2-4 images which will be used for the Ken Burns effect."
-msgstr ""
-
-#: class-translations.php:435
-msgid "Text Style"
-msgstr "Text Style"
-
-#: class-translations.php:442
-msgid "Blockquote"
-msgstr "Zitat"
-
-#: class-translations.php:443
-msgid "Preformatted"
-msgstr "Vorformatiert"
-
-#: class-translations.php:444
-msgid "Paragraph"
-msgstr "Absatz"
-
-#: class-translations.php:445
-msgid "Button"
-msgstr "Button"
-
-#: class-translations.php:447
-msgid "Clear Formatting"
-msgstr "Formatierung aufheben"
-
-#: class-translations.php:448
-msgid "Code"
-msgstr "Code"
-
-#: class-translations.php:449
-msgid "Color"
-msgstr "Farbe"
-
-#: class-translations.php:451
-msgid "%s Column"
-msgstr "%s Spalte"
-
-#: class-translations.php452, class-translations.php453,
-#: class-translations.php:454
-msgid "%s Columns"
-msgstr "%s Spalten"
-
-#: class-translations.php455, class-translations.php456,
-#: class-translations.php457, class-translations.php458,
-#: class-translations.php459, class-translations.php:460
-msgid "Add a %s-Column Row"
-msgstr "Eine %s-Spalten Zeile hinzufügen"
-
-#: class-translations.php:461
-msgid "Add an N-Column Row"
-msgstr "Eine N-spalten Zeile hinzufügen"
-
-#: class-translations.php462, class-translations.php:482
-msgid "HTML"
-msgstr "HTML"
-
-#: class-translations.php:463
-msgid "Iframe"
-msgstr ""
-
-#: class-translations.php:465
-msgid "Justify"
-msgstr "Blocksatz"
-
-#: class-translations.php:466
-msgid "Media"
-msgstr "Media"
-
-#: class-translations.php:467
-msgid "Newsletter Signup Form"
-msgstr "Newsletter Anmeldeformular"
-
-#: class-translations.php:468
-msgid "Table"
-msgstr "Tabelle"
-
-#: class-translations.php469, class-translations.php488,
-#: page_builder_sandwich/templates/frame-shortcode-picker.php:14
-msgid "Shortcode"
-msgstr "Shortcode"
-
-#: class-translations.php:470
-msgid "Insert Shortcode"
-msgstr "Shortcode einfügen"
-
-#: class-translations.php:471
-msgid "Undo"
-msgstr "Rückgängig"
-
-#: class-translations.php:472
-msgid "Redo"
-msgstr "Wiederherstellen"
-
-#: class-translations.php:473
-msgid "Sidebar or Widget Area"
-msgstr "Seitenleiste oder Widget Bereich"
-
-#: class-translations.php474, class-translations.php:514
-msgid "Sidebar"
-msgstr "Seitenleiste"
-
-#: class-translations.php:475
-msgid "Strikethrough"
-msgstr "Durchgestrichen"
-
-#: class-translations.php:476
-msgid "More Tools"
-msgstr "Weitere Werkzeuge"
-
-#: class-translations.php:477
-msgid "Less Tools"
-msgstr "Weniger Werkzeuge"
-
-#: class-translations.php:478
-msgid "Underline"
-msgstr "Unterstrichen"
-
-#: class-translations.php:479
-msgid "Uppercase"
-msgstr "Hochgestellt"
-
-#: class-translations.php:480
-msgid "Reset Case"
-msgstr "Schrift zurücksetzen"
-
-#: class-translations.php481, class-translations.php515,
-#: page_builder_sandwich/templates/frame-widget-picker.php:13
-msgid "Widget"
-msgstr "Widget"
-
-#: class-translations.php:483
-msgid "Align left"
-msgstr "Linksbündig"
-
-#: class-translations.php:484
-msgid "Align center"
-msgstr "Zentriert"
-
-#: class-translations.php:485
-msgid "Align right"
-msgstr "Rechtsbündig"
-
-#: class-translations.php:486
-msgid "Edit"
-msgstr "Bearbeiten"
-
-#: class-translations.php:487
-msgid "Align None"
-msgstr "Keine Ausrichtung"
-
-#: class-translations.php489,
-#: page_builder_sandwich/templates/frame-predesigned-picker.php:28
-msgid "Insert Design"
-msgstr "Design einfügen"
-
-#: class-translations.php:490
-msgid "Insert Content"
-msgstr "Inhalt einfügen"
-
-#: class-translations.php:493
-msgid "%s attribute"
-msgstr ""
-
-#: class-translations.php:495
-msgid "Select a post type"
-msgstr ""
-
-#: class-translations.php:496
-msgid "Bold"
-msgstr ""
-
-#: class-translations.php:497
-msgid "Italic"
-msgstr ""
-
-#: class-translations.php:499
-msgid "Bullet List"
-msgstr ""
-
-#: class-translations.php:500
-msgid "Numbered List"
-msgstr ""
-
-#: class-translations.php:501
-msgid "Indent"
-msgstr ""
-
-#: class-translations.php:502
-msgid "Unindent"
-msgstr ""
-
-#: class-translations.php:505
-msgid "Visit Link"
-msgstr "Link aufrufen"
-
-#: class-translations.php:507
-msgid "Unlink"
-msgstr "Linkverknüpfung aufheben"
-
-#: class-translations.php:508
-msgid "Clone"
-msgstr "Klonen"
-
-#: class-translations.php:510
-msgid "Embed"
-msgstr "Einbetten"
-
-#: class-translations.php:511
-msgid "Remove"
-msgstr "Entfernen"
-
-#: class-translations.php:516
-msgid "Next"
-msgstr "Nächstes"
-
-#: class-translations.php:517
-msgid "Close"
-msgstr "Schließen"
-
-#: class-translations.php:518
-msgid "Select Image"
-msgstr "Bild auswählen"
-
-#: class-translations.php:519
-msgid "Select File"
-msgstr ""
-
-#: class-translations.php:520
-msgid "Use Selected Image"
-msgstr "Aufgewähltes Bild benutzen"
-
-#: class-translations.php:521
-msgid "Your email address"
-msgstr "Ihre E-Mail Adresse"
-
-#: class-translations.php:522
-msgid "Drag an element below into your content"
-msgstr ""
-
-#: class-translations.php:523
-msgid "View Template"
-msgstr ""
-
-#: class-translations.php:545
-msgid ""
-"Please turn on your admin toolbar from your user profile in order for Page "
-"Builder Sandwich to work correctly."
-msgstr "Bitte schalten Sie Ihre Admin Werkzeugleiste über Ihr Benutzerprofil ein, damit Page Builder Sandwich korrekt arbeiten kann."
-
-#: class-translations.php:546
-msgid ""
-"There are errors on this page that may affect Page Builder Sandwich from "
-"working correctly. Please check the browser's console for the errors. These "
-"would need to be fixed first. Please contact the theme/plugin author"
-msgstr "Es gibt Fehler auf dieser Seite, die die korrekte Ausführung von Page Builder Sandwich beeinträchtigen können. Bitte überprüfen Sie die Browser-Konsole auf jene Fehler. Diese müssen zuerst repariert werden. Bitte kontaktieren Sie den Theme / Plugin Autoren"
-
-#: page_builder_sandwich/templates/frame-html-editor.php:20
-msgid "Paste your HTML above."
-msgstr "Fügen Sie Ihren HTML Code oben ein."
-
-#: page_builder_sandwich/templates/frame-icon-picker.php14,
-#: page_builder_sandwich/templates/frame-page-template-picker.php19,
-#: page_builder_sandwich/templates/frame-predesigned-picker.php13,
-#: page_builder_sandwich/templates/frame-shortcode-picker.php14,
-#: page_builder_sandwich/templates/frame-widget-picker.php:13
-msgid "Search for %s"
-msgstr "Nach %s suchen"
-
-#: page_builder_sandwich/templates/frame-icon-picker.php19,
-#: page_builder_sandwich/templates/frame-page-template-picker.php24,
-#: page_builder_sandwich/templates/frame-predesigned-picker.php18,
-#: page_builder_sandwich/templates/frame-shortcode-picker.php19,
-#: page_builder_sandwich/templates/frame-widget-picker.php:19
-msgid "No matches found"
-msgstr "Keine Treffer gefunden"
-
-#: page_builder_sandwich/templates/frame-icon-picker.php:27
-msgid ""
-"Only %sDashicons%s are available. Upgrading to Premium will unlock more "
-"icons, bullet & button icons and the ability to upload your own."
-msgstr ""
-
-#: page_builder_sandwich/templates/frame-icon-picker.php:34
-msgid ""
-"You can upload your own icons by dropping an SVG file anywhere to upload it."
-" You can find more info in the %sdocs%s"
-msgstr "Sie können Ihre eigenen Icons hochladen, indem Sie eine SVG Datei irgendwo ablegen. Mehr Informationen können Sie in der %sAnleitung%s finden"
-
-#: page_builder_sandwich/templates/frame-page-template-picker.php:33
-msgid ""
-"Page templates are a good starting point for your design. Choosing one will "
-"replace the contents of your page."
-msgstr ""
-
-#: page_builder_sandwich/templates/frame-page-template-picker.php:37
-msgid "Replace Contents With Page Template"
-msgstr ""
-
-#: page_builder_sandwich/templates/frame-shortcode-picker.php:27
-msgid "hundreds of plugins"
-msgstr ""
-
-#: page_builder_sandwich/templates/frame-shortcode-picker.php:29
-msgid "%s plugins"
-msgstr ""
-
-#: page_builder_sandwich/templates/frame-shortcode-picker.php:31
-msgid "hundreds of shortcodes"
-msgstr ""
-
-#: page_builder_sandwich/templates/frame-shortcode-picker.php:33
-msgid "%s shortcodes"
-msgstr ""
-
-#: page_builder_sandwich/templates/frame-shortcode-picker.php:36
-msgid "Tip: You can also type in shortcodes directly in the content."
-msgstr ""
-
-#: page_builder_sandwich/templates/frame-shortcode-picker.php:38
-msgid ""
-"Fun fact: There are a total of %s and %s in our shortcode mapping database."
-msgstr ""
-
-#: page_builder_sandwich/templates/frame-shortcode-picker.php:43
-msgid "Click here to refresh shortcode mappings from the database"
-msgstr ""
-
-#: page_builder_sandwich/templates/frame-shortcode-picker.php:47
-msgid "Insert Selected Shortcode"
-msgstr ""
-
-#: page_builder_sandwich/templates/frame-widget-picker.php:35
-msgid ""
-"Some widgets that use specialized scripts and modal forms may not work "
-"correctly. For those, please use the sidebar element instead."
-msgstr "Einige Widgets, die spezielle Skripte und Modalformulare nutzen, könnten ggfs. nicht korrekt funktionieren. Für diese benutzen Sie bitte stattdessen das Seitenleisten-Element."
-
-#: page_builder_sandwich/templates/heartbeat-locked.php:22
-msgid "Go back"
-msgstr ""
-
-#: page_builder_sandwich/templates/heartbeat-locked.php:23
-msgid "Take over"
-msgstr ""
-
-#: page_builder_sandwich/templates/heartbeat-takeover.php:20
-msgid "Your latest changes were saved as a revision."
-msgstr ""
-
-#: page_builder_sandwich/templates/heartbeat-takeover.php:23
-msgid "Refresh This Page"
-msgstr ""
-
-#: page_builder_sandwich/templates/iframe.php:40
-msgid ""
-"You are in responsive view mode with limited editing capabilities. Some of "
-"your changes will only apply to smaller screens."
-msgstr ""
-
-#: page_builder_sandwich/templates/iframe.php:43
-msgid "Toggle hidden elements"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-elements-modal.php:12
-msgid "Hey, Yellow Tags Are %sPremium Features!%s"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-elements-modal.php:13
-msgid ""
-"Consider going premium to get access to more awesome premium elements, "
-"formatting tools and inspector properties."
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-elements-modal.php:15
-msgid "Buy now, starts at $39"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-elements-modal.php:16
-msgid "Try premium version demo"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-elements-modal.php:19
-msgid "You can hide these flags in the settings."
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:12
-msgid "Do More With%sPage Builder Sandwich %sPremium%s"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:13
-msgid ""
-"Get more awesome features to make your website stunning!%sHere's a preview "
-"of what you'll get:"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:18
-msgid "Use 50+ Beautiful Templates"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:19
-msgid "10 Full Page Templates and 40+ Small Pre-Designed Templates"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:23
-msgid "Premium Elements"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:24
-msgid ""
-"Buttons, Countdown, Carousels, Icon Labels, Newsletters, Toggle, More Icons,"
-" and Plenty More."
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:28
-msgid "More Styling Options"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:29
-msgid ""
-"Sweet Animations, Fancy Shadows, Background Patterns, Tab Styles, and Plenty"
-" More."
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:33
-msgid "Advanced Shortcode Controls"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:34
-msgid ""
-"Access Color Pickers, Number Sliders, Image Pickers, Boolean Toggles, and "
-"More for 600+ Mapped Shortcodes."
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:38
-msgid "Premium E-Mail Support"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:39
-msgid ""
-"Got a Problem? Contact Us From Within the Plugin and We'll Help You Out!"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:61
-msgid "Buy Now, starts at $39"
-msgstr ""
-
-#: page_builder_sandwich/templates/learn-premium-modal.php:62
-msgid "Try A Live Demo"
-msgstr ""
-
-#: page_builder_sandwich/templates/option-border.php:11
-msgid "Double"
-msgstr "Doppelt"
-
-#: page_builder_sandwich/templates/option-border.php:12
-msgid "Groove"
-msgstr "Groove"
-
-#: page_builder_sandwich/templates/option-border.php:13
-msgid "Ridge"
-msgstr "Ridge"
-
-#: page_builder_sandwich/templates/option-border.php:14
-msgid "Inset"
-msgstr "Inset"
-
-#: page_builder_sandwich/templates/option-border.php:15
-msgid "Outset"
-msgstr "Outset"
-
-#: page_builder_sandwich/templates/option-text.php:25
-msgid ""
-"Heads up! You can also pick images from the media manager and get access to "
-"more controls with our Premium Version."
-msgstr ""
-
-#: page_builder_sandwich/templates/option-text.php:29
-msgid "You can also access a nifty color picker with our Premium Version."
-msgstr ""
-
-#: page_builder_sandwich/templates/option-text.php:33
-msgid "The Premium Version comes with a neat number slider."
-msgstr ""
-
-#: page_builder_sandwich/templates/option-text.php:37
-msgid ""
-"The Premium Version allows you to use switches to easily turn on and off "
-"settings."
-msgstr ""
-
-#: page_builder_sandwich/templates/option-text.php:41
-msgid ""
-"Get the Premium Version to use grouped checkboxes, and get access to more "
-"controls."
-msgstr ""
-
-#: page_builder_sandwich/templates/option-text.php:45
-msgid "You get to use post type checkboxes with the Premium Version."
-msgstr ""
-
-#: page_builder_sandwich/templates/option-text.php:49
-msgid ""
-"Get the Premium Version to use post type dropdowns, and get access to more "
-"controls."
-msgstr ""
-
-#: page_builder_sandwich/templates/option-text.php:53
-msgid ""
-"The Premium Version will allow you to use post / CPT dropdowns, and get "
-"access to more controls."
-msgstr ""
+"

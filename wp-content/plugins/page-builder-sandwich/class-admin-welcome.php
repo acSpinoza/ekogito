@@ -164,27 +164,9 @@ if ( ! class_exists( 'PBSAdminWelcome' ) ) {
 				<div class="welcome-panel pbs-welcome-changelog">
 					<h3><?php esc_html_e( "A Stickler for details? Here's everything's that changed in this version", PAGE_BUILDER_SANDWICH ) ?></h3>
 					<ul>
-<li style="color: #f39c12"><code>Enhanced</code> Huge speed and performance optimizations.</li>
-<li style="color: #3498db"><code>New</code> Gallery element (Premium)</li>
-<li style="color: #3498db"><code>New</code> Team members element (Premium)</li>
-<li style="color: #3498db"><code>New</code> Featurette element (Premium)</li>
-<li style="color: #3498db"><code>New</code> 4 Pricing table designs (Premium)</li>
-<li style="color: #3498db"><code>New</code> Spacer element</li>
-<li style="color: #f39c12"><code>Change</code> Buttons now have a default label</li>
-<li style="color: #f39c12"><code>Enhanced</code> An image placeholder now shows up while a newly added image is loading.</li>
-<li style="color: #e74c3c"><code>Fixed</code> In some rare cases the_title filter returned a PHP warning regarding missing the 2nd argument.</li>
-<li style="color: #e74c3c"><code>Fixed</code> It's possible for HRs to go outside their containers.</li>
-<li style="color: #e74c3c"><code>Fixed</code> Adjusting images to a larger size while the content area is smaller makes images squished.</li>
-<li style="color: #e74c3c"><code>Fixed</code> Some markdown shortcuts were triggering errors.</li>
-<li style="color: #e74c3c"><code>Fixed</code> The map element's zoom parameter triggered an error.</li>
-<li style="color: #e74c3c"><code>Fixed</code> Adding an element inside a column retains a blank paragraph inside.</li>
-<li style="color: #e74c3c"><code>Fixed</code> The margin drag handle shows momentarily when hovering from a text element to another text element.</li>
-<li style="color: #e74c3c"><code>Fixed</code> Turning a bullet text into a heading triggers an error.</li>
-<li style="color: #e74c3c"><code>Fixed</code> Selecting different a text style when focused on a preformatted text triggers an error.</li>
-<li style="color: #e74c3c"><code>Fixed</code> If a page queries other pages, it's possible that the edit button may forward to another page/post.</li>
-<li style="color: #e74c3c"><code>Fixed</code> Adding a full-width pre-designed element inside a row made it invisible.</li>
-<li style="color: #e74c3c"><code>Fixed</code> Holding down ctrl inside a blank paragraph may cause a JS error.</li>
-<li style="color: #e74c3c"><code>Fixed</code> It's now easier to click on carousel thumbs when a carousel is inside a row.</li>
+<li style="color: #f39c12"><code>Enhanced</code> Updated Freemius SDK to v1.2.1.5</li>
+<li style="color: #e74c3c"><code>Fixed</code> Some themes forced paragraphs & headings to have a fixed width inside columns, we now get around this.</li>
+<li style="color: #e74c3c"><code>Fixed</code> Added page-template-sample to prevent php errors upon deactivation.</li>
 					</ul>
 				</div>
 			</div>
