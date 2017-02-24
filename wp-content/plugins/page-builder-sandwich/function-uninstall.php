@@ -56,5 +56,8 @@ if ( ! function_exists( 'pbs_uninstall' ) ) {
 		delete_option( 'pbs_has_rated' );
 		delete_option( 'pbs_ask_total_editing_time' );
 		delete_option( 'pbs_ask_posts_edited' );
+
+		// Used by class-admin-settings.
+		delete_option( 'pbs_lite_options' );
 	}
 }

@@ -152,18 +152,271 @@ if (Function.prototype.name === undefined && Object.defineProperty !== undefined
 	}
 })();
 
+!(function(win) {
+
+/**
+ * FastDom
+ *
+ * Eliminates layout thrashing
+ * by batching DOM read/write
+ * interactions.
+ *
+ * @author Wilson Page <wilsonpage@me.com>
+ * @author Kornel Lesinski <kornel.lesinski@ft.com>
+ */
+
+'use strict';
+
+/**
+ * Mini logger
+ *
+ * @return {Function}
+ */
+var debug = 0 ? console.log.bind(console, '[fastdom]') : function() {};
+
+/**
+ * Normalized rAF
+ *
+ * @type {Function}
+ */
+var raf = win.requestAnimationFrame
+  || win.webkitRequestAnimationFrame
+  || win.mozRequestAnimationFrame
+  || win.msRequestAnimationFrame
+  || function(cb) { return setTimeout(cb, 16); };
+
+/**
+ * Initialize a `FastDom`.
+ *
+ * @constructor
+ */
+function FastDom() {
+  var self = this;
+  self.reads = [];
+  self.writes = [];
+  self.raf = raf.bind(win); // test hook
+  debug('initialized', self);
+}
+
+FastDom.prototype = {
+  constructor: FastDom,
+
+  /**
+   * Adds a job to the read batch and
+   * schedules a new frame if need be.
+   *
+   * @param  {Function} fn
+   * @public
+   */
+  measure: function(fn, ctx) {
+    debug('measure');
+    var task = !ctx ? fn : fn.bind(ctx);
+    this.reads.push(task);
+    scheduleFlush(this);
+    return task;
+  },
+
+  /**
+   * Adds a job to the
+   * write batch and schedules
+   * a new frame if need be.
+   *
+   * @param  {Function} fn
+   * @public
+   */
+  mutate: function(fn, ctx) {
+    debug('mutate');
+    var task = !ctx ? fn : fn.bind(ctx);
+    this.writes.push(task);
+    scheduleFlush(this);
+    return task;
+  },
+
+  /**
+   * Clears a scheduled 'read' or 'write' task.
+   *
+   * @param {Object} task
+   * @return {Boolean} success
+   * @public
+   */
+  clear: function(task) {
+    debug('clear', task);
+    return remove(this.reads, task) || remove(this.writes, task);
+  },
+
+  /**
+   * Extend this FastDom with some
+   * custom functionality.
+   *
+   * Because fastdom must *always* be a
+   * singleton, we're actually extending
+   * the fastdom instance. This means tasks
+   * scheduled by an extension still enter
+   * fastdom's global task queue.
+   *
+   * The 'super' instance can be accessed
+   * from `this.fastdom`.
+   *
+   * @example
+   *
+   * var myFastdom = fastdom.extend({
+   *   initialize: function() {
+   *     // runs on creation
+   *   },
+   *
+   *   // override a method
+   *   measure: function(fn) {
+   *     // do extra stuff ...
+   *
+   *     // then call the original
+   *     return this.fastdom.measure(fn);
+   *   },
+   *
+   *   ...
+   * });
+   *
+   * @param  {Object} props  properties to mixin
+   * @return {FastDom}
+   */
+  extend: function(props) {
+    debug('extend', props);
+    if (typeof props != 'object') throw new Error('expected object');
+
+    var child = Object.create(this);
+    mixin(child, props);
+    child.fastdom = this;
+
+    // run optional creation hook
+    if (child.initialize) child.initialize();
+
+    return child;
+  },
+
+  // override this with a function
+  // to prevent Errors in console
+  // when tasks throw
+  catch: null
+};
+
+/**
+ * Schedules a new read/write
+ * batch if one isn't pending.
+ *
+ * @private
+ */
+function scheduleFlush(fastdom) {
+  if (!fastdom.scheduled) {
+    fastdom.scheduled = true;
+    fastdom.raf(flush.bind(null, fastdom));
+    debug('flush scheduled');
+  }
+}
+
+/**
+ * Runs queued `read` and `write` tasks.
+ *
+ * Errors are caught and thrown by default.
+ * If a `.catch` function has been defined
+ * it is called instead.
+ *
+ * @private
+ */
+function flush(fastdom) {
+  debug('flush');
+
+  var writes = fastdom.writes;
+  var reads = fastdom.reads;
+  var error;
+
+  try {
+    debug('flushing reads', reads.length);
+    runTasks(reads);
+    debug('flushing writes', writes.length);
+    runTasks(writes);
+  } catch (e) { error = e; }
+
+  fastdom.scheduled = false;
+
+  // If the batch errored we may still have tasks queued
+  if (reads.length || writes.length) scheduleFlush(fastdom);
+
+  if (error) {
+    debug('task errored', error.message);
+    if (fastdom.catch) fastdom.catch(error);
+    else throw error;
+  }
+}
+
+/**
+ * We run this inside a try catch
+ * so that if any jobs error, we
+ * are able to recover and continue
+ * to flush the batch until it's empty.
+ *
+ * @private
+ */
+function runTasks(tasks) {
+  debug('run tasks');
+  var task; while (task = tasks.shift()) task();
+}
+
+/**
+ * Remove an item from an Array.
+ *
+ * @param  {Array} array
+ * @param  {*} item
+ * @return {Boolean}
+ */
+function remove(array, item) {
+  var index = array.indexOf(item);
+  return !!~index && !!array.splice(index, 1);
+}
+
+/**
+ * Mixin own properties of source
+ * object into the target.
+ *
+ * @param  {Object} target
+ * @param  {Object} source
+ */
+function mixin(target, source) {
+  for (var key in source) {
+    if (source.hasOwnProperty(key)) target[key] = source[key];
+  }
+}
+
+// There should never be more than
+// one instance of `FastDom` in an app
+var exports = win.fastdom = (win.fastdom || new FastDom()); // jshint ignore:line
+
+// Expose to CJS & AMD
+if ((typeof define)[0] == 'f') define(function() { return exports; });
+else if ((typeof module)[0] == 'o') module.exports = exports;
+
+})( typeof window !== 'undefined' ? window : this);
+
 
 ContentEdit.INDENT = '';
 ContentEdit.DEFAULT_MAX_ELEMENT_WIDTH = 2000;
 ContentTools.HIGHLIGHT_HOLD_DURATION = 999999;
+ContentEdit.RESIZE_CORNER_SIZE = 0;
 
 /* exported PBS */
 var PBS = {};
 
 window.addEventListener( 'DOMContentLoaded', function() {
-    var editor;
+    var editor, extraWrapper;
 	if ( ! document.querySelector( '[data-name="main-content"]' ) ) {
 		return;
+	}
+
+	// If multiple pbs-main-wrapper's exist, make the others uneditable.
+	while ( document.querySelectorAll( '.pbs-main-wrapper[data-name="main-content"]' ).length > 1 ) {
+		extraWrapper = document.querySelectorAll( '.pbs-main-wrapper[data-name="main-content"]' )[1];
+		extraWrapper.removeAttribute( 'data-name' );
+		if ( null !== extraWrapper.getAttribute( 'data-editable' ) ) {
+			extraWrapper.removeAttribute( 'data-editable' );
+		}
 	}
 
 	// Auto-start PBS if the localStorage key is set.
@@ -173,12 +426,13 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			localStorage.removeItem( 'pbs-open-' + pbsParams.post_id );
 			starterInterval = setInterval( function() {
 				if ( document.querySelector( '.ct-widget--active' ) ) {
-					document.querySelector('.ct-ignition__button--edit').dispatchEvent( new CustomEvent( 'click' ) );
+					document.querySelector( '.ct-ignition__button--edit' ).dispatchEvent( new CustomEvent( 'click' ) );
 					clearInterval( starterInterval );
 				}
-			}, 200);
+			}, 200 );
 		}
 	}
+
 
 	// Auto-start PBS if there is a hash.
 	if ( window.location.hash ) {
@@ -194,7 +448,21 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 	editor = ContentTools.EditorApp.get();
 	window._contentToolsShim( editor );
-	editor.init('*[data-editable]', 'data-name');
+	editor.init( '*[data-editable]', 'data-name' );
+
+
+	/**
+	 * Show the inspector when this is the very first start.
+	 */
+	// var pbsIsFirstOpen = true;
+	//
+	// editor.bind('start', function() {
+	// 	if ( pbsIsFirstOpen ) {
+	// 		ContentTools.EditorApp.get()._toolboxElements.show();
+	// 	}
+	// 	pbsIsFirstOpen = false;
+	// } );
+
 
 	// Longer interval time to save on processing intensity.
 	editor.bind('start', function() {
@@ -296,7 +564,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	        if (regions.hasOwnProperty(name)) {
 				var html = regions[name];
 
-				html = wp.hooks.applyFilters( 'pbs.save', html );
+				html = wp.hooks.applyFilters( 'pbs.save', html ).replace( /\\/g, '\\\\' );
 
 	            payload.append(name, html);
 	        }
@@ -646,7 +914,7 @@ var __bind = function(fn, me){
 
 
 // Use this syntax to include other Javascript files, included files must start with "_"
-/* globals ContentTools, ContentEdit, HTMLString, ContentSelect */
+/* globals ContentTools, ContentEdit, HTMLString, ContentSelect, FSM */
 
 /**
  * We need to perform some functions with ContentTools that shouldn't necessarily be part
@@ -654,7 +922,6 @@ var __bind = function(fn, me){
  */
 
 window.PBSEditor = {};
-
 
 window.PBSEditor.getToolUI = function( name ) {
 	if ( ContentTools.EditorApp.get()._toolboxBar._toolUIs[ name ] ) {
@@ -666,21 +933,19 @@ window.PBSEditor.getToolUI = function( name ) {
 	return ContentTools.EditorApp.get()._toolbox._toolUIs[ name ];
 };
 
-
 /**
  * Add a new property _ceElement to all domElement that reference a ContentEdit Element
  */
-ContentEdit.Root.get().bind('mount', function (element) {
+ContentEdit.Root.get().bind( 'mount', function( element ) {
+
     // Map the element to it's DOM element
     element.domElement()._ceElement = element;
 });
-
 
 /**
  * Remove the yellow highlight in CT that highlights the whole editing area.
  */
 ContentTools.EditorApp.get().highlightRegions = function() {};
-
 
 /**
  * Updates the whole Editor's content if something in the DOM was manually changed.
@@ -688,29 +953,29 @@ ContentTools.EditorApp.get().highlightRegions = function() {};
 window.PBSEditor.updateModifiedContent = function() {
 
 	// Go through all the editable regions of CT
-	var regions = ContentTools.EditorApp.get().regions();
-	for ( var i in regions ) {
+	var i, regions = ContentTools.EditorApp.get().regions();
+	for ( i in regions ) {
 		if ( regions.hasOwnProperty( i ) ) {
+
 			// Go through all the children / Element Nodes
 			window.PBSEditor.updateModifiedContentRecursive( regions[ i ] );
 		}
 	}
 };
 
-
 /**
  * Updates the element's content status recursively
  */
 window.PBSEditor.updateModifiedContentRecursive = function( element ) {
 
-	var children = element.children;
+	var ctElement, k, children = element.children;
 	if ( children ) {
-		for ( var k = 0; k < children.length; k++ ) {
+		for ( k = 0; k < children.length; k++ ) {
 
 			// Check if the html CT thinks it has matches the actual html in the Dom.
-			var ctElement = children[ k ];
+			ctElement = children[ k ];
 
-			if ( typeof ctElement.content !== 'undefined' && ctElement.content.html() !== ctElement._domElement.innerHTML ) {
+			if ( 'undefined' !== typeof ctElement.content && ctElement.content.html() !== ctElement._domElement.innerHTML ) {
 
 				// Update the Element's content
 				window.PBSEditor.updateElementContent( ctElement, ctElement._domElement.innerHTML );
@@ -721,12 +986,11 @@ window.PBSEditor.updateModifiedContentRecursive = function( element ) {
 	}
 };
 
-
 /**
  * Updates an Element object's content into newContent.
  */
 window.PBSEditor.updateElementContent = function( element, newContent ) {
-	if ( element.constructor.name === 'Shortcode' ) {
+	if ( 'Shortcode' === element.constructor.name ) {
 		return;
 	}
 
@@ -736,27 +1000,26 @@ window.PBSEditor.updateElementContent = function( element, newContent ) {
 	element.taint();
 };
 
-
 /**
  * Returns true if currently editing.
  */
 window.PBSEditor.isEditing = function() {
-	var editorArea = document.querySelector('[data-name="main-content"]');
+	var editorArea = document.querySelector( '[data-name="main-content"]' );
 	if ( ! editorArea ) {
 		return false;
 	}
 	return editorArea.classList.contains( 'pbs-editing' );
 };
 
-
 /**
  * Gets the unique ID of an element if it exists. Null if there is none.
  * Mostly used for adding pseudo element styles using addPseudoElementStyles
  */
 window.PBSEditor.getUniqueClassName = function( domElement ) {
+	var classes, matches;
 	if ( domElement.getAttribute( 'class' ) ) {
-		var classes = domElement.getAttribute( 'class' );
-		var matches = classes.match( /pbsguid-\w+/ );
+		classes = domElement.getAttribute( 'class' );
+		matches = classes.match( /pbsguid-\w+/ );
 		if ( matches ) {
 			return matches[0];
 		}
@@ -764,15 +1027,15 @@ window.PBSEditor.getUniqueClassName = function( domElement ) {
 	return null;
 };
 
-
 /**
  * Removes the unique ID of an element if it has one.
  * Mostly used for adding pseudo element styles using addPseudoElementStyles
  */
 window.PBSEditor.removeUniqueClassName = function( domElement ) {
+	var classes, matches;
 	if ( domElement.getAttribute( 'class' ) ) {
-		var classes = domElement.getAttribute( 'class' );
-		var matches = classes.match( /pbsguid-\w+/ );
+		classes = domElement.getAttribute( 'class' );
+		matches = classes.match( /pbsguid-\w+/ );
 		if ( matches ) {
 			domElement.classList.remove( matches[0] );
 			return true;
@@ -780,7 +1043,6 @@ window.PBSEditor.removeUniqueClassName = function( domElement ) {
 	}
 	return false;
 };
-
 
 /**
  * Generates a unique ID.
@@ -794,15 +1056,13 @@ window.PBSEditor.generateUniqueClassName = function() {
 	return name;
 };
 
-
 /**
  * Generates a unique hash.
  * Used for identifying unique stuff.
  */
 window.PBSEditor.generateHash = function() {
-	return Math.floor( ( 1 + Math.random() ) * 0x100000000 ).toString(36).substring(1);
+	return Math.floor( ( 1 + Math.random() ) * 0x100000000 ).toString( 36 ).substring( 1 );
 };
-
 
 /**
  * Adds raw pseudo element styles directly into the style tag dedicated to pseudo element styles.
@@ -815,16 +1075,18 @@ window.PBSEditor.addPseudoElementStylesRaw = function( styles ) {
 
 	// Create style tag if it doesn't exist yet.
 	var styleTag = document.querySelector( 'style#pbs-style' );
+	var currentStyles, mainRegion;
+
 	if ( ! styleTag ) {
 		styleTag = document.createElement( 'style' );
 		styleTag.setAttribute( 'id', 'pbs-style' );
 		document.body.appendChild( styleTag );
 	}
-	var currentStyles = styleTag.innerHTML + styles;
+	currentStyles = styleTag.innerHTML + styles;
 
 	// Taint the whole editor.
-	var mainRegion = ContentTools.EditorApp.get().regions()['main-content'];
-	if ( typeof mainRegion._debouncedTaint === 'undefined' ) {
+	mainRegion = ContentTools.EditorApp.get().regions()['main-content'];
+	if ( 'undefined' === typeof mainRegion._debouncedTaint ) {
 		mainRegion._debouncedTaint = _.debounce( function() {
 			this.taint();
 		}.bind( mainRegion ), 400 );
@@ -1163,6 +1425,11 @@ ContentEdit.Element.prototype.style = function(name, value) {
 		}
 		return this.debouncedTaint();
 	}
+
+	// Make sure rgba() opacity don't have more than 2 decimals.
+	while ( style.match( /(rgba\(\s*\d+,\s*\d+,\s*\d+,\s*\d+.\d{2})\d+/i ) ) {
+		style = style.replace( /(rgba\(\s*\d+,\s*\d+,\s*\d+,\s*\d+.\d{2})\d+/i, '$1' );
+	}
 	return this.attr( 'style', style );
 };
 
@@ -1171,6 +1438,11 @@ ContentEdit.Element.prototype.style = function(name, value) {
  * Gets the default styling for the element.
  */
 ContentEdit.Element.prototype.defaultStyle = function(name) {
+
+	if ( ! this._domElement ) {
+		return '';
+	}
+
 	// Get the original state of the style attribute.
 	var origStyleAttribute = this._domElement.getAttribute('style');
 
@@ -1198,9 +1470,29 @@ ContentEdit.Element.prototype.defaultStyle = function(name) {
 
 
 /**
+ * The removeAttribute function in CT doesn't delete existing attributes that are blank.
+ * This allows the deletion of blank attributes.
+ */
+( function() {
+	var proxy = ContentEdit.Element.prototype.removeAttr;
+	ContentEdit.Element.prototype.removeAttr = function( name ) {
+		name = name.toLowerCase();
+		if ( ! this._attributes[ name ] && this._attributes.hasOwnProperty( name ) ) {
+			delete this._attributes[ name ];
+			if ( this.isMounted() && name.toLowerCase() !== 'class' ) {
+				this._domElement.removeAttribute( name );
+			}
+			return this.taint();
+		}
+		return proxy.call( this, name );
+	};
+} )();
+
+
+/**
  * Override attr so that changes trigger a debounced taint to fix the history/undo.
  */
-ContentEdit.Element.prototype.attr = function(name, value) {
+ContentEdit.Element.prototype.attr = function(name, value, forceSet ) {
 	name = name.toLowerCase();
 	if (value === void 0) {
 		return this._attributes[name];
@@ -1212,7 +1504,7 @@ ContentEdit.Element.prototype.attr = function(name, value) {
 
 	this._attributes[name] = value;
 	if (this.isMounted() && name.toLowerCase() !== 'class' ) {
-		if ( value !== '' ) {
+		if ( value !== '' || forceSet ) {
 			this._domElement.setAttribute(name, value);
 		} else {
 			this._domElement.removeAttribute( name );
@@ -1308,48 +1600,50 @@ window.addEventListener( 'DOMContentLoaded', function() {
  */
 ContentTools.IgnitionUI.prototype.mount = function() {
 
+	var ret;
+
 	// Use the admin bar buttons instead of creating the default ones
-	this._domElement = document.querySelector('#wpadminbar');
-	this._domEdit = document.querySelector('#wp-admin-bar-gambit_builder_edit');
+	this._domElement = document.querySelector( '#wpadminbar' );
+	this._domEdit = document.querySelector( '#wp-admin-bar-gambit_builder_edit' );
 	this._domEdit.classList.add( 'ct-ignition__button--edit' );
-	this._domConfirm = document.querySelector('#wp-admin-bar-gambit_builder_save');
+	this._domConfirm = document.querySelector( '#wp-admin-bar-gambit_builder_save' );
 	this._domConfirm.classList.add( 'ct-ignition__button--confirm' );
-	this._domCancel = document.querySelector('#wp-admin-bar-gambit_builder_cancel');
+	this._domCancel = document.querySelector( '#wp-admin-bar-gambit_builder_cancel' );
 	this._domCancel.classList.add( 'ct-ignition__button--cancel' );
-	this._domBusy = document.querySelector('#wp-admin-bar-gambit_builder_busy');
+	this._domBusy = document.querySelector( '#wp-admin-bar-gambit_builder_busy' );
 	this._domBusy.classList.add( 'ct-ignition__button--busy' );
-    var ret = this._addDOMEventListeners();
+    ret = this._addDOMEventListeners();
 
 	// The scroll changes when you click edit, don't change the scroll position.
-	this._domEdit.addEventListener('mousedown', function() {
-		this.prevScrollY = window.scrollY || window.pageYOffset;
-	});
-	this._domEdit.addEventListener('click', function() {
+	this._domEdit.addEventListener( 'mousedown', function() {
+		this.prevScrollY = window.pbsScrollY();
+	} );
+	this._domEdit.addEventListener( 'click', function() {
 		window.scrollTo( 0, this.prevScrollY );
-	});
+	} );
 
 	// Save & change post status buttons.
-	document.querySelector( '#wp-admin-bar-gambit_builder_save_options #pbs-save-publish' ).addEventListener( 'click', function(ev) {
+	document.querySelector( '#wp-admin-bar-gambit_builder_save_options #pbs-save-publish' ).addEventListener( 'click', function( ev ) {
 		ev.preventDefault();
 		pbsParams.new_post_status = 'publish';
 		this._domConfirm.click();
-		document.querySelector('#pbs-save-button').setAttribute( 'data-current-post-type', 'publish' );
-		this._domConfirm.querySelector('.ab-item').childNodes[1].nodeValue = pbsParams.labels.save_and_update;
-	}.bind(this));
-	document.querySelector( '#wp-admin-bar-gambit_builder_save_options #pbs-save-draft' ).addEventListener( 'click', function(ev) {
+		document.querySelector( '#pbs-save-button' ).setAttribute( 'data-current-post-type', 'publish' );
+		this._domConfirm.querySelector( '.ab-item' ).childNodes[0].nodeValue = pbsParams.labels.save_and_update;
+	}.bind( this ) );
+	document.querySelector( '#wp-admin-bar-gambit_builder_save_options #pbs-save-draft' ).addEventListener( 'click', function( ev ) {
 		ev.preventDefault();
 		pbsParams.new_post_status = 'draft';
 		this._domConfirm.click();
-		document.querySelector('#pbs-save-button').setAttribute( 'data-current-post-type', 'draft' );
-		this._domConfirm.querySelector('.ab-item').childNodes[1].nodeValue = pbsParams.labels.save_as_draft;
-	}.bind(this));
-	document.querySelector( '#wp-admin-bar-gambit_builder_save_options #pbs-save-pending' ).addEventListener( 'click', function(ev) {
+		document.querySelector( '#pbs-save-button' ).setAttribute( 'data-current-post-type', 'draft' );
+		this._domConfirm.querySelector( '.ab-item' ).childNodes[0].nodeValue = pbsParams.labels.save_as_draft;
+	}.bind( this ) );
+	document.querySelector( '#wp-admin-bar-gambit_builder_save_options #pbs-save-pending' ).addEventListener( 'click', function( ev ) {
 		ev.preventDefault();
 		pbsParams.new_post_status = 'pending';
 		this._domConfirm.click();
-		document.querySelector('#pbs-save-button').setAttribute( 'data-current-post-type', 'pending' );
-		this._domConfirm.querySelector('.ab-item').childNodes[1].nodeValue = pbsParams.labels.save_as_pending;
-	}.bind(this));
+		document.querySelector( '#pbs-save-button' ).setAttribute( 'data-current-post-type', 'pending' );
+		this._domConfirm.querySelector( '.ab-item' ).childNodes[0].nodeValue = pbsParams.labels.save_as_pending;
+	}.bind( this ) );
 
 	wp.hooks.doAction( 'pbs.ct.mounted' );
 
@@ -1379,7 +1673,7 @@ ContentTools.IgnitionUI.prototype.mount = function() {
 	};
 })();
 
-/* globals ContentEdit */
+/* globals ContentEdit, ContentTools */
 
 
 /**
@@ -1402,6 +1696,31 @@ ContentTools.IgnitionUI.prototype.mount = function() {
     };
 } )();
 
+/**
+ * Make sure that images do not get squished if the container width is narrower
+ * than the image's width. Always set the height to auto to make it auto-adjust.
+ */
+( function() {
+	var proxied = ContentEdit.ResizableElement.prototype.size;
+	ContentEdit.ResizableElement.prototype.size = function( newSize ) {
+		var ratio, parentWidth, ret = proxied.call( this, newSize );
+
+		// Fix the height attribute to be always auto.
+		if ( newSize && 2 === newSize.length && this.parent() ) {
+			if ( this.parent()._domElement ) {
+				parentWidth = window.pbsGetBoundingClientRect( this.parent()._domElement ).width;
+				if ( newSize[0] > parentWidth ) {
+					ratio = newSize[1] / newSize[0];
+					newSize[0] = parentWidth;
+					newSize[1] = newSize[0] * ratio;
+				}
+				this._domElement.style.width = newSize[0] + 'px';
+				this._domElement.style.height = newSize[1] + 'px';
+		   }
+	   }
+	   return ret;
+   };
+} )();
 
 /**
  * When clicking on a resizable element while holding down SHIFT + CTRL/CMD
@@ -1471,6 +1790,24 @@ ContentTools.IgnitionUI.prototype.mount = function() {
 		}
 		return ret;
     };
+} )();
+
+/**
+ * We are using our own resizers, remove this because it's causing reflow.
+ */
+( function() {
+	ContentEdit.ResizableElement.prototype._getResizeCorner = function() {
+		return null;
+	};
+} )();
+
+/**
+ * Override this because we're not hiding widgetUIs, and the monitoring is causing reflow.
+ */
+( function() {
+	ContentTools.WidgetUI.prototype.hide = function() {
+		this.removeCSSClass( 'ct-widget--active' );
+	};
 } )();
 
 // @see https://gist.github.com/bfintal/63527d3f9dd85e0b15d6
@@ -2130,6 +2467,94 @@ window.addEventListener( 'DOMContentLoaded', function() {
 });
 
 /**
+ * The Icon picker modal popup.
+ *
+ * Call by using: PBSEditor.widgetFrame.open(). Additional arguments may be given.
+ */
+
+/* globals PBSEditor, pbsParams */
+
+PBSEditor._PageTemplateFrame = PBSEditor.SearchFrame.extend({
+	className: 'pbs-page-template-modal',
+	template:  wp.template( 'pbs-page-template-frame' ),
+
+	events: {
+		'click .media-toolbar-primary button': '_primaryClicked',
+		'keyup [type="search"]': 'searchKeyup',
+		'click [data-template]': 'select'
+	},
+
+	_onOpen: function() {
+		PBSEditor.SearchFrame.prototype._onOpen.apply( this );
+		this.initList();
+	},
+
+	initList: function() {
+		if ( this.modal.el.querySelector( '.pbs-search-list > *:not(.pbs-no-results)' ) ) {
+			return;
+		}
+
+		var container = this.modal.el.querySelector( '.pbs-search-list' );
+		var designElements = document.querySelectorAll( '[data-page-template-template]' );
+		Array.prototype.forEach.call( designElements, function( el ) {
+			var templateID = el.getAttribute( 'id' );
+			var name = el.getAttribute( 'data-name' );
+			var description = el.getAttribute( 'data-description' );
+			var image = el.getAttribute( 'data-image' );
+			var elem;
+
+			var button = document.createElement( 'DIV' );
+			button.setAttribute( 'data-template', templateID );
+			button.setAttribute( 'data-root-only', el.getAttribute( 'data-root-only' ) || false );
+
+			if ( pbsParams.is_lite ) {
+				button.classList.add( 'pbs-lite-template' );
+				button.setAttribute( 'data-preview', el.getAttribute( 'data-preview' ) );
+				button.addEventListener( 'click', function() {
+					window.open( this.getAttribute( 'data-preview' ), 'pbs-preview' );
+				} );
+			}
+
+			if ( image ) {
+				elem = document.createElement( 'img' );
+				elem.setAttribute( 'src', image );
+				elem.setAttribute( 'alt', name ? name : templateID );
+				button.appendChild( elem );
+			}
+
+			if ( pbsParams.is_lite ) {
+				elem = document.createElement( 'button' );
+				elem.classList.add( 'preview' );
+				elem.innerHTML = pbsParams.labels.view_template;
+				button.appendChild( elem );
+			}
+
+			if ( name ) {
+				elem = document.createElement( 'h4' );
+				elem.innerHTML = name;
+				if ( pbsParams.is_lite ) {
+					elem.innerHTML += ' <span>(' + pbsParams.labels.premium + ')</span>';
+				}
+				button.appendChild( elem );
+			}
+
+			if ( description ) {
+				elem = document.createElement( 'p' );
+				elem.classList.add( 'description' );
+				elem.innerHTML = description;
+				button.appendChild( elem );
+			}
+
+			container.appendChild( button );
+		} );
+	}
+});
+
+window.addEventListener( 'DOMContentLoaded', function() {
+	PBSEditor.pageTemplateFrame = new PBSEditor._PageTemplateFrame();
+});
+
+/**
  * The HTML editor modal popup.
  *
  * Call by using: PBSEditor.htmlFrame.open(). Additional arguments may be given.
@@ -2278,9 +2703,11 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 PBSEditor.Overlays = [];
 
-PBSEditor.Overlay = (function() {
+PBSEditor.Overlay = ( function() {
 
 	function Overlay() {
+		var editor = ContentTools.EditorApp.get();
+
 		this.showOnTaint = true;
 		this._domElement = null;
 		this._active = false;
@@ -2290,21 +2717,52 @@ PBSEditor.Overlay = (function() {
 
 		PBSEditor.Overlays.push( this );
 
+		// Hide when mouse out.
+		wp.hooks.addAction( 'pbs.element.out', function( element ) {
+			if ( this.element && element && element._domElement ) {
+				if ( this.element._domElement === element._domElement || element._domElement.contains( this.element._domElement ) )  {
+					if ( 0 === this.constructor.name.toLowerCase().indexOf( 'toolbar' ) ) {
+						this._hide();
+					}
+				}
+			}
+		}.bind( this ) );
+
 		wp.hooks.addAction( 'pbs.element.over', function( element ) {
+
+			var applyToElem;
+
+			if ( Overlay.active ) {
+				return;
+			}
 
 			// Don't show overlays when dragging.
 			if ( ContentEdit.Root.get().dragging() ) {
 				return;
 			}
 
-			// After some time, hide the overlay if it wasn't used.
-			clearTimeout( this._hideTimeout );
-			this._hideTimeout = setTimeout( function() {
-				if ( ! this._shown ) {
+			if ( ! element._domElement ) {
+				return;
+			}
+
+			// If an element was deleted, this.element can be null.
+			if ( this.element && ! this.element._domElement ) {
+				this.element = null;
+			}
+
+			// New apply to function.
+			if ( this.canApplyTo ) {
+				applyToElem = this.canApplyTo( element );
+				if ( applyToElem ) {
+					this._show( applyToElem );
+					this.element = applyToElem;
+				} else if ( this._shown ) {
 					this._hide();
 				}
-				this._shown = false;
-			}.bind(this), 10 );
+				return;
+			}
+
+			/*
 
 			// Check the element stack if this element canApply, or if not,
 			// if any of its parent are.
@@ -2318,7 +2776,10 @@ PBSEditor.Overlay = (function() {
 				this.element = this.applyTo( element );
 				this._shown = true;
 				this._show( this.element );
+			} else {
+				this._hide();
 			}
+			*/
 		}.bind( this ) );
 
 		ContentEdit.Root.get().bind( 'unmount', function( element ) {
@@ -2327,12 +2788,12 @@ PBSEditor.Overlay = (function() {
 			}
 		}.bind( this ) );
 
-		ContentEdit.Root.get().bind('drag', function() {
+		ContentEdit.Root.get().bind( 'drag', function() {
 			this._hide();
-		}.bind(this));
-		ContentEdit.Root.get().bind('drop', function() {
+		}.bind( this ) );
+		ContentEdit.Root.get().bind( 'drop', function() {
 			this._hide();
-		}.bind(this));
+		}.bind( this ) );
 
 		document.addEventListener( 'mouseover', function( ev ) {
 			if ( ! this._isMounted ) {
@@ -2344,27 +2805,26 @@ PBSEditor.Overlay = (function() {
 				}
 				this._hide();
 			}
-		}.bind(this));
+		}.bind( this ) );
 
-		ContentEdit.Root.get().bind('taint', function( element ) {
+		ContentEdit.Root.get().bind( 'taint', function( element ) {
 			if ( this.showOnTaint && this.element === element ) {
 				this._show( element );
 			}
-		}.bind(this) );
-		ContentEdit.Root.get().bind('debounced_taint', function( element ) {
+		}.bind( this ) );
+		ContentEdit.Root.get().bind( 'debounced_taint', function( element ) {
 			if ( this.showOnTaint && this.element === element ) {
 				this._show( element );
 			}
-		}.bind(this) );
+		}.bind( this ) );
 
-		var editor = ContentTools.EditorApp.get();
-		editor.bind('start', function() {
+		editor.bind( 'start', function() {
 			this._domElement = this.createElement();
 			this.mount();
-		}.bind(this) );
-		editor.bind('stop', function() {
+		}.bind( this ) );
+		editor.bind( 'stop', function() {
 			this.unmount();
-		}.bind(this) );
+		}.bind( this ) );
 	}
 
 	Overlay.prototype.mount = function() {
@@ -2379,6 +2839,7 @@ PBSEditor.Overlay = (function() {
 	};
 
 	Overlay.prototype.unmount = function() {
+		this.element = null;
 		this.removeEventHandlers();
 		document.body.removeChild( this._domElement );
 		this._isMounted = false;
@@ -2406,7 +2867,7 @@ PBSEditor.Overlay = (function() {
 		document.removeEventListener( 'mouseup', this._mouseupBound );
 	};
 
-	Overlay.prototype._mousedown = function(ev) {
+	Overlay.prototype._mousedown = function( ev ) {
 		if ( ! this.canApply() ) {
 			this._active = false;
 			return;
@@ -2424,7 +2885,7 @@ PBSEditor.Overlay = (function() {
 		this.onMoveStart( ev );
 	};
 
-	Overlay.prototype._mousemove = function(ev) {
+	Overlay.prototype._mousemove = function( ev ) {
 		if ( ! this._active ) {
 			return;
 		}
@@ -2434,11 +2895,15 @@ PBSEditor.Overlay = (function() {
 
 		ev.preventDefault();
 		ev.stopPropagation();
+		wp.hooks.doAction( 'pbs.overlay.drag' );
 
 		this.onMove( ev );
 
 		// Update the other overlays.
-		Overlay.hideOtherOverlays( this );
+		clearTimeout( Overlay._hideOverlayTimeout );
+		Overlay._hideOverlayTimeout = setTimeout( function() {
+			Overlay.hideOtherOverlays( this );
+		}.bind( this ), 10 );
 	};
 
 	Overlay.hideOtherOverlays = function( callingOverlay ) {
@@ -2473,24 +2938,22 @@ PBSEditor.Overlay = (function() {
 
 	Overlay.prototype._show = function( element ) {
 		var root = ContentEdit.Root.get();
-		// if ( element._domElement && ! root.dragging() ) {
 		if ( ! root.dragging() && element ) {
 			this._domElement.style.display = 'block';
+			if ( this.shown && this.element === element ) {
+				return;
+			}
 			this.show( element );
-
-			// clearInterval( this._showInterval );
-			// this._showInterval = setInterval( function( element ) {
-				// this.show( element );
-			// }.bind( this, element ), 16 );
+			this._shown = true;
 		}
 	};
 
 	Overlay.prototype._hide = function() {
-		// clearInterval( this._showInterval );
 		if ( this._domElement ) {
 			this._domElement.style.display = 'none';
 		}
 		this.hide();
+		this._shown = false;
 	};
 
 	Overlay.active = false;
@@ -2509,62 +2972,62 @@ PBSEditor.Overlay = (function() {
 	Overlay.prototype.hide = function() {};
 	Overlay.prototype.onEnter = function() {};
 	Overlay.prototype.onLeave = function() {};
-	Overlay.prototype.applyTo = function( element ) { return element; };
+	Overlay.prototype.canApplyTo = function( element ) { // jshint ignore:line
+		return false;
+	};
 
 	return Overlay;
-})();
+} )();
 
 /**
  * Prevent mouse events when an overlay is active.
  */
-(function() {
+( function() {
 	var proxied = ContentEdit.Element.prototype._onMouseDown;
-    ContentEdit.Element.prototype._onMouseDown = function(ev) {
+    ContentEdit.Element.prototype._onMouseDown = function( ev ) {
 		if ( PBSEditor.Overlay.active ) {
 			return;
 		}
 		return proxied.call( this, ev );
 	};
-})();
-(function() {
+} )();
+( function() {
 	var proxied = ContentEdit.Element.prototype._onMouseMove;
-    ContentEdit.Element.prototype._onMouseMove = function(ev) {
+    ContentEdit.Element.prototype._onMouseMove = function( ev ) {
 		if ( PBSEditor.Overlay.active ) {
 			return;
 		}
 		ContentEdit.Root.get().trigger( 'mousemove', this );
 		return proxied.call( this, ev );
 	};
-})();
-(function() {
+} )();
+( function() {
 	var proxied = ContentEdit.Element.prototype._onMouseOver;
-    ContentEdit.Element.prototype._onMouseOver = function(ev) {
+    ContentEdit.Element.prototype._onMouseOver = function( ev ) {
 		if ( PBSEditor.Overlay.active ) {
 			return;
 		}
 		return proxied.call( this, ev );
 	};
-})();
-(function() {
+} )();
+( function() {
 	var proxied = ContentEdit.Element.prototype._onMouseOut;
-    ContentEdit.Element.prototype._onMouseOut = function(ev) {
+    ContentEdit.Element.prototype._onMouseOut = function( ev ) {
 		if ( PBSEditor.Overlay.active ) {
 			return;
 		}
 		return proxied.call( this, ev );
 	};
-})();
-(function() {
+} )();
+( function() {
 	var proxied = ContentEdit.Element.prototype._onMouseUp;
-    ContentEdit.Element.prototype._onMouseUp = function(ev) {
+    ContentEdit.Element.prototype._onMouseUp = function( ev ) {
 		if ( PBSEditor.Overlay.active ) {
 			return;
 		}
 		return proxied.call( this, ev );
 	};
-})();
-
-
+} )();
 
 /**
  * Instead of using CT's mouse events, just create out own one.
@@ -2581,13 +3044,16 @@ PBSEditor.Overlay = (function() {
 			wp.hooks.doAction( 'pbs.nonelement.over', target );
 			while ( ! target._ceElement ) {
 				target = target.parentNode;
-				if ( ! target || target.tagName === 'BODY' ) {
+				if ( ! target || 'BODY' === target.tagName ) {
 					return;
 				}
 			}
-			if ( target._ceElement.constructor.name === 'Region' ) {
+			if ( 'Region' === target._ceElement.constructor.name ) {
 				return;
 			}
+		}
+		if ( null !== currentOverElement && target._ceElement ) {
+			wp.hooks.doAction( 'pbs.element.out', currentOverElement );
 		}
 		if ( PBSEditor.Overlay.active ) {
 			return;
@@ -2595,21 +3061,23 @@ PBSEditor.Overlay = (function() {
 		currentTarget = target;
 		currentOverElement = target._ceElement;
 		wp.hooks.doAction( 'pbs.element.over', target._ceElement );
-	}, 30 );
+	}, 50 );
 	var mouseListener = function( ev ) {
 		pbsOverElement( ev.target );
 	};
-	ContentTools.EditorApp.get().bind( 'start', function () {
+	ContentTools.EditorApp.get().bind( 'start', function() {
 		window.addEventListener( 'mousemove', mouseListener );
 		window.addEventListener( 'mouseover', mouseListener );
+		window.addEventListener( 'mouseleave', mouseListener );
 	} );
-	ContentTools.EditorApp.get().bind( 'stop', function () {
+	ContentTools.EditorApp.get().bind( 'stop', function() {
 		window.removeEventListener( 'mousemove', mouseListener );
 		window.removeEventListener( 'mouseover', mouseListener );
+		window.removeEventListener( 'mouseleave', mouseListener );
 	} );
 } )();
 
-/* globals ContentTools, ContentEdit, PBSEditor, __extends */
+/* globals ContentTools, ContentEdit, PBSEditor, __extends, fastdom */
 
 PBSEditor.OverlayControls = ( function( _super ) {
 	__extends( OverlayControls, _super );
@@ -2617,6 +3085,7 @@ PBSEditor.OverlayControls = ( function( _super ) {
 	function OverlayControls( controls ) {
 		OverlayControls.__super__.constructor.call(this);
 		this.showOnTaint = false;
+		this.shown = false;
 
 		if ( typeof controls === 'undefined' ) {
 			controls = [];
@@ -2690,19 +3159,6 @@ PBSEditor.OverlayControls = ( function( _super ) {
 		return element;
 	};
 
-	OverlayControls.prototype.canApply = function( element ) {
-		if ( ! OverlayControls.__super__.canApply.call(this, element) ) {
-			return false;
-		}
-		if ( ! element ) {
-			element = this.element;
-		}
-		if ( ! element ) {
-			return false;
-		}
-		return true;
-	};
-
 	OverlayControls.prototype.updatePosition = function( element ) {
 
 		// This can be called when the element was deleted.
@@ -2710,28 +3166,62 @@ PBSEditor.OverlayControls = ( function( _super ) {
 			return;
 		}
 
-		var styles = getComputedStyle( element._domElement );
-		var rect = element._domElement.getBoundingClientRect();
-		var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
-		var toolbarHeight = parseInt( toolbar.height, 10 );
-		var scrollY = window.scrollY || window.pageYOffset;
+		fastdom.measure( function() {
 
-		this._domElement.style.top = ( rect.top + scrollY - toolbarHeight ) + 'px';
-		this._domElement.style.height = rect.height + 'px';
-		this._domElement.style.left = ( rect.left ) + 'px';
-		this._domElement.style.width = ( rect.width ) + 'px';
+			var styles, rect, top, height, left, width;
 
-		for ( var i = 0; i < this.controls.length; i++ ) {
-			if ( this.controls[ i ].refresh ) {
-				this.controls[ i ].refresh( this, element, styles, rect );
+			// This can be called when the element was deleted.
+			if ( ! element || ! element._domElement ) {
+				return;
 			}
-		}
+
+			styles = this._cachedStyles;
+			rect = this._cachedRect;
+
+			styles = window.pbsGetComputedStyle( element._domElement );
+			rect = window.pbsGetBoundingClientRect( element._domElement );
+
+			if ( this._cachedStyles === styles && this._cachedRect === rect ) {
+				return;
+			}
+
+			top = rect.top, height = rect.height, left = rect.left, width = rect.width;
+
+			fastdom.mutate( function() {
+				var i, hide;
+
+				this._domElement.style.top = ( top + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
+				this._domElement.style.height = height + 'px';
+				this._domElement.style.left = left + 'px';
+				this._domElement.style.width = width + 'px';
+
+				for ( i = 0; i < this.controls.length; i++ ) {
+
+					hide = false;
+					if ( 'function' === typeof this.controls[ i ].display ) {
+						if ( ! this.controls[ i ].display( element ) ) {
+							hide = true;
+						}
+					}
+
+					this.controls[ i ]._domElement.style.display = hide ? 'none' : '';
+
+					if ( ! hide && 'function' === typeof this.controls[ i ].refresh ) {
+						this.controls[ i ].refresh( this, element, styles, rect );
+					}
+				}
+
+				this._cachedStyles = styles;
+				this._cachedRect = rect;
+			}.bind( this ) );
+		}.bind( this ) );
 	};
 
 	OverlayControls.prototype._hide = function() {
 		if ( this._domElement && this._domElement.getAttribute( 'class' ).indexOf( 'pbs-active-' ) !== -1 ) {
 			return;
 		}
+		this.shown = false;
 		return OverlayControls.__super__._hide.call( this );
 	};
 
@@ -2739,39 +3229,27 @@ PBSEditor.OverlayControls = ( function( _super ) {
 		if ( ! this._domElement ) {
 			return;
 		}
+return;
+		// fastdom.mutate( function() {
+			this._domElement.classList.remove( 'pbs-overlay-show' );
+			document.body.classList.remove( 'pbs-overlay-active-' + this.constructor.name.toLowerCase() );
 
-		this._domElement.classList.remove( 'pbs-overlay-show' );
+			// clearInterval( this._updatePositionTimeout );
 
-		clearInterval( this._updatePositionTimeout );
-
-		for ( var i = 0; i < this.controls.length; i++ ) {
-			this._domElement.classList.remove( 'pbs-active-' + this.controls[ i ].name );
-		}
+			for ( var i = 0; i < this.controls.length; i++ ) {
+				this._domElement.classList.remove( 'pbs-active-' + this.controls[ i ].name );
+			}
+		// }.bind( this ) );
 	};
 
 	OverlayControls.prototype.show = function( element ) {
 
-		if ( ! element ) {
-			return;
-		}
-
-		if ( this._domElement.classList.contains( 'pbs-overlay-show' ) ) {
-			if ( this._prevElement ) {
-				if ( this._prevElement === element ) {
-					return;
-				}
-			}
-			this._prevElement = element;
-		}
-
+		this.shown = true;
 		this.updatePosition( element );
 
-		clearInterval( this._updatePositionTimeout );
-		this._updatePositionTimeout = setInterval( function() {
-			this.updatePosition( this.element );
-		}.bind( this ), 60 );
-
+return;
 		this._domElement.classList.add( 'pbs-overlay-show' );
+		document.body.classList.add( 'pbs-overlay-active-' + this.constructor.name.toLowerCase() );
 
 		for ( var i = 0; i < this.controls.length; i++ ) {
 			this._domElement.classList.remove( 'pbs-active-' + this.controls[ i ].name );
@@ -2782,10 +3260,10 @@ PBSEditor.OverlayControls = ( function( _super ) {
 	};
 
 	OverlayControls.prototype.onMoveStart = function( ev ) {
-		var styles = getComputedStyle( this.element._domElement );
+		var i, styles = getComputedStyle( this.element._domElement );
 		var rect = this.element._domElement.getBoundingClientRect();
 
-		for ( var i = 0; i < this.controls.length; i++ ) {
+		for ( i = 0; i < this.controls.length; i++ ) {
 			if ( this._locationDragging === this.controls[ i ].name ) {
 				if ( this.controls[ i ].onMoveStart ) {
 					this.controls[ i ].onMoveStart( this, this.element, styles, rect, ev );
@@ -2795,7 +3273,8 @@ PBSEditor.OverlayControls = ( function( _super ) {
 	};
 
 	OverlayControls.prototype.onMove = function( ev ) {
-		for ( var i = 0; i < this.controls.length; i++ ) {
+		var i;
+		for ( i = 0; i < this.controls.length; i++ ) {
 			if ( this._locationDragging === this.controls[ i ].name ) {
 				if ( this.controls[ i ].onMove ) {
 					this.controls[ i ].onMove( this, this.element, this.deltaX, this.deltaY, ev );
@@ -2809,9 +3288,11 @@ PBSEditor.OverlayControls = ( function( _super ) {
 	};
 
 	OverlayControls.prototype.onClick = function( ev ) {
+		var i;
+
 		this._locationDragging = null;
 
-		for ( var i = 0; i < this.controls.length; i++ ) {
+		for ( i = 0; i < this.controls.length; i++ ) {
 			this._domElement.classList.remove( 'pbs-active-' + this.controls[ i ].name );
 
 			if ( this.controls[ i ].onClick ) {
@@ -2834,9 +3315,9 @@ PBSEditor.OverlayControls = ( function( _super ) {
 	};
 
 	OverlayControls.prototype._mouseup = function( ev ) {
-		var ret = OverlayControls.__super__._mouseup.call( this, ev );
+		var i, ret = OverlayControls.__super__._mouseup.call( this, ev );
 
-		for ( var i = 0; i < this.controls.length; i++ ) {
+		for ( i = 0; i < this.controls.length; i++ ) {
 			this._domElement.classList.remove( 'pbs-active-' + this.controls[ i ].name );
 			this.controls[ i ]._domElement.classList.remove( 'pbs-control-active' );
 
@@ -2852,26 +3333,11 @@ PBSEditor.OverlayControls = ( function( _super ) {
 		return ret;
 	};
 
-	OverlayControls.prototype.applyTo = function( element ) {
-
-		// Since this is run on EVERY element that's on the "over stack",
-		// only show this on the first ROW encountered.
-		if ( this._alreadyShown2 ) {
-			return this.element;
-		}
-		this._alreadyShown2 = true;
-		setTimeout( function() {
-			this._alreadyShown2 = false;
-		}.bind( this ) );
-
-		return element;
-	};
-
 	return OverlayControls;
 
 })(PBSEditor.Overlay);
 
-/* globals PBSEditor, __extends, pbsParams */
+/* globals PBSEditor, __extends, pbsParams, fastdom */
 
 PBSEditor.OverlayElement = ( function( _super ) {
 	__extends( OverlayElement, _super );
@@ -2881,435 +3347,636 @@ PBSEditor.OverlayElement = ( function( _super ) {
 		var controls = [
 			{
 				name: 'resize-bottom-left',
+				display: function( element ) {
+					if ( 'Image' === element.constructor.name ) {
+						return true;
+					} else if ( 'Icon' === element.constructor.name ) {
+						return true;
+					}
+					return false;
+				},
 				refresh: function( overlay, element, styles, rect ) {
 
-					this._domElement.style.display = 'none';
-					if ( element.constructor.name === 'Image' ) {
-						this._domElement.style.display = '';
-					} else if ( element.constructor.name === 'Icon' ) {
-						this._domElement.style.display = '';
-					}
+					fastdom.measure( function() {
+						var height = rect.height, width = rect.width;
 
-					if ( rect.height < 150 || rect.width < 150 ) {
-						var side = rect.height;
-						if ( rect.height > rect.width ) {
-							side = rect.width;
-						}
-						side = side * 0.3;
-						this._domElement.style.width = side + 'px';
-						this._domElement.style.height = side + 'px';
-					} else {
-						this._domElement.style.width = '';
-						this._domElement.style.height = '';
-					}
+						fastdom.mutate( function() {
+
+							var side;
+							if ( height < 150 || width < 150 ) {
+								side = height;
+								if ( height > width ) {
+									side = width;
+								}
+								side = side * 0.3;
+								this._domElement.style.width = side + 'px';
+								this._domElement.style.height = side + 'px';
+							} else {
+								this._domElement.style.width = '';
+								this._domElement.style.height = '';
+							}
+						}.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStart: function( overlay, element, styles, rect ) {
+					var label;
+
 					this._initWidth = rect.width;
 					this._initHeight = rect.height;
 					this._aspectRatio = rect.width / rect.height;
 
-					var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
-					var toolbarHeight = parseInt( toolbar.height, 10 );
-					var scrollY = window.scrollY || window.pageYOffset;
-					this._toolbarHeight = toolbarHeight;
+					label = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
+					if ( 'Image' === element.constructor.name ) {
+						if ( '100%' === element.attr( 'width' ) ) {
+							label = '100%';
+						}
 
-					this._domElement.style.top =
+						// Hide the image toolbar.
+						wp.hooks.doAction( 'pbs.element.out', element );
+					}
+
 					this._overlaySize = document.createElement( 'DIV' );
 					this._overlaySize.classList.add( 'pbs-size-indicator' );
-					this._overlaySize.innerHTML = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
-					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.innerHTML = label;
+					this._overlaySize.style.top = ( rect.top + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
 					this._overlaySize.style.left = rect.right + 'px';
 					document.body.appendChild( this._overlaySize );
 				},
 				onMove: function( overlay, element, deltaX ) {
-					var width = - deltaX + this._initWidth;
+					var height, remainder,
+						width = -deltaX + this._initWidth;
 
 					if ( window.PBSEditor.isShiftDown ) {
-						var remainder = width % 10;
+						remainder = width % 10;
 						width -= remainder;
 					}
 					width = parseInt( width, 10 );
 
-					var height = 1 / this._aspectRatio * width;
-					element.style( 'height', height + 'px' );
-					element.style( 'width', width + 'px' );
+					height = 1 / this._aspectRatio * width;
 
-					if ( element.constructor.name === 'Image' ) {
-						element.attr( 'width', width );
-						element.attr( 'height', height );
-					}
+					fastdom.mutate( function() {
+						element.style( 'height', height + 'px' );
+						element.style( 'width', width + 'px' );
 
-					var rect = element._domElement.getBoundingClientRect();
-					var scrollY = window.scrollY || window.pageYOffset;
-					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
-					this._overlaySize.style.left = rect.right + 'px';
-					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+						if ( 'Image' === element.constructor.name ) {
+							element.attr( 'width', width );
+							element.attr( 'height', parseInt( height, 10 ) );
+						}
+
+						// fastdom.measure( function() {
+							var rect = element._domElement.getBoundingClientRect(),
+							rectWidth = rect.width,
+							rectTop = rect.top,
+							rectRight = rect.right,
+							label = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+
+							// fastdom.mutate( function() {
+								if ( 'Image' === element.constructor.name && width > rectWidth ) {
+									element.style( 'width', '100%' );
+									element.style( 'height', 'auto' );
+									label = '100%';
+								}
+
+								this._overlaySize.style.top = ( rectTop + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
+								this._overlaySize.style.left = rectRight + 'px';
+								this._overlaySize.innerHTML = label;
+							// }.bind( this ) );
+						// }.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStop: function( overlay, element ) {
 					document.body.removeChild( this._overlaySize );
-					if ( element.constructor.name === 'Image' ) {
+					if ( 'Image' === element.constructor.name ) {
 						element.style( 'height', 'auto' );
+
+						// Show again the image toolbar.
+						wp.hooks.doAction( 'pbs.element.over', element );
 					}
 				}
 			},
 			{
 				name: 'resize-top-left',
+				display: function( element ) {
+					if ( 'Image' === element.constructor.name ) {
+						return true;
+					} else if ( 'Icon' === element.constructor.name ) {
+						return true;
+					}
+					return false;
+				},
 				refresh: function( overlay, element, styles, rect ) {
 
-					this._domElement.style.display = 'none';
-					if ( element.constructor.name === 'Image' ) {
-						this._domElement.style.display = '';
-					} else if ( element.constructor.name === 'Icon' ) {
-						this._domElement.style.display = '';
-					}
+					fastdom.measure( function() {
+						var height = rect.height, width = rect.width;
 
-					if ( rect.height < 150 || rect.width < 150 ) {
-						var side = rect.height;
-						if ( rect.height > rect.width ) {
-							side = rect.width;
-						}
-						side = side * 0.3;
-						this._domElement.style.width = side + 'px';
-						this._domElement.style.height = side + 'px';
-					} else {
-						this._domElement.style.width = '';
-						this._domElement.style.height = '';
-					}
+						fastdom.mutate( function() {
+							var side;
+							if ( height < 150 || width < 150 ) {
+								side = height;
+								if ( height > width ) {
+									side = width;
+								}
+								side = side * 0.3;
+								this._domElement.style.width = side + 'px';
+								this._domElement.style.height = side + 'px';
+							} else {
+								this._domElement.style.width = '';
+								this._domElement.style.height = '';
+							}
+						}.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStart: function( overlay, element, styles, rect ) {
+					var label;
 					this._initWidth = rect.width;
 					this._initHeight = rect.height;
 					this._aspectRatio = rect.width / rect.height;
 
-					var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
-					var toolbarHeight = parseInt( toolbar.height, 10 );
-					var scrollY = window.scrollY || window.pageYOffset;
-					this._toolbarHeight = toolbarHeight;
+					label = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
+					if ( 'Image' === element.constructor.name ) {
+						if ( '100%' === element.attr( 'width' ) ) {
+							label = '100%';
+						}
 
-					// this._domElement.style.top =
+						// Hide the image toolbar.
+						wp.hooks.doAction( 'pbs.element.out', element );
+					}
+
 					this._overlaySize = document.createElement( 'DIV' );
 					this._overlaySize.classList.add( 'pbs-size-indicator' );
-					this._overlaySize.innerHTML = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
-					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.innerHTML = label;
+					this._overlaySize.style.top = ( rect.top + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
 					this._overlaySize.style.left = rect.right + 'px';
 					document.body.appendChild( this._overlaySize );
 				},
 				onMove: function( overlay, element, deltaX ) {
-					var width = - deltaX + this._initWidth;
+					var height, remainder,
+						width = -deltaX + this._initWidth;
 
 					if ( window.PBSEditor.isShiftDown ) {
-						var remainder = width % 10;
+						remainder = width % 10;
 						width -= remainder;
 					}
 					width = parseInt( width, 10 );
 
-					var height = 1 / this._aspectRatio * width;
-					element.style( 'height', height + 'px' );
-					element.style( 'width', width + 'px' );
+					height = 1 / this._aspectRatio * width;
 
-					if ( element.constructor.name === 'Image' ) {
-						element.attr( 'width', width );
-						element.attr( 'height', height );
-					}
+					fastdom.mutate( function() {
+						element.style( 'height', height + 'px' );
+						element.style( 'width', width + 'px' );
 
-					var rect = element._domElement.getBoundingClientRect();
-					var scrollY = window.scrollY || window.pageYOffset;
-					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
-					this._overlaySize.style.left = rect.right + 'px';
-					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+						if ( 'Image' === element.constructor.name ) {
+							element.attr( 'width', width );
+							element.attr( 'height', parseInt( height, 10 ) );
+						}
+
+						// fastdom.measure( function() {
+							var rect = element._domElement.getBoundingClientRect(),
+								rectWidth = rect.width,
+								rectTop = rect.top,
+								rectRight = rect.right,
+								label = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+
+							// fastdom.mutate( function() {
+
+								if ( 'Image' === element.constructor.name && width > rectWidth ) {
+									element.style( 'width', '100%' );
+									element.style( 'height', 'auto' );
+									label = '100%';
+								}
+
+								this._overlaySize.style.top = ( rectTop + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
+								this._overlaySize.style.left = rectRight + 'px';
+								this._overlaySize.innerHTML = label;
+
+							// }.bind( this ) );
+						// }.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStop: function( overlay, element ) {
 					document.body.removeChild( this._overlaySize );
-					if ( element.constructor.name === 'Image' ) {
+					if ( 'Image' === element.constructor.name ) {
 						element.style( 'height', 'auto' );
+
+						// Show again the image toolbar.
+						wp.hooks.doAction( 'pbs.element.over', element );
 					}
 				}
 			},
 			{
 				name: 'resize-top-right',
+				display: function( element ) {
+					if ( 'Image' === element.constructor.name ) {
+						return true;
+					} else if ( 'Icon' === element.constructor.name ) {
+						return true;
+					}
+					return false;
+				},
 				refresh: function( overlay, element, styles, rect ) {
 
-					this._domElement.style.display = 'none';
-					if ( element.constructor.name === 'Image' ) {
-						this._domElement.style.display = '';
-					} else if ( element.constructor.name === 'Icon' ) {
-						this._domElement.style.display = '';
-					}
+					fastdom.measure( function() {
+						var height = rect.height, width = rect.width;
 
-					if ( rect.height < 150 || rect.width < 150 ) {
-						var side = rect.height;
-						if ( rect.height > rect.width ) {
-							side = rect.width;
-						}
-						side = side * 0.3;
-						this._domElement.style.width = side + 'px';
-						this._domElement.style.height = side + 'px';
-					} else {
-						this._domElement.style.width = '';
-						this._domElement.style.height = '';
-					}
+						fastdom.mutate( function() {
+
+							var side;
+							if ( height < 150 || width < 150 ) {
+								side = height;
+								if ( height > width ) {
+									side = width;
+								}
+								side = side * 0.3;
+								this._domElement.style.width = side + 'px';
+								this._domElement.style.height = side + 'px';
+							} else {
+								this._domElement.style.width = '';
+								this._domElement.style.height = '';
+							}
+						}.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStart: function( overlay, element, styles, rect ) {
+					var label;
 					this._initWidth = rect.width;
 					this._initHeight = rect.height;
 					this._aspectRatio = rect.width / rect.height;
 
-					var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
-					var toolbarHeight = parseInt( toolbar.height, 10 );
-					var scrollY = window.scrollY || window.pageYOffset;
-					this._toolbarHeight = toolbarHeight;
+					label = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
+					if ( 'Image' === element.constructor.name ) {
+						if ( '100%' === element.attr( 'width' ) ) {
+							label = '100%';
+						}
 
-					this._domElement.style.top =
+						// Hide the image toolbar.
+						wp.hooks.doAction( 'pbs.element.out', element );
+					}
+
 					this._overlaySize = document.createElement( 'DIV' );
 					this._overlaySize.classList.add( 'pbs-size-indicator' );
-					this._overlaySize.innerHTML = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
-					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.innerHTML = label;
+					this._overlaySize.style.top = ( rect.top + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
 					this._overlaySize.style.left = rect.right + 'px';
 					document.body.appendChild( this._overlaySize );
 				},
 				onMove: function( overlay, element, deltaX ) {
-					var width = deltaX + this._initWidth;
+					var remainder, height,
+						width = deltaX + this._initWidth;
 
 					if ( window.PBSEditor.isShiftDown ) {
-						var remainder = width % 10;
+						remainder = width % 10;
 						width -= remainder;
 					}
 					width = parseInt( width, 10 );
 
-					var height = 1 / this._aspectRatio * width;
-					element.style( 'height', height + 'px' );
-					element.style( 'width', width + 'px' );
+					height = 1 / this._aspectRatio * width;
 
-					if ( element.constructor.name === 'Image' ) {
-						element.attr( 'width', width );
-						element.attr( 'height', height );
-					}
+					fastdom.mutate( function() {
+						element.style( 'height', height + 'px' );
+						element.style( 'width', width + 'px' );
 
-					var rect = element._domElement.getBoundingClientRect();
-					var scrollY = window.scrollY || window.pageYOffset;
-					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
-					this._overlaySize.style.left = rect.right + 'px';
-					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+						if ( 'Image' === element.constructor.name ) {
+							element.attr( 'width', width );
+							element.attr( 'height', parseInt( height, 10 ) );
+						}
+
+						// fastdom.measure( function() {
+							var rect = element._domElement.getBoundingClientRect(),
+								rectWidth = rect.width,
+								rectTop = rect.top,
+								rectRight = rect.right;
+							var label = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+
+							// fastdom.mutate( function() {
+								if ( 'Image' === element.constructor.name && width > rectWidth ) {
+									element.style( 'width', '100%' );
+									element.style( 'height', 'auto' );
+									label = '100%';
+								}
+
+								this._overlaySize.style.top = ( rectTop + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
+								this._overlaySize.style.left = rectRight + 'px';
+								this._overlaySize.innerHTML = label;
+
+							// }.bind( this ) );
+						// }.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStop: function( overlay, element ) {
 					document.body.removeChild( this._overlaySize );
-					if ( element.constructor.name === 'Image' ) {
+					if ( 'Image' === element.constructor.name ) {
 						element.style( 'height', 'auto' );
+
+						// Show again the image toolbar.
+						wp.hooks.doAction( 'pbs.element.over', element );
 					}
 				}
 			},
 			{
 				name: 'resize-bottom-right',
+				display: function( element ) {
+					if ( 'Image' === element.constructor.name ) {
+						return true;
+					} else if ( 'Icon' === element.constructor.name ) {
+						return true;
+					}
+					return false;
+				},
 				refresh: function( overlay, element, styles, rect ) {
 
-					this._domElement.style.display = 'none';
-					if ( element.constructor.name === 'Image' ) {
-						this._domElement.style.display = '';
-					} else if ( element.constructor.name === 'Icon' ) {
-						this._domElement.style.display = '';
-					}
+					fastdom.measure( function() {
+						var height = rect.height, width = rect.width;
 
-					if ( rect.height < 150 || rect.width < 150 ) {
-						var side = rect.height;
-						if ( rect.height > rect.width ) {
-							side = rect.width;
-						}
-						side = side * 0.3;
-						this._domElement.style.width = side + 'px';
-						this._domElement.style.height = side + 'px';
-					} else {
-						this._domElement.style.width = '';
-						this._domElement.style.height = '';
-					}
+						fastdom.mutate( function() {
+
+							var side;
+							if ( height < 150 || width < 150 ) {
+								side = height;
+								if ( height > width ) {
+									side = width;
+								}
+								side = side * 0.3;
+								this._domElement.style.width = side + 'px';
+								this._domElement.style.height = side + 'px';
+							} else {
+								this._domElement.style.width = '';
+								this._domElement.style.height = '';
+							}
+						}.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStart: function( overlay, element, styles, rect ) {
+					var label;
 					this._initWidth = rect.width;
 					this._initHeight = rect.height;
 					this._aspectRatio = rect.width / rect.height;
 
-					var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
-					var toolbarHeight = parseInt( toolbar.height, 10 );
-					var scrollY = window.scrollY || window.pageYOffset;
-					this._toolbarHeight = toolbarHeight;
+					label = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
+					if ( 'Image' === element.constructor.name ) {
+						if ( '100%' === element.attr( 'width' ) ) {
+							label = '100%';
+						}
 
-					this._domElement.style.top =
+						// Hide the image toolbar.
+						wp.hooks.doAction( 'pbs.element.out', element );
+					}
+
 					this._overlaySize = document.createElement( 'DIV' );
 					this._overlaySize.classList.add( 'pbs-size-indicator' );
-					this._overlaySize.innerHTML = rect.width + ' &times; ' + parseInt( rect.height, 10 ) + ' px';
-					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.innerHTML = label;
+					this._overlaySize.style.top = ( rect.top + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
 					this._overlaySize.style.left = rect.right + 'px';
 					document.body.appendChild( this._overlaySize );
 				},
 				onMove: function( overlay, element, deltaX ) {
-					var width = deltaX + this._initWidth;
+					var remainder, height,
+						width = deltaX + this._initWidth;
 
 					if ( window.PBSEditor.isShiftDown ) {
-						var remainder = width % 10;
+						remainder = width % 10;
 						width -= remainder;
 					}
 					width = parseInt( width, 10 );
 
-					var height = 1 / this._aspectRatio * width;
-					element.style( 'height', height + 'px' );
-					element.style( 'width', width + 'px' );
+					height = 1 / this._aspectRatio * width;
 
-					if ( element.constructor.name === 'Image' ) {
-						element.attr( 'width', width );
-						element.attr( 'height', height );
-					}
+					fastdom.mutate( function() {
+						element.style( 'height', height + 'px' );
+						element.style( 'width', width + 'px' );
 
-					var rect = element._domElement.getBoundingClientRect();
-					var scrollY = window.scrollY || window.pageYOffset;
-					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
-					this._overlaySize.style.left = rect.right + 'px';
-					this._overlaySize.innerHTML = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+						if ( 'Image' === element.constructor.name ) {
+							element.attr( 'width', width );
+							element.attr( 'height', parseInt( height, 10 ) );
+						}
+
+						// fastdom.measure( function() {
+							var rect = element._domElement.getBoundingClientRect(),
+								rectWidth = rect.width,
+								rectTop = rect.top,
+								rectRight = rect.right;
+							var label = width + ' &times; ' + parseInt( height, 10 ) + ' px';
+
+							// fastdom.mutate( function() {
+								if ( 'Image' === element.constructor.name && width > rectWidth ) {
+									element.style( 'width', '100%' );
+									element.style( 'height', 'auto' );
+									label = '100%';
+								}
+
+								this._overlaySize.style.top = ( rectTop + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
+								this._overlaySize.style.left = rectRight + 'px';
+								this._overlaySize.innerHTML = label;
+							// }.bind( this ) );
+						// }.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStop: function( overlay, element ) {
 					document.body.removeChild( this._overlaySize );
-					if ( element.constructor.name === 'Image' ) {
+					if ( 'Image' === element.constructor.name ) {
 						element.style( 'height', 'auto' );
+
+						// Show again the image toolbar.
+						wp.hooks.doAction( 'pbs.element.over', element );
 					}
 				}
 			},
 			{
 				name: 'resize-bottom',
+				display: function( element ) {
+					if ( 'Map' === element.constructor.name ) {
+						return true;
+					}
+					if ( 'Spacer' === element.constructor.name ) {
+						return true;
+					}
+					return false;
+				},
 				refresh: function( overlay, element, styles, rect ) {
 
-					this._domElement.style.display = 'none';
-					if ( element.constructor.name === 'Map' ) {
-						this._domElement.style.display = '';
-					}
+					fastdom.measure( function() {
+						var height = rect.height, width = rect.width;
 
-					if ( rect.height < 150 || rect.width < 150 ) {
-						var side = rect.height;
-						if ( rect.height > rect.width ) {
-							side = rect.width;
-						}
-						side = side * 0.3;
-						this._domElement.style.width = side + 'px';
-						this._domElement.style.height = side + 'px';
-					} else {
-						this._domElement.style.width = '';
-						this._domElement.style.height = '';
-					}
+						fastdom.mutate( function() {
+							var side;
+							if ( height < 150 || width < 150 ) {
+								side = height;
+								if ( height > width ) {
+									side = width;
+								}
+								side = side * 0.3;
+								this._domElement.style.width = side + 'px';
+								this._domElement.style.height = side + 'px';
+							} else {
+								this._domElement.style.width = '';
+								this._domElement.style.height = '';
+							}
+						}.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStart: function( overlay, element, styles, rect ) {
 					this._initWidth = rect.width;
 					this._initHeight = rect.height;
 
-					var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
-					var toolbarHeight = parseInt( toolbar.height, 10 );
-					var scrollY = window.scrollY || window.pageYOffset;
-					this._toolbarHeight = toolbarHeight;
-
 					this._domElement.style.top =
 					this._overlaySize = document.createElement( 'DIV' );
 					this._overlaySize.classList.add( 'pbs-size-indicator' );
 					this._overlaySize.innerHTML = rect.height + ' px';
-					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
+					this._overlaySize.style.top = ( rect.top + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
 					this._overlaySize.style.left = rect.right + 'px';
 					document.body.appendChild( this._overlaySize );
 				},
 				onMove: function( overlay, element, deltaX, deltaY ) {
-					var height = deltaY + this._initHeight;
+					var remainder, height = deltaY + this._initHeight;
 
 					if ( window.PBSEditor.isShiftDown ) {
-						var remainder = height % 10;
+						remainder = height % 10;
 						height -= remainder;
 					}
 					height = parseInt( height, 10 );
 
-					element.style( 'height', height + 'px' );
+					fastdom.measure( function() {
+						var rect = element._domElement.getBoundingClientRect(),
+							rectTop = rect.top,
+							rectRight = rect.right,
+							rectHeight = rect.height;
 
-					var rect = element._domElement.getBoundingClientRect();
-					var scrollY = window.scrollY || window.pageYOffset;
-					this._overlaySize.style.top = ( rect.top + scrollY - this._toolbarHeight ) + 'px';
-					this._overlaySize.style.left = rect.right + 'px';
-					this._overlaySize.innerHTML = rect.height + ' px';
+						fastdom.mutate( function() {
+							element.style( 'height', height + 'px' );
+							this._overlaySize.style.top = ( rectTop + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
+							this._overlaySize.style.left = rectRight + 'px';
+							this._overlaySize.innerHTML = rectHeight + ' px';
+						}.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStop: function( overlay, element ) {
 					document.body.removeChild( this._overlaySize );
-					if ( element.constructor.name === 'Image' ) {
-						element.style( 'height', 'auto' );
+					if ( 'Image' === element.constructor.name ) {
+						fastdom.mutate( function() {
+							element.style( 'height', 'auto' );
+						} );
 					}
 				}
 			},
 			{
 				name: 'margin-top',
+				display: function( element ) {
+					if ( 'Shortcode' === element.constructor.name ) {
+						return false;
+					} else if ( 'Title' === element.constructor.name ) {
+						return false;
+					} else if ( 'Spacer' === element.constructor.name ) {
+						return false;
+					} else if ( 'Text' === element.constructor.name ) {
+						if ( element.content.isWhitespace() ) {
+							return false;
+						}
+					}
+					return true;
+				},
 				refresh: function( overlay, element, styles, rect ) {
-					this._domElement.style.display = '';
-					if ( element.constructor.name === 'Shortcode' ) {
-						this._domElement.style.display = 'none';
-					}
-					if ( element.constructor.name === 'Title' ) {
-						this._domElement.style.display = 'none';
-					}
 
-					if ( rect.width > 100 ) {
-						this._domElement.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + styles.marginTop );
-					} else {
-						this._domElement.setAttribute( 'data-label', styles.marginTop );
-					}
+					// fastdom.clear( this.measure );
+					// this.measure = fastdom.measure( function() {
+						var marginTop = element._domElement.style.marginTop;
+						if ( ! marginTop ) {
+							marginTop = styles.marginTop;
+						}
 
-					if ( parseInt( styles.marginTop, 10 ) < 0 ) {
-						this._domElement.style.height = '0px';
-					} else {
-						this._domElement.style.height = styles.marginTop;
-					}
+						// fastdom.clear( this.mutate );
+						// this.mutate = fastdom.mutate( function() {
+							if ( this._domElement.getAttribute( 'data-value' ) !== 'margin-' + marginTop ) {
 
-					this._domElement.setAttribute( 'data-value', 'margin-' + styles.marginTop );
+								if ( rect.width > 100 ) {
+									this._domElement.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + marginTop );
+								} else {
+									this._domElement.setAttribute( 'data-label', marginTop );
+								}
+
+								if ( parseInt( marginTop, 10 ) < 0 ) {
+									this._domElement.style.height = '0px';
+								} else {
+									this._domElement.style.height = marginTop;
+								}
+
+								this._domElement.setAttribute( 'data-value', 'margin-' + marginTop );
+							}
+						// }.bind( this ) );
+					// }.bind( this ) );
 				},
 				onMoveStart: function( overlay, element, styles ) {
 					this._initValue = parseInt( styles.marginTop, 10 );
 				},
 				onMove: function( overlay, element, deltaX, deltaY ) {
-					var margin = deltaY + this._initValue;
+					var remainder, margin = deltaY + this._initValue;
 
 					if ( window.PBSEditor.isShiftDown ) {
-						var remainder = margin % 10;
+						remainder = margin % 10;
 						margin -= remainder;
 					}
 
-					element.style( 'margin-top', margin + 'px' );
+					// fastdom.mutate( function() {
+						element.style( 'margin-top', margin + 'px' );
+					// } );
 				}
 			},
 			{
 				name: 'margin-bottom',
+				display: function( element ) {
+					if ( 'Shortcode' === element.constructor.name ) {
+						return false;
+					} else if ( 'Title' === element.constructor.name ) {
+						return false;
+					} else if ( 'Spacer' === element.constructor.name ) {
+						return false;
+					} else if ( 'Text' === element.constructor.name ) {
+						if ( element.content.isWhitespace() ) {
+							return false;
+						}
+					}
+					return true;
+				},
 				refresh: function( overlay, element, styles, rect ) {
-					this._domElement.style.display = '';
-					if ( element.constructor.name === 'Shortcode' ) {
-						this._domElement.style.display = 'none';
-					}
-					if ( element.constructor.name === 'Title' ) {
-						this._domElement.style.display = 'none';
-					}
 
-					if ( rect.width > 100 ) {
-						this._domElement.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + styles.marginBottom );
-					} else {
-						this._domElement.setAttribute( 'data-label', styles.marginBottom );
-					}
+					// fastdom.measure( function() {
+						var marginBottom = element._domElement.style.marginBottom;
+						if ( ! marginBottom ) {
+							marginBottom = styles.marginBottom;
+						}
 
-					if ( parseInt( styles.marginBottom, 10 ) < 0 ) {
-						this._domElement.style.height = '0px';
-					} else {
-						this._domElement.style.height = styles.marginBottom;
-					}
+						// fastdom.mutate( function() {
 
-					this._domElement.setAttribute( 'data-value', 'margin-' + styles.marginBottom );
+							if ( this._domElement.getAttribute( 'data-value' ) !== 'margin-' + marginBottom ) {
+								if ( rect.width > 100 ) {
+									this._domElement.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + marginBottom );
+								} else {
+									this._domElement.setAttribute( 'data-label', marginBottom );
+								}
+
+								if ( parseInt( marginBottom, 10 ) < 0 ) {
+									this._domElement.style.height = '0px';
+								} else {
+									this._domElement.style.height = marginBottom;
+								}
+
+								this._domElement.setAttribute( 'data-value', 'margin-' + marginBottom );
+							}
+						// }.bind( this ) );
+					// }.bind( this ) );
 				},
 				onMoveStart: function( overlay, element, styles ) {
 					this._initValue = parseInt( styles.marginBottom, 10 );
 				},
 				onMove: function( overlay, element, deltaX, deltaY ) {
-					var margin = deltaY + this._initValue;
+					var remainder, margin = deltaY + this._initValue;
 
 					if ( window.PBSEditor.isShiftDown ) {
-						var remainder = margin % 10;
+						remainder = margin % 10;
 						margin -= remainder;
 					}
 
-					element.style( 'margin-bottom', margin + 'px' );
+					fastdom.mutate( function() {
+						element.style( 'margin-bottom', margin + 'px' );
+					} );
 				}
 			}
 		];
@@ -3318,24 +3985,30 @@ PBSEditor.OverlayElement = ( function( _super ) {
 		this.showOnTaint = false;
 	}
 
-	OverlayElement.prototype.canApply = function( element ) {
-		if ( ! OverlayElement.__super__.canApply.call(this, element) ) {
+	OverlayElement.prototype.canApplyTo = function( element ) {
+		if ( this.element === element ) {
+			return element;
+		}
+		if ( 'Static' === element.constructor.name ) {
 			return false;
 		}
-		if ( ! element ) {
-			element = this.element;
-		}
-		if ( element.constructor.name === 'Static' ) {
-			return false;
-		}
+
 		// Highlight the whole list.
 		if ( [ 'ListItem', 'ListItemText' ].indexOf( element.constructor.name ) !== -1 ) {
 			return false;
 		}
+
 		// Nothing for tabs, but yes for the tabs container.
 		if ( [ 'Tab', 'TabPanelContainer' ].indexOf( element.constructor.name ) !== -1 ) {
+			if ( 'TabContainer' === element.parent().constructor.name ) {
+				return element.parent();
+			}
+			if ( 'TabContainer' === element.parent().parent().constructor.name ) {
+				return element.parent();
+			}
 			return false;
 		}
+
 		// Nothing for table contents.
 		if ( [ 'TableRow', 'TableSection' ].indexOf( element.constructor.name ) !== -1 ) {
 			return false;
@@ -3346,7 +4019,7 @@ PBSEditor.OverlayElement = ( function( _super ) {
 		if ( [ 'Div', 'DivRow', 'DivCol', 'Region' ].indexOf( element.constructor.name ) !== -1 ) {
 			return false;
 		}
-		return true;
+		return element;
 	};
 
 	return OverlayElement;
@@ -3366,22 +4039,33 @@ PBSEditor.OverlayColumn = ( function( _super ) {
 				name: 'padding-top',
 				refresh: function( overlay, element, styles ) {
 
-					this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + styles.paddingTop );
-					this._domElement.style.height = styles.paddingTop;
-					this._domElement.setAttribute( 'data-value', 'padding-' + styles.paddingTop );
+					fastdom.measure( function() {
+						var paddingTop = element._domElement.style.paddingTop;
+						if ( ! paddingTop ) {
+							paddingTop = styles.paddingTop;
+						}
+
+						fastdom.mutate( function() {
+							if ( this._domElement.getAttribute( 'data-value' ) !== 'padding-' + paddingTop ) {
+								this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + paddingTop );
+								this._domElement.setAttribute( 'data-value', 'padding-' + paddingTop );
+								this._domElement.style.height = paddingTop;
+							}
+						}.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStart: function( overlay, element, styles ) {
 					this._initValue = parseInt( styles.paddingTop, 10 );
 				},
 				onMove: function( overlay, element, deltaX, deltaY ) {
 
-					var padding = deltaY + this._initValue;
+					var remainder, padding = deltaY + this._initValue;
 					if ( padding < 0 ) {
 						padding = 0;
 					}
 
 					if ( window.PBSEditor.isShiftDown ) {
-						var remainder = padding % 10;
+						remainder = padding % 10;
 						padding -= remainder;
 					}
 
@@ -3392,22 +4076,34 @@ PBSEditor.OverlayColumn = ( function( _super ) {
 				name: 'padding-bottom',
 				refresh: function( overlay, element, styles ) {
 
-					this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + styles.paddingBottom );
-					this._domElement.style.height = styles.paddingBottom;
-					this._domElement.setAttribute( 'data-value', 'padding-' + styles.paddingBottom );
+					fastdom.measure( function() {
+						// Rewritten this way for performance.
+						var paddingBottom = element._domElement.style.paddingBottom;
+						if ( ! paddingBottom ) {
+							paddingBottom = styles.paddingBottom;
+						}
+
+						fastdom.mutate( function() {
+							if ( this._domElement.getAttribute( 'data-value' ) !== 'padding-' + paddingBottom ) {
+								this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + paddingBottom );
+								this._domElement.setAttribute( 'data-value', 'padding-' + paddingBottom );
+								this._domElement.style.height = paddingBottom;
+							}
+						}.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStart: function( overlay, element, styles ) {
 					this._initValue = parseInt( styles.paddingBottom, 10 );
 				},
 				onMove: function( overlay, element, deltaX, deltaY ) {
 
-					var padding = deltaY + this._initValue;
+					var remainder, padding = deltaY + this._initValue;
 					if ( padding < 0 ) {
 						padding = 0;
 					}
 
 					if ( window.PBSEditor.isShiftDown ) {
-						var remainder = padding % 10;
+						remainder = padding % 10;
 						padding -= remainder;
 					}
 
@@ -3418,26 +4114,38 @@ PBSEditor.OverlayColumn = ( function( _super ) {
 				name: 'padding-left',
 				refresh: function( overlay, element, styles, rect ) {
 
-					if ( parseInt( rect.height, 10 ) > 100 ) {
-						this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + styles.paddingLeft );
-					} else {
-						this._domElement.setAttribute( 'data-label', styles.paddingLeft );
-					}
-					this._domElement.style.width = styles.paddingLeft;
-					this._domElement.setAttribute( 'data-value', 'padding-' + styles.paddingLeft );
+					fastdom.measure( function() {
+						var paddingLeft = element._domElement.style.paddingLeft;
+						if ( ! paddingLeft ) {
+							paddingLeft = styles.paddingLeft;
+						}
+
+						fastdom.mutate( function() {
+							if ( this._domElement.getAttribute( 'data-value' ) !== 'padding-' + paddingLeft ) {
+
+								if ( parseInt( rect.height, 10 ) > 100 ) {
+									this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + paddingLeft );
+								} else {
+									this._domElement.setAttribute( 'data-label', paddingLeft );
+								}
+								this._domElement.setAttribute( 'data-value', 'padding-' + paddingLeft );
+								this._domElement.style.width = paddingLeft;
+							}
+						}.bind( this ) );
+					}.bind( this ) );
 				},
 				onMoveStart: function( overlay, element, styles ) {
 					this._initValue = parseInt( styles.paddingLeft, 10 );
 				},
 				onMove: function( overlay, element, deltaX ) {
 
-					var padding = deltaX + this._initValue;
+					var remainder, padding = deltaX + this._initValue;
 					if ( padding < 0 ) {
 						padding = 0;
 					}
 
 					if ( window.PBSEditor.isShiftDown ) {
-						var remainder = padding % 10;
+						remainder = padding % 10;
 						padding -= remainder;
 					}
 
@@ -3448,27 +4156,39 @@ PBSEditor.OverlayColumn = ( function( _super ) {
 				name: 'padding-right',
 				refresh: function( overlay, element, styles, rect ) {
 
-					if ( parseInt( rect.height, 10 ) > 100 ) {
-						this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + styles.paddingRight );
-					} else {
-						this._domElement.setAttribute( 'data-label', styles.paddingRight );
-					}
+					fastdom.measure( function() {
+						var paddingRight = element._domElement.style.paddingRight;
+						if ( ! paddingRight ) {
+							paddingRight = styles.paddingRight;
+						}
 
-					this._domElement.style.width = styles.paddingRight;
-					this._domElement.setAttribute( 'data-value', 'padding-' + styles.paddingRight );
+						fastdom.mutate( function() {
+							if ( this._domElement.getAttribute( 'data-value' ) !== 'padding-' + paddingRight ) {
+								if ( parseInt( rect.height, 10 ) > 100 ) {
+									this._domElement.setAttribute( 'data-label', pbsParams.labels.padding + ': ' + paddingRight );
+								} else {
+									this._domElement.setAttribute( 'data-label', paddingRight );
+								}
+
+								this._domElement.setAttribute( 'data-value', 'padding-' + paddingRight );
+								this._domElement.style.width = paddingRight;
+							}
+						}.bind( this ) );
+					}.bind( this ) );
+
 				},
 				onMoveStart: function( overlay, element, styles ) {
 					this._initValue = parseInt( styles.paddingRight, 10 );
 				},
 				onMove: function( overlay, element, deltaX ) {
 
-					var padding = - deltaX + this._initValue;
+					var remainder, padding = -deltaX + this._initValue;
 					if ( padding < 0 ) {
 						padding = 0;
 					}
 
 					if ( window.PBSEditor.isShiftDown ) {
-						var remainder = padding % 10;
+						remainder = padding % 10;
 						padding -= remainder;
 					}
 
@@ -3481,111 +4201,52 @@ PBSEditor.OverlayColumn = ( function( _super ) {
 		this.showOnTaint = false;
 	}
 
-	OverlayColumn.prototype.canApply = function( element ) {
-		if ( ! OverlayColumn.__super__.canApply.call(this, element) ) {
-			return false;
-		}
-		if ( ! element ) {
-			element = this.element;
-		}
-		if ( ! element ) {
-			return false;
-		}
-		if ( element.constructor.name === 'DivCol' ) {
-			return true;
-		}
-		var parent = element.parent();
-		while ( parent && parent.constructor.name !== 'Region' ) {
-			if ( parent.constructor.name === 'DivCol' ) {
-				return true;
-			}
-			parent = parent.parent();
-		}
-		if ( element ) {
-			if ( element.constructor.name === 'DivCol' ) {
-				return true;
-			}
-		}
-		return false;
-	};
-
-
-	OverlayColumn.prototype.show = function( element ) {
-
-		if ( ! element ) {
-			return;
-		}
-		
-		if ( element.constructor.name !== 'DivCol' ) {
-			element = element.parent();
-			while ( element && element.constructor.name !== 'Region' ) {
-				if ( element.constructor.name === 'DivCol' ) {
-					break;
-				}
-				element = element.parent();
-			}
-			if ( ! element || element.constructor.name === 'Region' ) {
-				this._hide();
-				return;
-			}
-			this.element = element;
-		}
-
-		// Since this is run on EVERY element that's on the "over stack",
-		// only show this on the first ROW encountered.
-		if ( this._alreadyShown ) {
-			return;
-		}
-		this._alreadyShown = true;
-		setTimeout( function() {
-			this._alreadyShown = false;
-		}.bind( this ) );
-
-		return OverlayColumn.__super__.show.call( this, this.element );
-	};
-
-	OverlayColumn.prototype.applyTo = function( element ) {
-
-		// Since this is run on EVERY element that's on the "over stack",
-		// only show this on the first ROW encountered.
-		if ( this._alreadyShown2 ) {
-			return this.element;
-		}
-		this._alreadyShown2 = true;
-		setTimeout( function() {
-			this._alreadyShown2 = false;
-		}.bind( this ) );
-
-		if ( ! element ) {
+	OverlayColumn.prototype.canApplyTo = function( element ) {
+		if ( this.element === element ) {
 			return element;
 		}
-		if ( element.constructor.name !== 'DivCol' ) {
+		if ( this.element !== element ) {
+			if ( this.element ) {
+				if ( this.element._domElement.parentNode.classList.contains( '.pbs-col' ) ) {
+					if ( this.element._domElement.parentNode.contains( element._domElement ) ) {
+						return element;
+					}
+				}
+			}
+		}
+
+		if ( 'DivCol' === element.constructor.name ) {
+			return element;
+		}
+
+		if ( 'DivCol' !== element.constructor.name ) {
 			element = element.parent();
-			while ( element && element.constructor.name !== 'Region' ) {
-				if ( element.constructor.name === 'DivCol' ) {
+			while ( element && 'Region' !== element.constructor.name ) {
+				if ( 'DivCol' === element.constructor.name ) {
 					return element;
 				}
 				element = element.parent();
 			}
 		}
 
-		return element;
+		return false;
 	};
 
 	return OverlayColumn;
 
 } )( PBSEditor.OverlayControls );
 
-/* globals PBSEditor, ContentEdit, __extends, pbsParams */
+/* globals PBSEditor, ContentEdit, __extends, pbsParams, fastdom */
 
-PBSEditor.OverlayRow = (function(_super) {
-	__extends(OverlayRow, _super);
+PBSEditor.OverlayRow = ( function( _super ) {
+	__extends( OverlayRow, _super );
 
 	OverlayRow.showOnTaint = false;
 
 	function OverlayRow() {
-		OverlayRow.__super__.constructor.call(this);
+		OverlayRow.__super__.constructor.call( this );
 		this.showOnTaint = false;
+		this.shown = false;
 
 		ContentEdit.Root.get().bind( 'focus', function() {
 			this._hide();
@@ -3613,8 +4274,6 @@ PBSEditor.OverlayRow = (function(_super) {
 
 	OverlayRow.prototype.createElement = function() {
 		var element = document.createElement( 'DIV' );
-		// var label = document.createElement( 'DIV' );
-		// element.appendChild( label );
 
 		this._topMargin = document.createElement( 'DIV' );
 		this._topMargin.classList.add( 'pbs-overlay-margin-top' );
@@ -3636,229 +4295,238 @@ PBSEditor.OverlayRow = (function(_super) {
 		}.bind( this ) );
 		element.appendChild( this._bottomMargin );
 
-		this._columnWidths = [];
+		this._bottomResize = document.createElement( 'DIV' );
+		this._bottomResize.classList.add( 'pbs-overlay-resize-bottom' );
+		this._bottomResize.addEventListener( 'mouseenter', function() {
+			this._domElement.classList.add( 'pbs-over-resize-bottom' );
+		}.bind( this ) );
+		this._bottomResize.addEventListener( 'mouseleave', function() {
+			this._domElement.classList.remove( 'pbs-over-resize-bottom' );
+		}.bind( this ) );
+		element.appendChild( this._bottomResize );
+
+		this._columnControls = [];
 		this._columnLabels = [];
 
 		return element;
 	};
 
-	OverlayRow.prototype.canApply = function( element ) {
-		// return true;
-		if ( ! OverlayRow.__super__.canApply.call(this, element) ) {
-			return false;
-		}
-		if ( ! element ) {
-			element = this.element;
-		}
-		if ( ! element ) {
-			return false;
-		}
-		if ( element.constructor.name === 'DivRow' ) {
-			return true;
-		}
-		var parent = element.parent();
-		element = null;
-		while ( parent && parent.constructor.name !== 'Region' ) {
-			if ( parent.constructor.name === 'DivRow' ) {
-				element = parent;
-				break;
-			}
-			parent = parent.parent();
-		}
-		if ( element ) {
-			if ( element.parent() ) {
-				if ( element.parent().constructor.name === 'Div' ) {
-					return false;
-				}
-			}
-			if ( element.constructor.name === 'DivRow' ) {
-				return true;
-			}
-		}
-		return false;
-	};
-
 	OverlayRow.prototype.updatePosition = function( element ) {
-		var rect = element._domElement.getBoundingClientRect();
-		var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
-		var toolbarHeight = parseInt( toolbar.height, 10 );
-		var scrollY = window.scrollY || window.pageYOffset;
 
-		this._domElement.style.top = ( rect.top + scrollY - toolbarHeight ) + 'px';
-		this._domElement.style.height = rect.height + 'px';
-		this._domElement.style.left = ( rect.left ) + 'px';
-		this._domElement.style.width = ( rect.width ) + 'px';
+		fastdom.measure( function() {
+			var rect = window.pbsGetBoundingClientRect( element._domElement );
+
+			fastdom.mutate( function() {
+
+				this._domElement.style.top = ( rect.top + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
+				this._domElement.style.height = rect.height + 'px';
+				this._domElement.style.left = ( rect.left ) + 'px';
+				this._domElement.style.width = ( rect.width ) + 'px';
+			}.bind( this ) );
+		}.bind( this ) );
 	};
 
 	OverlayRow.prototype.hide = function() {
 		OverlayRow.__super__.hide.call( this );
 
-		clearInterval( this._updatePositionTimeout );
+		this.shown = false;
+
+		// If row is nested, add a class.
+		document.body.classList.remove( 'pbs-overlay-is-nested-row' );
+
+		// ClearInterval( this._updatePositionTimeout );
 	};
 
 	OverlayRow.prototype.show = function( element ) {
 
-		if ( ! element ) {
-			return;
-		}
+		var styles, rect, elementName = element.parent().constructor.name;
+		var label, o, i, totalWidth = 0, totalWidthNoMargin = 0, margin, columnRect;
+		var marginTop, marginBottom, topMarginDataValue, bottomMarginDataValue;
+		var rowLeftPadding, height;
 
-		if ( element.constructor.name !== 'DivRow' ) {
-			element = element.parent();
-			while ( element && element.constructor.name !== 'Region' ) {
-				if ( element.constructor.name === 'DivRow' ) {
-					break;
-				}
-				element = element.parent();
-			}
-			if ( ! element || element.constructor.name === 'Region' ) {
-				this._hide();
-				return;
-			}
-			this.element = element;
-		}
+		this.shown = true;
 
-		// Since this is run on EVERY element that's on the "over stack",
-		// only show this on the first ROW encountered.
-		if ( this._alreadyShown ) {
-			return;
-		}
-		this._alreadyShown = true;
-		setTimeout( function() {
-			this._alreadyShown = false;
+		fastdom.mutate( function() {
+			this._topMargin.style.display = '';
+			this._bottomMargin.style.display = '';
+			this._bottomResize.style.display = '';
+
+			if ( 'Div' === elementName ) {
+				this._topMargin.style.display = 'none';
+				this._bottomMargin.style.display = 'none';
+				this._bottomResize.style.display = 'none';
+			} else if ( 'TabPanelContainer' === elementName ) {
+				this._topMargin.style.display = 'none';
+				this._bottomMargin.style.display = 'none';
+				this._bottomResize.style.display = 'none';
+			}
+
+			this._domElement.classList.remove( 'pbs-active-margin-top' );
+			this._domElement.classList.remove( 'pbs-active-margin-bottom' );
+			this._domElement.classList.remove( 'pbs-active-resize-bottom' );
 		}.bind( this ) );
-
-		element = this.element;
-
-		clearInterval( this._updatePositionTimeout );
-		this._updatePositionTimeout = setInterval( function() {
-			this.updatePosition( this.element );
-		}.bind( this ), 60 );
-
-		this._topMargin.style.display = '';
-		this._bottomMargin.style.display = '';
-		if ( element.parent().constructor.name === 'Div' ) {
-			this._topMargin.style.display = 'none';
-			this._bottomMargin.style.display = 'none';
-		} else if ( element.parent().constructor.name === 'TabPanelContainer' ) {
-			this._topMargin.style.display = 'none';
-			this._bottomMargin.style.display = 'none';
-		}
-
-		var styles = getComputedStyle( element._domElement );
-		var rect = element._domElement.getBoundingClientRect();
-
-		this._domElement.classList.remove( 'pbs-active-margin-top' );
-		this._domElement.classList.remove( 'pbs-active-margin-bottom' );
 
 		this.updatePosition( element );
 
-		this._topMargin.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + styles.marginTop );
-		this._topMargin.style.height = styles.marginTop;
-		this._topMargin.setAttribute( 'data-value', 'margin-' + styles.marginTop );
+		fastdom.measure( function() {
 
-		this._bottomMargin.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + styles.marginBottom );
-		this._bottomMargin.style.height = styles.marginBottom;
-		this._bottomMargin.setAttribute( 'data-value', 'margin-' + styles.marginBottom );
+			styles = window.pbsGetComputedStyle( element._domElement );
+			marginTop = element._domElement.style.marginTop;
+			if ( ! marginTop ) {
+				marginTop = styles.marginTop;
+			}
+			marginBottom = element._domElement.style.marginBottom;
+			if ( ! marginBottom ) {
+				marginBottom = styles.marginBottom;
+			}
+			topMarginDataValue = this._topMargin.getAttribute( 'data-value' );
+			bottomMarginDataValue = this._bottomMargin.getAttribute( 'data-value' );
 
-		var i, totalWidth = 0, totalWidthNoMargin = 0, margin, columnRect;
-		for ( i = this._columnWidths.length - 1; i >= 0; i-- ) {
-			this._columnWidths[ i ].parentNode.removeChild( this._columnWidths[ i ] );
+			fastdom.mutate( function() {
+
+				if ( topMarginDataValue !== 'margin-' + marginTop ) {
+					this._topMargin.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + marginTop );
+					this._topMargin.setAttribute( 'data-value', 'margin-' + marginTop );
+					this._topMargin.style.height = marginTop;
+				}
+
+				if ( bottomMarginDataValue !== 'margin-' + marginBottom ) {
+					this._bottomMargin.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + marginBottom );
+					this._bottomMargin.style.height = marginBottom;
+					this._bottomMargin.setAttribute( 'data-value', 'margin-' + marginBottom );
+				}
+			}.bind( this ) );
+		}.bind( this ) );
+
+		// Remove existing column controls.
+		for ( i = this._columnControls.length - 1; i >= 0; i-- ) {
+			this._columnControls[ i ].parentNode.removeChild( this._columnControls[ i ] );
 		}
 		for ( i = this._columnLabels.length - 1; i >= 0; i-- ) {
 			this._columnLabels[ i ].parentNode.removeChild( this._columnLabels[ i ] );
 		}
-		this._columnWidths = [];
+
+		/**
+		 * Column widths.
+		 */
+
+		this._columnControls = [];
 		this._columnLabels = [];
+		this._columnWidths = [];
+		this._columnMarginRight = [];
 
-		var rowLeftPadding = parseInt( element.style( 'padding-left' ), 10 );
+		fastdom.measure( function() {
+			rect = window.pbsGetBoundingClientRect( element._domElement );
+			height = rect.height;
+			rowLeftPadding = parseInt( element.style( 'padding-left' ), 10 );
+			for ( i = 0; i < element.children.length; i++ ) {
+				columnRect = window.pbsGetBoundingClientRect( element.children[ i ]._domElement );
+				this._columnWidths.push( columnRect.width );
+				this._columnMarginRight.push( element.children[ i ]._domElement.style.marginRight );
+			}
 
-		for ( i = 0; i < element.children.length - 1; i++ ) {
-			var o = document.createElement( 'DIV' );
-			o.classList.add( 'pbs-overlay-column-width-' + i );
-			o.classList.add( 'pbs-overlay-column-width' );
-			o._index = i;
-			o._this = this;
-			if ( rect.height > 100 ) {
-				o.setAttribute( 'data-label', pbsParams.labels.column_width );
+			fastdom.mutate( function() {
+				for ( i = 0; i < element.children.length - 1; i++ ) {
+					o = document.createElement( 'DIV' );
+					o.classList.add( 'pbs-overlay-column-width-' + i );
+					o.classList.add( 'pbs-overlay-column-width' );
+					o._index = i;
+					o._this = this;
+					if ( height > 100 ) {
+						o.setAttribute( 'data-label', pbsParams.labels.column_width );
+					} else {
+						o.setAttribute( 'data-label', pbsParams.labels.width );
+					}
+
+					o.addEventListener( 'mouseenter', function() {
+						this._this._domElement.classList.add( 'pbs-over-column-width-' + this._index );
+						this._this._domElement.classList.add( 'pbs-overlay-column-width' );
+					} );
+					o.addEventListener( 'mouseleave', function() {
+						this._this._domElement.classList.remove( 'pbs-over-column-width-' + this._index );
+						this._this._domElement.classList.remove( 'pbs-overlay-column-width' );
+					} );
+
+					totalWidth += this._columnWidths[ i ];
+					totalWidthNoMargin += this._columnWidths[ i ];
+
+					// The left row padding can affect the location of the columns.
+					o.style.left = ( rowLeftPadding + totalWidth ) + 'px';
+
+					if ( this._columnMarginRight[ i ] ) {
+						margin = parseInt( this._columnMarginRight[ i ], 10 );
+						totalWidth += margin;
+						o.style.width = margin + 'px';
+						o.style.marginLeft = '0px';
+					}
+
+					this._domElement.appendChild( o );
+					this._columnControls.push( o );
+				}
+				if ( element.children.length ) {
+					totalWidthNoMargin += this._columnWidths[ element.children.length - 1 ];
+				}
+
+				totalWidth = 0;
+				for ( i = 0; i < element.children.length; i++ ) {
+
+					label = document.createElement( 'DIV' );
+					label.classList.add( 'pbs-overlay-column-label' );
+					label.innerHTML = ( this._columnWidths[ i ] / totalWidthNoMargin * 100 ).toFixed( 1 ) + '%';
+
+					// The left row padding can affect the location of the columns.
+					if ( ! i ) {
+						label.style.left = totalWidth + 'px';
+					} else {
+						label.style.left = ( rowLeftPadding + totalWidth ) + 'px';
+					}
+
+					totalWidth += this._columnWidths[ i ];
+					if ( this._columnMarginRight[ i ] ) {
+						totalWidth += parseInt( this._columnMarginRight[ i ], 10 );
+					}
+
+					this._domElement.appendChild( label );
+					this._columnLabels.push( label );
+				}
+			}.bind( this ) );
+		}.bind( this ) );
+
+		// If row is nested, add a class.
+		fastdom.mutate( function() {
+			if ( 'DivCol' === element.parent().constructor.name ) {
+				document.body.classList.add( 'pbs-overlay-is-nested-row' );
 			} else {
-				o.setAttribute( 'data-label', pbsParams.labels.width );
+				document.body.classList.remove( 'pbs-overlay-is-nested-row' );
 			}
-
-			o.addEventListener( 'mouseenter', function() {
-				this._this._domElement.classList.add( 'pbs-over-column-width-' + this._index );
-				this._this._domElement.classList.add( 'pbs-overlay-column-width' );
-			} );
-			o.addEventListener( 'mouseleave', function() {
-				this._this._domElement.classList.remove( 'pbs-over-column-width-' + this._index );
-				this._this._domElement.classList.remove( 'pbs-overlay-column-width' );
-			} );
-
-			columnRect = element.children[ i ]._domElement.getBoundingClientRect();
-
-			totalWidth += columnRect.width;
-			totalWidthNoMargin += columnRect.width;
-
-			// The left row padding can affect the location of the columns.
-			o.style.left = ( rowLeftPadding + totalWidth ) + 'px';
-
-			if ( element.children[ i ]._domElement.style.marginRight ) {
-				margin = parseInt( element.children[ i ]._domElement.style.marginRight, 10 );
-				totalWidth += margin;
-				o.style.width = margin + 'px';
-				o.style.marginLeft = '0px';
-			}
-
-			this._domElement.appendChild( o );
-			this._columnWidths.push( o );
-		}
-		if ( element.children.length ) {
-			columnRect = element.children[ element.children.length - 1 ]._domElement.getBoundingClientRect();
-			totalWidthNoMargin += columnRect.width;
-		}
-
-		totalWidth = 0;
-		for ( i = 0; i < element.children.length; i++ ) {
-			columnRect = element.children[ i ]._domElement.getBoundingClientRect();
-
-			var label = document.createElement( 'DIV' );
-			label.classList.add( 'pbs-overlay-column-label' );
-			label.innerHTML = ( columnRect.width / totalWidthNoMargin * 100 ).toFixed( 1 ) + '%';
-
-
-			// The left row padding can affect the location of the columns.
-			if ( ! i ) {
-				label.style.left = totalWidth + 'px';
-			} else {
-				label.style.left = ( rowLeftPadding + totalWidth ) + 'px';
-			}
-
-			totalWidth += columnRect.width;
-			if ( element.children[ i ]._domElement.style.marginRight ) {
-				totalWidth += parseInt( element.children[ i ]._domElement.style.marginRight, 10 );
-			}
-
-			this._domElement.appendChild( label );
-			this._columnLabels.push( label );
-		}
+		} );
 	};
 
 	OverlayRow.prototype.onMoveStart = function() {
-		var styles = getComputedStyle( this.element._domElement );
+		var i, styles = getComputedStyle( this.element._domElement );
+		var rect = this.element._domElement.getBoundingClientRect();
+		var rectHeight = rect.height;
 		this.marginTopInitialValue = parseInt( styles.marginTop, 10 );
 		this.marginBottomInitialValue = parseInt( styles.marginBottom, 10 );
+		this.resizeBottomInitialValue = parseInt( styles.minHeight, 10 );
+		if ( parseInt( rectHeight, 10 ) > this.resizeBottomInitialValue ) {
+			this.resizeBottomInitialValue = parseInt( rectHeight, 10 );
+		}
 		this.columnWidthInitialValues = [];
-		for ( var i = 0; i < this.element.children.length; i++ ) {
-			var rect = this.element.children[ i ]._domElement.getBoundingClientRect();
+		for ( i = 0; i < this.element.children.length; i++ ) {
+			rect = this.element.children[ i ]._domElement.getBoundingClientRect();
 			this.columnWidthInitialValues.push( rect.width );
 		}
 	};
 
 	OverlayRow.prototype.onMove = function() {
-		var margin, remainder, rect, totalWidth, totalWidthNoMargin, i;
+		var label, width, margin, remainder, height, rect, totalWidth, totalWidthNoMargin, i;
+		var change, colRect;
+		var columnRect, rowLeftPadding;
 
 		rect = this.element._domElement.getBoundingClientRect();
 
-		if ( this._locationDragging === 'margin-top' ) {
+		if ( 'margin-top' === this._locationDragging ) {
 			margin = this.deltaY + this.marginTopInitialValue;
 			if ( window.PBSEditor.isShiftDown ) {
 				remainder = margin % 10;
@@ -3870,7 +4538,7 @@ PBSEditor.OverlayRow = (function(_super) {
 			this._topMargin.style.height = margin + 'px';
 			this._topMargin.setAttribute( 'data-value', 'margin-' + margin + 'px' );
 
-		} else if ( this._locationDragging === 'margin-bottom' ) {
+		} else if ( 'margin-bottom' === this._locationDragging ) {
 
 			margin = this.deltaY + this.marginBottomInitialValue;
 			if ( window.PBSEditor.isShiftDown ) {
@@ -3879,7 +4547,6 @@ PBSEditor.OverlayRow = (function(_super) {
 			}
 			this.element.style( 'margin-bottom', margin + 'px' );
 
-			// var rect = this.element._domElement.getBoundingClientRect();
 			if ( rect.width > 100 ) {
 				this._bottomMargin.setAttribute( 'data-label', pbsParams.labels.margin + ': ' + margin + 'px' );
 			} else {
@@ -3888,21 +4555,40 @@ PBSEditor.OverlayRow = (function(_super) {
 			this._bottomMargin.style.height = margin + 'px';
 			this._bottomMargin.setAttribute( 'data-value', 'margin-' + margin + 'px' );
 
-		} else if ( this._locationDragging.indexOf( 'column-' ) === 0 ) {
-			var width = this.deltaX + this.columnWidthInitialValues[ this._columnDragging ];
+		} else if ( 'resize-bottom' === this._locationDragging ) {
+
+			height = this.deltaY + this.resizeBottomInitialValue;
+			if ( window.PBSEditor.isShiftDown ) {
+				remainder = height % 10;
+				height -= remainder;
+			}
+			this.element.style( 'min-height', height + 'px' );
+
+			// Resize indicator.
+			label = parseInt( height, 10 );
+			if ( parseInt( rect.height, 10 ) > label ) {
+				label = parseInt( rect.height, 10 );
+			}
+
+			this._overlaySize.innerHTML = parseInt( label, 10 ) + 'px';
+
+		} else if ( 0 === this._locationDragging.indexOf( 'column-' ) ) {
+
+			width = this.deltaX + this.columnWidthInitialValues[ this._columnDragging ];
 			if ( window.PBSEditor.isShiftDown ) {
 				remainder = width % 10;
 				width -= remainder;
 			}
-			var change = this.columnWidthInitialValues[ this._columnDragging ] - width;
+
+			change = this.columnWidthInitialValues[ this._columnDragging ] - width;
 			totalWidth = 0;
 			totalWidthNoMargin = 0;
 			for ( i = 0; i < this.element.children.length; i++ ) {
-				var colRect = this.element.children[ i ]._domElement.getBoundingClientRect();
+				colRect = this.element.children[ i ]._domElement.getBoundingClientRect();
 				totalWidth += colRect.width;
 				totalWidthNoMargin += colRect.width;
 				if ( i < this.element.children.length - 1 ) {
-					this._columnWidths[ i ].style.left = totalWidth + 'px';
+					this._columnControls[ i ].style.left = totalWidth + 'px';
 					if ( this.element.children[ i ]._domElement.style.marginRight ) {
 						totalWidth += parseInt( this.element.children[ i ]._domElement.style.marginRight, 10 );
 					}
@@ -3924,18 +4610,15 @@ PBSEditor.OverlayRow = (function(_super) {
 			}
 		}
 
-		rect = this.element._domElement.getBoundingClientRect();
-		var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
-		var toolbarHeight = parseInt( toolbar.height, 10 );
-		var scrollY = window.scrollY || window.pageYOffset;
+		rect = window.pbsGetBoundingClientRect( this.element._domElement );
 
-		this._domElement.style.top = ( rect.top + scrollY - toolbarHeight ) + 'px';
+		this._domElement.style.top = ( rect.top + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
 		this._domElement.style.height = rect.height + 'px';
 		this._domElement.style.left = ( rect.left ) + 'px';
 		this._domElement.style.width = ( rect.width ) + 'px';
 
 		// Adjust the column width labels.
-		var columnRect, rowLeftPadding = parseInt( this.element.style( 'padding-left' ), 10 );
+		rowLeftPadding = parseInt( this.element.style( 'padding-left' ), 10 );
 		totalWidthNoMargin = 0;
 		totalWidth = 0;
 		for ( i = 0; i < this.element.children.length; i++ ) {
@@ -3959,76 +4642,118 @@ PBSEditor.OverlayRow = (function(_super) {
 				totalWidth += parseInt( this.element.children[ i ]._domElement.style.marginRight, 10 );
 			}
 		}
+
+		wp.hooks.doAction( 'pbs.overlay.row.move', this, this._locationDragging );
 	};
 
-	OverlayRow.prototype.applyTo = function( element ) {
-
-		// Since this is run on EVERY element that's on the "over stack",
-		// only show this on the first ROW encountered.
-		if ( this._alreadyShown2 ) {
-			return this.element;
+	OverlayRow.prototype.canApplyTo = function( element ) {
+		if ( this.element === element ) {
+			return element;
 		}
-		this._alreadyShown2 = true;
-		setTimeout( function() {
-			this._alreadyShown2 = false;
-		}.bind( this ) );
+		if ( this.element !== element ) {
+			if ( this.element ) {
+				if ( this.element._domElement.parentNode.classList.contains( '.pbs-row' ) ) {
+					if ( this.element._domElement.parentNode.contains( element._domElement ) ) {
+						return element;
+					}
+				}
+				if ( this.element._domElement.parentNode.classList.contains( '.pbs-col' ) ) {
+					if ( this.element._domElement.parentNode.parentNode.contains( element._domElement ) ) {
+						return element;
+					}
+				}
+			}
+		}
 
-		if ( ! element ) {
+		if ( 'DivRow' === element.constructor.name ) {
 			return element;
 		}
 
-		if ( element.constructor.name !== 'DivRow' ) {
+		if ( 'DivRow' !== element.constructor.name ) {
 			element = element.parent();
-			while ( element && element.constructor.name !== 'Region' ) {
-				if ( element.constructor.name === 'DivRow' ) {
+			while ( element && 'Region' !== element.constructor.name ) {
+				if ( 'DivRow' === element.constructor.name ) {
 					return element;
 				}
 				element = element.parent();
 			}
 		}
-		return element;
+
+		return false;
 	};
 
-
 	OverlayRow.prototype._mouseup = function() {
+		var i;
+
 		OverlayRow.__super__._mouseup.call( this );
+		this._domElement.classList.remove( 'pbs-active-margin-top' );
+		this._domElement.classList.remove( 'pbs-active-margin-bottom' );
+		this._domElement.classList.remove( 'pbs-active-resize-bottom' );
 		if ( this.element && this.element._domElement ) {
 			this.element._domElement.classList.remove( 'pbs-overlay-changing-cols' );
 		}
 		this._domElement.classList.remove( 'pbs-active-overlay-column' );
+		for ( i = 0; i < 10; i++ ) {
+			this._domElement.classList.remove( 'pbs-active-column-' + i );
+		}
+		if ( this._overlaySize ) {
+			this._overlaySize.parentNode.removeChild( this._overlaySize );
+			this._overlaySize = null;
+		}
 	};
 
 	OverlayRow.prototype.onClick = function( ev ) {
-		var i;
+		var i, styles, rect, label;
 		this._locationDragging = null;
 		this._domElement.classList.remove( 'pbs-active-overlay-column' );
 		if ( ev.target === this._topMargin ) {
 			this._locationDragging = 'margin-top';
 		} else if ( ev.target === this._bottomMargin ) {
 			this._locationDragging = 'margin-bottom';
+		} else if ( ev.target === this._bottomResize ) {
+			this._locationDragging = 'resize-bottom';
 		} else {
-			for ( i = 0; i < this._columnWidths.length; i++ ) {
-				if ( ev.target === this._columnWidths[ i ] ) {
-					this._locationDragging = 'column-' + this._columnWidths[ i ]._index;
-					this._columnDragging = this._columnWidths[ i ]._index;
+			for ( i = 0; i < this._columnControls.length; i++ ) {
+				if ( ev.target === this._columnControls[ i ] ) {
+					this._locationDragging = 'column-' + this._columnControls[ i ]._index;
+					this._columnDragging = this._columnControls[ i ]._index;
 					this._domElement.classList.add( 'pbs-active-overlay-column' );
 					break;
 				}
 			}
 		}
+
 		this._domElement.classList.remove( 'pbs-active-margin-top' );
 		this._domElement.classList.remove( 'pbs-active-margin-bottom' );
+		this._domElement.classList.remove( 'pbs-active-bottom-resize' );
 		for ( i = 0; i < 10; i++ ) {
 			this._domElement.classList.remove( 'pbs-active-column-' + i );
 		}
 		if ( this._locationDragging ) {
 			this._domElement.classList.add( 'pbs-active-' + this._locationDragging );
 		}
+
+		// Resize indicator.
+		if ( 'resize-bottom' === this._locationDragging ) {
+			styles = getComputedStyle( this.element._domElement );
+			rect = this.element._domElement.getBoundingClientRect();
+			this._overlaySize = document.createElement( 'DIV' );
+			this._overlaySize.classList.add( 'pbs-size-indicator' );
+
+			label = parseInt( styles.minHeight, 10 );
+			if ( parseInt( rect.height, 10 ) > label ) {
+				label = parseInt( rect.height, 10 );
+			}
+			this._overlaySize.innerHTML = label + 'px';
+			this._overlaySize.style.top = ( rect.top + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
+			this._overlaySize.style.left = rect.right + 'px';
+			document.body.appendChild( this._overlaySize );
+		}
 	};
 
 	return OverlayRow;
 
-})(PBSEditor.Overlay);
+} )( PBSEditor.Overlay );
 
 /* globals ContentEdit, pbsParams, ContentTools */
 
@@ -4135,11 +4860,10 @@ PBSEditor.OverlayRow = (function(_super) {
 		dropIndicator.firstChild.innerHTML = pbsParams.labels.move_above_s.replace(  /%s/, root._dropTarget.typeName() );
 		dropIndicator.firstChild.nextSibling.innerHTML = pbsParams.labels.move_below_s.replace(  /%s/, root._dropTarget.typeName() );
 
-		var styles = getComputedStyle( root._dropTarget._domElement );
-		var rect = root._dropTarget._domElement.getBoundingClientRect();
-		var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
-		var toolbarHeight = parseInt( toolbar.height, 10 );
-		var scrollY = window.scrollY || window.pageYOffset;
+		var styles = window.pbsGetComputedStyle( root._dropTarget._domElement );
+		var rect = window.pbsGetBoundingClientRect( root._dropTarget._domElement );
+		var toolbarHeight = window.formattingToolbarHeight();
+		var scrollY = window.pbsScrollY();
 
 		dropIndicator.classList.remove( 'pbs-drop-indicator-small' );
 		if ( rect.height + parseInt( styles.marginTop, 10 ) + parseInt( styles.marginBottom, 10 ) < 60 ) {
@@ -4236,7 +4960,7 @@ PBSEditor.OverlayRow = (function(_super) {
 
 		var elements = document.querySelectorAll( '.pbs-main-wrapper > .ce-element, .pbs-main-wrapper > [data-ce-tag]' );
 
-		var pointerX = ev.pageX;
+		// var pointerX = ev.pageX;
 		var pointerY = ev.pageY;
 		var closestDistance = 999999999;
 		var closestElement = null;
@@ -4258,14 +4982,15 @@ PBSEditor.OverlayRow = (function(_super) {
 			}
 
 			var rect = el.getBoundingClientRect();
-			var scrollY = window.scrollY || window.pageYOffset;
+			var scrollY = window.pbsScrollY();
 
 			var top = rect.top + scrollY;
 			var bottom = top + rect.height;
-			var left = rect.left;
-			var right = left + rect.width;
+			// var left = rect.left;
+			// var right = left + rect.width;
 
-			var elemX, elemY;
+			// var elemX, elemY;
+			var elemY;
 
 			// Find closest Y point to the pointer.
 			if ( pointerY <= top ) {
@@ -4277,16 +5002,18 @@ PBSEditor.OverlayRow = (function(_super) {
 			}
 
 			// Find closest X point to the pointer.
-			if ( pointerX <= left ) {
-				elemX = left;
-			} else if ( pointerX >= right ) {
-				elemX = right;
-			} else {
-				elemX = pointerX;
-			}
+			// if ( pointerX <= left ) {
+			// 	elemX = left;
+			// } else if ( pointerX >= right ) {
+			// 	elemX = right;
+			// } else {
+			// 	elemX = pointerX;
+			// }
 
 			// Compute distance.
-			var dist = Math.pow( pointerX - elemX, 2 ) + Math.pow( pointerY - elemY, 2 );
+			// var dist = Math.pow( pointerX - elemX, 2 ) + Math.pow( pointerY - elemY, 2 );
+			// var dist = Math.pow( pointerY - elemY, 2 );
+			var dist = Math.abs( pointerY - elemY );
 
 			// If inside an element, don't do anything.
 			if ( dist === 0 ) {
@@ -4558,39 +5285,22 @@ PBSEditor.Toolbar = ( function( _super ) {
 		return element;
 	};
 
-	Toolbar.prototype.canApply = function( element ) {
-		if ( ! Toolbar.__super__.canApply.call(this, element) ) {
-			return false;
-		}
-		if ( ! element ) {
-			element = this.element;
-		}
-		if ( ! element ) {
-			return false;
+	Toolbar.prototype.canApplyTo = function( element ) {
+
+		if ( this.element === element ) {
+			return element;
 		}
 
-		if ( element.constructor.name === this.elementName ) {
-
-			// Dynamic labels. Used for labels that change depending on what's selected.
-			for ( var i = 0; i < this.tools.length; i++ ) {
-				if ( typeof this.tools[ i ].label === 'function' ) {
-					this._domElement.children[0].children[ i ].innerHTML = this.tools[ i ].label( element );
-				}
-
-				this._domElement.children[0].children[ i ].classList.remove( 'pbs-toolbar-tool-hide' );
-				if ( typeof this.tools[ i ].display === 'function' ) {
-					if ( ! this.tools[ i ].display( element ) ) {
-						this._domElement.children[0].children[ i ].classList.add( 'pbs-toolbar-tool-hide' );
-					}
-				}
-			}
-
-			return true;
+		if ( element.constructor && element.constructor.name === this.elementName ) {
+			return element;
 		}
+
 		return false;
 	};
 
 	Toolbar.prototype._updateFirstLastButtons = function() {
+		return;
+		// TODO: removing this  is faster.
 		var button = this._buttonContainer.querySelector( '.pbs-toolbar-button-first' );
 		if ( button ) {
 			button.classList.remove( 'pbs-toolbar-button-first' );
@@ -4614,9 +5324,54 @@ PBSEditor.Toolbar = ( function( _super ) {
 		}
 	};
 
+	Toolbar.prototype.checkIfTooSmall = function( element ) {
+		fastdom.measure( function() {
+			var rect = window.pbsGetBoundingClientRect( element._domElement );
+			var width = rect.width;
+
+			fastdom.mutate( function() {
+				if ( width <= 100 ) {
+					this._domElement.classList.add( 'pbs-toolbar-top' );
+				} else {
+					this._domElement.classList.remove( 'pbs-toolbar-top' );
+				}
+			}.bind( this ) );
+		}.bind( this ) );
+	};
+
+	Toolbar.prototype.updateTools = function( element ) {
+
+		var i;
+
+		// Dynamic labels. Used for labels that change depending on what's selected.
+		for ( i = 0; i < this.tools.length; i++ ) {
+
+			if ( this.tools[ i ]['class'] ) {
+				this._domElement.children[0].children[ i ].classList.add( this.tools[ i ]['class'] );
+			}
+
+			if ( 'function' === typeof this.tools[ i ].tooltip ) {
+				this._domElement.children[0].children[ i ].setAttribute( 'data-tooltip', this.tools[ i ].tooltip( element ) );
+			}
+
+			if ( 'function' === typeof this.tools[ i ].label ) {
+				this._domElement.children[0].children[ i ].innerHTML = this.tools[ i ].label( element );
+			}
+
+			this._domElement.children[0].children[ i ].classList.remove( 'pbs-toolbar-tool-hide' );
+			if ( 'function' === typeof this.tools[ i ].display ) {
+				if ( ! this.tools[ i ].display( element, this._domElement.children[0].children[ i ] ) ) {
+					this._domElement.children[0].children[ i ].classList.add( 'pbs-toolbar-tool-hide' );
+				}
+			}
+		}
+	};
+
 	Toolbar.prototype.show = function( element ) {
 		Toolbar.__super__.show.call( this, element );
 		this._updateFirstLastButtons();
+		this.checkIfTooSmall( element );
+		this.updateTools( element );
 	};
 
 	Toolbar.prototype._mouseenter = function( ev ) {
@@ -4640,20 +5395,30 @@ PBSEditor.ToolbarElement = ( function( _super ) {
 			id: 'move',
 			tooltip: pbsParams.labels.move,
 			display: function( element ) {
+				if ( element.parent().constructor.name === 'IconLabel' ) {
+					return false;
+				}
 				return ! element.content.isWhitespace();
 			},
 			onMouseDown: function( element, toolbar, ev ) {
 				ev.stopPropagation();
 				element.drag( ev.pageX, ev.pageY );
 			}
-		}
-	);
-
-	toolbars.push(
+		},
+		{
+			id: 'settings',
+			tooltip: pbsParams.labels.properties,
+			onClick: function( element ) {
+				ContentTools.EditorApp.get()._toolboxProperties.inspect( element );
+			}
+		},
 		{
 			id: 'remove',
 			tooltip: pbsParams.labels['delete'],
 			onClick: function( element ) {
+				if ( element.parent().constructor.name === 'IconLabel' ) {
+					element.parent().parent().detach( element.parent() );
+				}
 				element.parent().detach( element );
 			}
 		}
@@ -4665,6 +5430,16 @@ PBSEditor.ToolbarElement = ( function( _super ) {
 			'Text',
 			toolbars
 		);
+
+		ToolbarElement.prototype.canApplyTo = function( element ) {
+			var ret = ToolbarElement.__super__.canApplyTo.call( this, element );
+			if ( ret && 'Text' === element.constructor.name ) {
+				if ( element.content.isWhitespace() ) {
+					return false;
+				}
+			}
+			return ret;
+		};
 	}
 
 	return ToolbarElement;
@@ -4680,6 +5455,35 @@ PBSEditor.ToolbarImage = ( function( _super ) {
 	var toolbars = [];
 
 	toolbars.push(
+		{
+			id: 'link',
+			tooltip: pbsParams.labels.edit_link,
+			onClick: function( element ) {
+				// Open the link editor.
+				window.PBSEditor.getToolUI( 'link' ).apply( element, null, function() { } );
+			}
+		},
+		{
+			id: 'unlink',
+			tooltip: pbsParams.labels.unlink,
+			display: function( element ) {
+				if ( element.a ) {
+					return true;
+				}
+				return false;
+			},
+			onClick: function( element, view ) {
+				element.a = undefined;
+				view.toolbar.canApply( element );
+			}
+		},
+		{
+			id: 'settings',
+			tooltip: pbsParams.labels.properties,
+			onClick: function( element ) {
+				ContentTools.EditorApp.get()._toolboxProperties.inspect( element );
+			}
+		},
 		{
 			id: 'align-left',
 			tooltip: pbsParams.labels.align_left,
@@ -4938,6 +5742,34 @@ PBSEditor.ToolbarIcon = ( function( _super ) {
 					label: pbsParams.labels.icon
 				},
 				{
+					display: function( element ) {
+						if ( element.getLink() ) {
+							return true;
+						}
+						return false;
+					},
+					label: function( element ) {
+						if ( element.getLink() ) {
+							return element.getLink();
+						}
+						return '';
+					}
+				},
+				{
+					id: 'unlink',
+					tooltip: pbsParams.labels.unlink,
+					display: function( element ) {
+						if ( element.getLink() ) {
+							return true;
+						}
+						return false;
+					},
+					onClick: function( element, view ) {
+						element.removeLink();
+						view.toolbar.canApply( element );
+					}
+				},
+				{
 					id: 'settings',
 					tooltip: pbsParams.labels.properties,
 					onClick: function( element ) {
@@ -4954,6 +5786,12 @@ PBSEditor.ToolbarIcon = ( function( _super ) {
 				{
 					id: 'clone',
 					tooltip: pbsParams.labels.clone,
+					display: function( element ) {
+						if ( element.parent().constructor.name === 'IconLabel' ) {
+							return false;
+						}
+						return true;
+					},
 					onClick: function( element ) {
 						element.clone();
 					}
@@ -4961,6 +5799,12 @@ PBSEditor.ToolbarIcon = ( function( _super ) {
 				{
 					id: 'remove',
 					tooltip: pbsParams.labels['delete'],
+					display: function( element ) {
+						if ( element.parent().constructor.name === 'IconLabel' ) {
+							return false;
+						}
+						return true;
+					},
 					onClick: function( element ) {
 						element.parent().detach( element );
 					}
@@ -4968,18 +5812,6 @@ PBSEditor.ToolbarIcon = ( function( _super ) {
 			]
 		);
 	}
-
-	ToolbarIcon.prototype.canApply = function( element ) {
-		var ret = ToolbarIcon.__super__.canApply.call( this, element );
-		if ( ret ) {
-			this._domElement.classList.remove( 'pbs-small-toolbar' );
-			var rect = this._domElement.getBoundingClientRect();
-			if ( rect.width < 130 ) {
-				this._domElement.classList.add( 'pbs-small-toolbar' );
-			}
-		}
-		return ret;
-	};
 
 	return ToolbarIcon;
 
@@ -5095,7 +5927,6 @@ PBSEditor.ToolbarRow = ( function( _super ) {
 
 	function ToolbarRow() {
 
-		this._alreadyShown = false;
 		ToolbarRow.__super__.constructor.call( this,
 			'DivRow',
 			[
@@ -5199,9 +6030,6 @@ PBSEditor.ToolbarRow = ( function( _super ) {
 					}
 				},
 
-
-
-
 				{
 					label: pbsParams.labels.row
 				},
@@ -5209,18 +6037,22 @@ PBSEditor.ToolbarRow = ( function( _super ) {
 					id: 'move',
 					tooltip: pbsParams.labels.move,
 					display: function( element ) {
+
 						// Hide when the row is inside a carousel.
 						if ( element.parent()._domElement.classList.contains( 'glide__slide' ) ) {
 							return false;
 						}
+
 						// Hide when the row is inside tabs.
-						if ( element.parent().constructor.name === 'TabPanelContainer' ) {
+						if ( 'TabPanelContainer' === element.parent().constructor.name ) {
 							return false;
 						}
+
 						// Hide when the row is inside a toggle.
-						if ( element.parent().constructor.name === 'Toggle' ) {
+						if ( 'Toggle' === element.parent().constructor.name ) {
 							return false;
 						}
+
 						return true;
 					},
 					onMouseDown: function( element, toolbar, ev ) {
@@ -5239,17 +6071,17 @@ PBSEditor.ToolbarRow = ( function( _super ) {
 					id: 'add',
 					tooltip: pbsParams.labels.add_column,
 					onClick: function( element ) {
+						var root, index, col;
 						var overElement = element._domElement.querySelector( '.ce-element--over' );
 						if ( overElement ) {
-							overElement.classList.remove('ce-element--over');
+							overElement.classList.remove( 'ce-element--over' );
 						}
-						var root = ContentEdit.Root.get();
-						var index = element.children.length + 1;
-						var col;
+						root = ContentEdit.Root.get();
+						index = element.children.length + 1;
 						if ( root.focused() ) {
 							col = root.focused();
-							while ( col.constructor.name !== 'Region' && col.constructor.name !== 'DivRow' ) {
-								if ( col.constructor.name === 'DivCol' ) {
+							while ( 'Region' !== col.constructor.name && 'DivRow' !== col.constructor.name ) {
+								if ( 'DivCol' === col.constructor.name ) {
 									index = element.children.indexOf( col ) + 1;
 									break;
 								}
@@ -5263,18 +6095,22 @@ PBSEditor.ToolbarRow = ( function( _super ) {
 					id: 'clone',
 					tooltip: pbsParams.labels.clone_row,
 					display: function( element ) {
+
 						// Hide when the row is inside a carousel.
 						if ( element.parent()._domElement.classList.contains( 'glide__slide' ) ) {
 							return false;
 						}
+
 						// Hide when the row is inside tabs.
 						if ( element.parent().constructor.name === 'TabPanelContainer' ) {
 							return false;
 						}
+
 						// Hide when the row is inside a toggle.
-						if ( element.parent().constructor.name === 'Toggle' ) {
+						if ( 'Toggle' === element.parent().constructor.name ) {
 							return false;
 						}
+
 						return true;
 					},
 					onClick: function( element ) {
@@ -5283,21 +6119,94 @@ PBSEditor.ToolbarRow = ( function( _super ) {
 					}
 				},
 				{
-					id: 'remove',
-					tooltip: pbsParams.labels['delete'],
-					display: function( element ) {
+					id: 'responsive_hide',
+					tooltip: function() {
+						return window.innerWidth <= 400 ? pbsParams.labels.hide_in_phones : pbsParams.labels.hide_in_tablets;
+					},
+					display: function( element, button ) {
+
 						// Hide when the row is inside a carousel.
 						if ( element.parent()._domElement.classList.contains( 'glide__slide' ) ) {
 							return false;
 						}
+
 						// Hide when the row is inside tabs.
-						if ( element.parent().constructor.name === 'TabPanelContainer' ) {
+						if ( 'TabPanelContainer' === element.parent().constructor.name ) {
 							return false;
 						}
+
 						// Hide when the row is inside a toggle.
-						if ( element.parent().constructor.name === 'Toggle' ) {
+						if ( 'Toggle' === element.parent().constructor.name ) {
 							return false;
 						}
+
+						if ( window.innerWidth > 800 ) {
+							return false;
+						}
+
+						if ( window.innerWidth > 400 ) {
+							if ( element.attr( 'data-pbs-hide-tablet' ) ) {
+								button.classList.add( 'pbs-responsive-hidden' );
+							} else {
+								button.classList.remove( 'pbs-responsive-hidden' );
+							}
+						} else {
+							if ( '1' === element.attr( 'data-pbs-hide-phone' ) || '2' === element.attr( 'data-pbs-hide-phone' ) ) {
+								button.classList.add( 'pbs-responsive-hidden' );
+							} else {
+								button.classList.remove( 'pbs-responsive-hidden' );
+							}
+						}
+						return true;
+					},
+					onClick: function( element, button ) {
+						if ( window.innerWidth > 400 ) {
+
+							if ( element.attr( 'data-pbs-hide-tablet' ) ) {
+								element.removeAttr( 'data-pbs-hide-tablet' );
+								if ( '2' === element.attr( 'data-pbs-hide-phone' ) ) {
+									element.removeAttr( 'data-pbs-hide-phone' );
+								}
+								button.classList.remove( 'pbs-responsive-hidden' );
+							} else {
+								element.attr( 'data-pbs-hide-tablet', '1' );
+								if ( '0' !== element.attr( 'data-pbs-hide-phone' ) && '1' !== element.attr( 'data-pbs-hide-phone' ) ) {
+									element.attr( 'data-pbs-hide-phone', '2' );
+								}
+								button.classList.add( 'pbs-responsive-hidden' );
+							}
+						} else {
+
+							if ( '0' !== element.attr( 'data-pbs-hide-phone' ) ) {
+								element.attr( 'data-pbs-hide-phone', '0' );
+								button.classList.remove( 'pbs-responsive-hidden' );
+							} else {
+								element.attr( 'data-pbs-hide-phone', '1' );
+								button.classList.add( 'pbs-responsive-hidden' );
+							}
+						}
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					display: function( element ) {
+
+						// Hide when the row is inside a carousel.
+						if ( element.parent()._domElement.classList.contains( 'glide__slide' ) ) {
+							return false;
+						}
+
+						// Hide when the row is inside tabs.
+						if ( 'TabPanelContainer' === element.parent().constructor.name ) {
+							return false;
+						}
+
+						// Hide when the row is inside a toggle.
+						if ( 'Toggle' === element.parent().constructor.name ) {
+							return false;
+						}
+
 						return true;
 					},
 					onClick: function( element ) {
@@ -5308,128 +6217,28 @@ PBSEditor.ToolbarRow = ( function( _super ) {
 		);
 	}
 
-	ToolbarRow.prototype.canApply = function( element ) {
-		if ( ToolbarRow.__super__.show.call( this, this.element ) ) {
-			return true;
+	ToolbarRow.prototype.canApplyTo = function( element ) {
+
+		if ( 'DivRow' === element.constructor.name ) {
+			return element;
 		}
 
-		if ( typeof element === 'undefined' ) {
-			element = this.element;
-		}
-		if ( ! element ) {
-			return false;
-		}
-		if ( element.constructor.name === 'DivRow' ) {
-			return true;
-		}
-
-		// Since this is run on EVERY element that's on the "over stack",
-		// only show this on the first ROW encountered.
-		if ( this._alreadyShown ) {
-			return true;
-		}
-		// this._alreadyShown = true;
-		setTimeout( function() {
-			this._alreadyShown = false;
-		}.bind( this ), 10 );
-
-		if ( element.constructor.name !== 'DivRow' ) {
+		if ( 'DivRow' !== element.constructor.name ) {
 			element = element.parent();
-			while ( element && element.constructor.name !== 'Region' ) {
-				if ( element.constructor.name === 'DivRow' ) {
-					break;
+			while ( element && 'Region' !== element.constructor.name ) {
+				if ( 'DivRow' === element.constructor.name ) {
+					return element;
 				}
 				element = element.parent();
 			}
-			if ( ! element || element.constructor.name === 'Region' ) {
-				this._hide();
-				return;
-			}
-			this.element = element;
-			this._alreadyShown = true;
-			return true;
 		}
 
-		if ( element ) {
-			if ( element.parent() ) {
-				if ( element.parent().constructor.name === 'Div' ) {
-					return false;
-				}
-			}
-		}
-/*
-		var parent = element.parent();
-		element = null;
-		while ( parent && parent.constructor.name !== 'Region' ) {
-			if ( parent.constructor.name === 'DivRow' ) {
-				element = parent;
-				break;
-			}
-			parent = parent.parent();
-		}
-		if ( element ) {
-			if ( element.parent() ) {
-				if ( element.parent().constructor.name === 'Div' ) {
-					return false;
-				}
-			}
-		}
-		*/
 		return false;
 	};
 
-	ToolbarRow.prototype.applyTo = function( element ) {
-
-		if ( element.constructor.name !== 'DivRow' ) {
-			element = element.parent();
-			while ( element && element.constructor.name !== 'Region' ) {
-				if ( element.constructor.name === 'DivRow' ) {
-					break;
-				}
-				element = element.parent();
-			}
-		} else {
-			// this.element = element;
-		}
-
-		if ( element.constructor.name === 'Region' ) {
-			return null;
-		}
-
-		// Since this is run on EVERY element that's on the "over stack",
-		// only show this on the first ROW encountered.
-		if ( this._alreadyShown2 ) {
-			return this.element;
-		}
-		this._alreadyShown2 = true;
-		setTimeout( function() {
-			this._alreadyShown2 = false;
-		}.bind( this ) );
-
-		// Dynamic labels. Used for labels that change depending on what's selected.
-		for ( var i = 0; i < this.tools.length; i++ ) {
-
-			if ( this.tools[ i ]['class'] ) {
-				this._domElement.children[0].children[ i ].classList.add( this.tools[ i ]['class'] );
-			}
-
-			if ( typeof this.tools[ i ].label === 'function' ) {
-				this._domElement.children[0].children[ i ].innerHTML = this.tools[ i ].label( element );
-			}
-
-			if ( typeof this.tools[ i ].tooltip === 'function' ) {
-				this._domElement.children[0].children[ i ].setAttribute( 'data-tooltip', this.tools[ i ].tooltip( element ) );
-			}
-
-			this._domElement.children[0].children[ i ].classList.remove( 'pbs-toolbar-tool-hide' );
-			if ( typeof this.tools[ i ].display === 'function' ) {
-				if ( ! this.tools[ i ].display( element ) ) {
-					this._domElement.children[0].children[ i ].classList.add( 'pbs-toolbar-tool-hide' );
-				}
-			}
-		}
-
-		return element;
+	ToolbarRow.prototype.show = function( element ) {
+		ToolbarRow.__super__.show.call( this, element );
+		this._domElement.classList.add( 'pbs-smaller-toolbar' );
 	};
 
 	return ToolbarRow;
@@ -5443,7 +6252,6 @@ PBSEditor.ToolbarColumn = ( function( _super ) {
 
 	function ToolbarColumn() {
 
-		this._alreadyShown2 = false;
 		ToolbarColumn.__super__.constructor.call( this,
 			'DivCol',
 			[
@@ -5461,10 +6269,10 @@ PBSEditor.ToolbarColumn = ( function( _super ) {
 					id: 'clone',
 					tooltip: pbsParams.labels.clone,
 					onClick: function( element ) {
-						element._domElement.classList.remove('ce-element--over');
+						element._domElement.classList.remove( 'ce-element--over' );
 						var col = element.clone();
 						col.focus();
-						col._domElement.classList.add('ce-element--over');
+						col._domElement.classList.add( 'ce-element--over' );
 					}
 				},
 				{
@@ -5503,148 +6311,36 @@ PBSEditor.ToolbarColumn = ( function( _super ) {
 		);
 	}
 
-	ToolbarColumn.prototype.canApply = function( element ) {
+	ToolbarColumn.prototype.canApplyTo = function( element ) {
 
-		if ( ToolbarColumn.__super__.show.call( this, this.element ) ) {
-			return true;
-		}
-
-		if ( typeof element === 'undefined' ) {
-			element = this.element;
-		}
-		if ( ! element ) {
-			return false;
-		}
-		if ( element.constructor.name === 'DivCol' ) {
-			return true;
+		if ( 'DivCol' === element.constructor.name ) {
+			return element;
 		}
 
-		// Since this is run on EVERY element that's on the "over stack",
-		// only show this on the first ROW encountered.
-		if ( this._alreadyShown ) {
-			return true;
-		}
-		// this._alreadyShown = true;
-		setTimeout( function() {
-			this._alreadyShown = false;
-		}.bind( this ) );
-
-		if ( element.constructor.name !== 'DivCol' ) {
+		if ( 'DivCol' !== element.constructor.name ) {
 			element = element.parent();
-			while ( element && element.constructor.name !== 'Region' ) {
-				if ( element.constructor.name === 'DivCol' ) {
-					break;
+			while ( element && 'Region' !== element.constructor.name ) {
+				if ( 'DivCol' === element.constructor.name ) {
+					return element;
 				}
 				element = element.parent();
 			}
-			if ( ! element || element.constructor.name === 'Region' ) {
-				this._hide();
-				return;
-			}
-			this.element = element;
-			this._alreadyShown = true;
-			return true;
 		}
 
 		return false;
 	};
 
-	ToolbarColumn.prototype.applyTo = function( element ) {
-
-		if ( element.constructor.name !== 'DivCol' ) {
-			element = element.parent();
-			while ( element && element.constructor.name !== 'Region' ) {
-				if ( element.constructor.name === 'DivCol' ) {
-					break;
-				}
-				element = element.parent();
-			}
-		} else {
-			// this.element = element;
-		}
-
-		// Since this is run on EVERY element that's on the "over stack",
-		// only show this on the first ROW encountered.
-		if ( this._alreadyShown2 ) {
-			return this.element;
-		}
-		this._alreadyShown2 = true;
-		setTimeout( function() {
-			this._alreadyShown2 = false;
-		}.bind( this ) );
-
-		// Dynamic labels. Used for labels that change depending on what's selected.
-		for ( var i = 0; i < this.tools.length; i++ ) {
-			this._domElement.children[0].children[ i ].classList.remove( 'pbs-toolbar-tool-hide' );
-			if ( typeof this.tools[ i ].display === 'function' ) {
-				if ( ! this.tools[ i ].display( element ) ) {
-					this._domElement.children[0].children[ i ].classList.add( 'pbs-toolbar-tool-hide' );
-				}
-			}
-		}
-
-		return element;
-	};
-
-
 	ToolbarColumn.prototype.show = function( element ) {
 		ToolbarColumn.__super__.show.call( this, element );
-		this.checkToolbarSize( element );
-	};
 
-
-	ToolbarColumn.prototype.checkToolbarSize = function( element ) {
-
-		var colToolbar = document.querySelector( '.pbs-toolbar-divcol.pbs-quick-action-overlay .pbs-toolbar-wrapper' );
-		var rowToolbar = document.querySelector( '.pbs-toolbar-divrow.pbs-quick-action-overlay .pbs-toolbar-wrapper' );
-
-		this._domElement.classList.remove( 'pbs-small-toolbar' );
-		rowToolbar.parentNode.classList.remove( 'pbs-small-toolbar' );
-		this._domElement.classList.remove( 'pbs-smaller-toolbar' );
-		rowToolbar.parentNode.classList.remove( 'pbs-smaller-toolbar' );
-		this._domElement.classList.remove( 'pbs-tiny-toolbar' );
-		rowToolbar.parentNode.classList.remove( 'pbs-tiny-toolbar' );
-
-		var ret = ToolbarColumn.__super__.show.call( this, element );
-
-		var colRect = colToolbar.getBoundingClientRect();
-		var rowRect = rowToolbar.getBoundingClientRect();
-
-		if ( colRect.left - rowRect.right < 0 ) {
-			colToolbar.parentNode.classList.add( 'pbs-small-toolbar' );
-			rowToolbar.parentNode.classList.add( 'pbs-small-toolbar' );
-		} else {
-			return ret;
-		}
-
-		colRect = colToolbar.getBoundingClientRect();
-		rowRect = rowToolbar.getBoundingClientRect();
-
-		if ( colRect.left - rowRect.right < 0 ) {
-			colToolbar.parentNode.classList.remove( 'pbs-small-toolbar' );
-			rowToolbar.parentNode.classList.remove( 'pbs-small-toolbar' );
-			colToolbar.parentNode.classList.add( 'pbs-smaller-toolbar' );
-			rowToolbar.parentNode.classList.add( 'pbs-smaller-toolbar' );
-		} else {
-			return ret;
-		}
-
-		colRect = colToolbar.getBoundingClientRect();
-		rowRect = rowToolbar.getBoundingClientRect();
-
-		if ( colRect.left - rowRect.right < 0 ) {
-			colToolbar.parentNode.classList.remove( 'pbs-smaller-toolbar' );
-			rowToolbar.parentNode.classList.remove( 'pbs-smaller-toolbar' );
-			colToolbar.parentNode.classList.add( 'pbs-tiny-toolbar' );
-			rowToolbar.parentNode.classList.add( 'pbs-tiny-toolbar' );
-		}
-
-		return ret;
+		// TODO: make this permanent instead of adding it all the time.
+		this._domElement.classList.add( 'pbs-smaller-toolbar' );
 	};
 
 	return ToolbarColumn;
 
 } )( PBSEditor.Toolbar );
+
 
 /* globals PBSEditor, __extends, ContentTools, pbsParams */
 
@@ -5671,10 +6367,14 @@ PBSEditor.ToolbarTabContainer = ( function( _super ) {
 			onClick: function( element ) {
 				element.parent().addTab();
 			}
-		}
-	);
-
-	toolbar.push(
+		},
+		{
+			id: 'settings',
+			tooltip: pbsParams.labels.properties,
+			onClick: function( element ) {
+				ContentTools.EditorApp.get()._toolboxProperties.inspect( element );
+			}
+		},
 		{
 			id: 'remove',
 			tooltip: pbsParams.labels['delete'],
@@ -5692,9 +6392,21 @@ PBSEditor.ToolbarTabContainer = ( function( _super ) {
 		);
 	}
 
+	ToolbarTabContainer.prototype.canApplyTo = function( element ) {
 
+		if ( 'Tab' === element.constructor.name ) {
+			return element.parent();
+		}
+
+		return ToolbarTabContainer.__super__.canApplyTo.call( this, element );
+	};
+/*
 	ToolbarTabContainer.prototype.applyTo = function( element ) {
 		element = ToolbarTabContainer.__super__.applyTo.call( this, element );
+
+		if ( ! element ) {
+			return element;
+		}
 
 		// Small toolbar when the column is small.
 		var rect = element._domElement.getBoundingClientRect();
@@ -5706,7 +6418,7 @@ PBSEditor.ToolbarTabContainer = ( function( _super ) {
 
 		return element;
 	};
-
+*/
 	return ToolbarTabContainer;
 
 } )( PBSEditor.Toolbar );
@@ -5768,6 +6480,75 @@ PBSEditor.ToolbarTitle = ( function( _super ) {
 
 } )( PBSEditor.Toolbar );
 
+/* globals PBSEditor, __extends, pbsParams */
+
+PBSEditor.ToolbarSpacer = ( function( _super ) {
+	__extends( ToolbarSpacer, _super );
+
+	function ToolbarSpacer() {
+
+		ToolbarSpacer.__super__.constructor.call( this,
+			'Spacer',
+			[
+				{
+					label: pbsParams.labels.spacer
+				},
+				{
+					id: 'move',
+					tooltip: pbsParams.labels.move,
+					onMouseDown: function( element, toolbar, ev ) {
+						ev.stopPropagation();
+						element.drag( ev.pageX, ev.pageY );
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarSpacer;
+
+} )( PBSEditor.Toolbar );
+
+
+/* globals PBSEditor, __extends, pbsParams */
+
+PBSEditor.ToolbarHr = ( function( _super ) {
+	__extends( ToolbarHr, _super );
+
+	function ToolbarHr() {
+
+		ToolbarHr.__super__.constructor.call( this,
+			'Hr',
+			[
+				{
+					id: 'move',
+					tooltip: pbsParams.labels.move,
+					onMouseDown: function( element, toolbar, ev ) {
+						ev.stopPropagation();
+						element.drag( ev.pageX, ev.pageY );
+					}
+				},
+				{
+					id: 'remove',
+					tooltip: pbsParams.labels['delete'],
+					onClick: function( element ) {
+						element.parent().detach( element );
+					}
+				}
+			]
+		);
+	}
+
+	return ToolbarHr;
+
+} )( PBSEditor.Toolbar );
 
 /* globals ContentTools, PBSEditor, pbsSelectorMatches */
 
@@ -5870,15 +6651,12 @@ PBSEditor.Tooltip = ( function() {
 	};
 
 	Tooltip.prototype.show = function( domElementTarget ) {
-		var rect = domElementTarget.getBoundingClientRect();
-		var toolbar = getComputedStyle( document.querySelector( '.pbs-toolbox-bar' ) );
-		var toolbarHeight = parseInt( toolbar.height, 10 );
-		var scrollY = window.scrollY || window.pageYOffset;
+		var rect = window.pbsGetBoundingClientRect( domElementTarget );
 
-		this._domElement.style.top = ( rect.top + scrollY - toolbarHeight ) + 'px';
+		this._domElement.style.top = ( rect.top + window.pbsScrollY() - window.formattingToolbarHeight() ) + 'px';
 		this._domElement.style.left = ( rect.left + rect.width / 2 ) + 'px';
 
-		if ( typeof this.labelFunction === 'function' ) {
+		if ( 'function' === typeof this.labelFunction ) {
 			this._domElement.firstChild.innerHTML = this.labelFunction( domElementTarget );
 		} else {
 			this._domElement.firstChild.innerHTML = this.labelFunction;
@@ -6122,6 +6900,121 @@ document.addEventListener( 'DOMContentLoaded', function() {
 	} );
 } );
 
+/**
+ * These are SPEED helper functions. Use these functions instead of the
+ * typical ones to gain speed.
+ */
+
+/* globals ContentTools, PBSEditor, ContentEdit */
+
+var elemsWithBoundingRects = [];
+var elemsWithComputedStyles = [];
+var showActualRect = false;
+
+window.pbsGetBoundingClientRect = function( element ) {
+	if ( showActualRect || ! element._boundingClientRect ) {
+		element._boundingClientRect = element.getBoundingClientRect();
+		elemsWithBoundingRects.push( element );
+	}
+	return element._boundingClientRect;
+};
+
+window.pbsGetComputedStyle = function( element ) {
+	if ( ! element._computedStyle ) {
+		element._computedStyle = getComputedStyle( element );
+		elemsWithComputedStyles.push( element );
+	}
+	return element._computedStyle;
+};
+
+window.pbsScrollY = function() {
+	if ( ! window._prevScrollY ) {
+		window._prevScrollY = window.scrollY || window.pageYOffset;
+	}
+	return window._prevScrollY;
+};
+
+window.addEventListener( 'scroll', function() {
+	window._prevScrollY = null;
+} );
+
+window.formattingToolbarHeight = function() {
+	var toolbar;
+	if ( this._formattingToolbarHeight ) {
+		return this._formattingToolbarHeight;
+	}
+	toolbar = window.pbsGetBoundingClientRect( document.querySelector( '.pbs-toolbox-bar' ) );
+	this._formattingToolbarHeight = toolbar.height;
+	return this._formattingToolbarHeight;
+};
+
+( function() {
+	var clearClientRects = function() {
+		var i;
+		for ( i = 0; i < elemsWithBoundingRects.length; i++ ) {
+			if ( elemsWithBoundingRects[ i ] ) {
+				elemsWithBoundingRects[ i ]._boundingClientRect = null;
+			}
+		}
+		elemsWithBoundingRects = [];
+		for ( i = 0; i < elemsWithComputedStyles.length; i++ ) {
+			if ( elemsWithComputedStyles[ i ] ) {
+				elemsWithComputedStyles[ i ]._computedStyle = null;
+			}
+		}
+		elemsWithComputedStyles = [];
+	};
+	var mousedown = false;
+	var mouseDownListener = function() {
+		mousedown = true;
+		clearClientRects();
+	};
+	var mouseUpListener = function() {
+		mousedown = false;
+		showActualRect = false;
+		clearClientRects();
+	};
+	var mouseMoveListener = function() {
+		if ( mousedown ) {
+			clearClientRects();
+		}
+	};
+	var overlayDragListener = function() {
+		showActualRect = true;
+		clearClientRects();
+	};
+	var clearRectsAndOverlays = function() {
+		PBSEditor.Overlay.hideOtherOverlays();
+		clearClientRects();
+	};
+	ContentTools.EditorApp.get().bind( 'start', function() {
+		window.addEventListener( 'mouseup', mouseUpListener );
+		window.addEventListener( 'mousedown', mouseDownListener );
+		window.addEventListener( 'mousemove', mouseMoveListener );
+		window.addEventListener( 'keydown', clearClientRects );
+		window.addEventListener( 'keyup', clearClientRects );
+		window.addEventListener( 'resize', clearClientRects );
+		window.addEventListener( 'scroll', clearClientRects );
+		wp.hooks.addAction( 'pbs.overlay.drag', overlayDragListener );
+		wp.hooks.addAction( 'pbs.image.mounted', clearRectsAndOverlays );
+		ContentEdit.Root.get().bind( 'unmount', clearRectsAndOverlays );
+		ContentEdit.Root.get().bind( 'mount', clearRectsAndOverlays );
+	} );
+	ContentTools.EditorApp.get().bind( 'stop', function() {
+		window.removeEventListener( 'mouseup', mouseUpListener );
+		window.removeEventListener( 'mousedown', mouseDownListener );
+		window.removeEventListener( 'mousemove', mouseMoveListener );
+		window.removeEventListener( 'keydown', clearClientRects );
+		window.removeEventListener( 'keyup', clearClientRects );
+		window.removeEventListener( 'resize', clearClientRects );
+		window.removeEventListener( 'scroll', clearClientRects );
+		wp.hooks.removeAction( 'pbs.overlay.drag', overlayDragListener );
+		wp.hooks.removeAction( 'pbs.image.mounted', clearRectsAndOverlays );
+		ContentEdit.Root.get().unbind( 'unmount', clearRectsAndOverlays );
+		ContentEdit.Root.get().unbind( 'mount', clearRectsAndOverlays );
+	} );
+} )();
+
 /* globals ContentEdit, ContentSelect, PBSEditor */
 
 
@@ -6164,6 +7057,9 @@ PBSEditor.isNewStaticLikeElement = function( element ) {
 	if ( element.constructor.name === 'Static' ) {
 		return false;
 	}
+	if ( element.constructor.name === 'Icon' ) {
+		return false;
+	}
 	if ( typeof element._content === 'undefined' ) {
 		return false;
 	}
@@ -6180,7 +7076,8 @@ ContentEdit.Text.prototype._keyLeft = function(ev) {
 
 	if ( selection.get()[0] === 0 ) {
 		var elem = this.previousContent();
-		if ( elem ) {
+
+		if ( elem && elem.focus ) {
 			if ( PBSEditor.isNewStaticLikeElement( elem ) ) {
 				ev.preventDefault();
 				ev.stopPropagation(); // We need this or else the SC won't get focused
@@ -6203,7 +7100,8 @@ ContentEdit.Text.prototype._keyRight = function(ev) {
 
 	if ( this._atEnd(selection) ) {
 		var elem = this.nextContent();
-		if ( elem ) {
+
+		if ( elem && elem.focus) {
 			if ( PBSEditor.isNewStaticLikeElement( elem ) ) {
 				ev.preventDefault();
 				ev.stopPropagation(); // We need this or else the SC won't get focused
@@ -6571,7 +7469,7 @@ ContentEdit.StaticEditable = (function(_super) {
 
 })(ContentEdit.Static);
 
-/* globals ContentEdit, ContentSelect, HTMLString */
+/* globals ContentEdit, ContentSelect, HTMLString, pbsParams */
 
 (function() {
 	var proxied = ContentEdit.Text.prototype._keyReturn;
@@ -6737,45 +7635,51 @@ ContentEdit.StaticEditable = (function(_super) {
  */
 (function() {
 	var proxied = ContentEdit.Text.prototype._onKeyDown;
-	ContentEdit.Text.prototype._onKeyDown = function(ev) {
+	ContentEdit.Text.prototype._onKeyDown = function( ev ) {
+		var docRange, n, range, sel;
 		if ( [ 40, 37, 39, 38, 9, 8, 46, 13, 32 ].indexOf( ev.keyCode ) === -1 ) {
-			var docRange = window.getSelection().getRangeAt(0);
-			var n, range, sel;
+			if ( window.getSelection().rangeCount ) {
+				try {
+					docRange = window.getSelection().getRangeAt( 0 );
+		        } catch ( _error ) {
+					return proxied.call( this, ev );
+		        }
 
-			if ( docRange.startContainer.parentNode ) {
-				if ( docRange.startContainer.nextSibling && docRange.startContainer.parentNode.tagName !== 'A' && docRange.startContainer.nextSibling.tagName === 'A' ) {
+				if ( docRange.startContainer.parentNode ) {
+					if ( docRange.startContainer.nextSibling && docRange.startContainer.parentNode.tagName !== 'A' && docRange.startContainer.nextSibling.tagName === 'A' ) {
 
-					if ( docRange.startOffset === docRange.startContainer.length ) {
+						if ( docRange.startOffset === docRange.startContainer.length ) {
 
-						if ( ! docRange.startContainer.nextSibling.innerHTML.match( /^&nbsp;/ ) ) {
-							n = document.createTextNode( '\u00A0' );
-							docRange.startContainer.nextSibling.insertBefore( n, docRange.startContainer.nextSibling.firstChild );
+							if ( ! docRange.startContainer.nextSibling.innerHTML.match( /^&nbsp;/ ) ) {
+								n = document.createTextNode( '\u00A0' );
+								docRange.startContainer.nextSibling.insertBefore( n, docRange.startContainer.nextSibling.firstChild );
+
+								range = document.createRange();
+								sel = window.getSelection();
+								range.setStart( docRange.startContainer.nextSibling, 1 );
+								range.collapse(true);
+								sel.removeAllRanges();
+								sel.addRange(range);
+							}
+						}
+					}
+
+					else if ( docRange.startContainer.parentNode.tagName === 'A' ) {
+
+						if ( docRange.startOffset === docRange.startContainer.length ) {
+
+							if ( ! docRange.startContainer.parentNode.innerHTML.match( /&nbsp;$/ ) ) {
+								n = document.createTextNode( '\u00A0' );
+								docRange.startContainer.parentNode.appendChild( n );
+							}
 
 							range = document.createRange();
 							sel = window.getSelection();
-							range.setStart( docRange.startContainer.nextSibling, 1 );
+							range.setStart( docRange.startContainer, docRange.startContainer.length );
 							range.collapse(true);
 							sel.removeAllRanges();
 							sel.addRange(range);
 						}
-					}
-				}
-
-				else if ( docRange.startContainer.parentNode.tagName === 'A' ) {
-
-					if ( docRange.startOffset === docRange.startContainer.length ) {
-
-						if ( ! docRange.startContainer.parentNode.innerHTML.match( /&nbsp;$/ ) ) {
-							n = document.createTextNode( '\u00A0' );
-							docRange.startContainer.parentNode.appendChild( n );
-						}
-
-						range = document.createRange();
-						sel = window.getSelection();
-						range.setStart( docRange.startContainer, docRange.startContainer.length );
-						range.collapse(true);
-						sel.removeAllRanges();
-						sel.addRange(range);
 					}
 				}
 			}
@@ -6805,6 +7709,30 @@ ContentEdit.StaticEditable = (function(_super) {
 })();
 
 
+/**
+ * If you have colored text, then you delete all the text and type again,
+ * the default browser behavior would be to add a <font> tag with a color
+ * attribute. This fixes it into a span tag instead.
+ */
+( function() {
+	var proxy = ContentEdit.Text.prototype._syncContent;
+	ContentEdit.Text.prototype._syncContent = function() {
+  	  if ( this._domElement.innerHTML.match( /<font(>|\s)/ ) ) {
+		  this.storeState();
+  		  this._domElement.innerHTML = this._domElement.innerHTML.replace( /<font(>|\s)/, '<span$1' );
+	  	  if ( this._domElement.innerHTML.match( /<\/font>/ ) ) {
+	  		  this._domElement.innerHTML = this._domElement.innerHTML.replace( /<\/font>/, '</span>' );
+	  	  }
+	  	  if ( this._domElement.innerHTML.match( /color=['"][^'"]+['"]/ ) ) {
+	  		  this._domElement.innerHTML = this._domElement.innerHTML.replace( /color=['"]([^'"]+)['"]/, 'style="color: $1"' );
+	  	  }
+		  this.restoreState();
+  	  }
+	  return proxy.call( this );
+	};
+} )();
+
+
 // Fixed: 'innerHTML' undefined errors encountered randomly when editing normal text.
 (function() {
 	var proxied = ContentEdit.Text.prototype._syncContent;
@@ -6818,48 +7746,110 @@ ContentEdit.StaticEditable = (function(_super) {
 	};
 })();
 
+( function() {
+	var proxied = ContentEdit.Text.prototype._addCSSClass;
+	ContentEdit.Text.prototype._addCSSClass = function( className ) {
+		if ( 'ce-element--empty' === className ) {
+			this.attr( 'data-placeholder', pbsParams.labels.click_to_add_text );
+		}
+		return proxied.call( this, className );
+	};
+} )();
+
+( function() {
+	var proxied = ContentEdit.Text.prototype._removeCSSClass;
+	ContentEdit.Text.prototype._removeCSSClass = function( className ) {
+		if ( 'ce-element--empty' === className ) {
+			this.removeAttr( 'data-placeholder' );
+		}
+		return proxied.call( this, className );
+	};
+} )();
+
+
 
 /* globals ContentEdit, HTMLString, ContentSelect */
 
+
+
 (function() {
+
 	var proxied = ContentEdit.Text.prototype._onKeyUp;
+
 	ContentEdit.Text.prototype._onKeyUp = function(ev) {
+
+
 
 	   var ret = proxied.call( this, ev );
 
+
+
 	   if ( ev.keyCode === 9 ) {
+
 		   if ( this.content.text().toLowerCase() === 'lorem' ) {
+
 			   this.content = new HTMLString.String( 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. At dolor sed numquam? Sapiente autem adipisci, minus expedita enim, suscipit laboriosam deleniti possimus sequi pariatur explicabo numquam alias atque officia sit.' );
+
 			   this.updateInnerHTML();
+
 			   this.taint();
 
+
+
 			   var selection = new ContentSelect.Range( this.content.length(), this.content.length() );
+
 			   selection.select( this._domElement );
+
 		   }
+
 	   }
 
+
+
 	   return ret;
+
 	};
+
 })();
+
+
+
 
 
 (function() {
+
 	var proxied = ContentEdit.Text.prototype.blur;
+
 	ContentEdit.Text.prototype.blur = function(ev) {
 
+
+
 		if ( this.content.text().toLowerCase() === 'lorem' ) {
+
 			this.content = new HTMLString.String( 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. At dolor sed numquam? Sapiente autem adipisci, minus expedita enim, suscipit laboriosam deleniti possimus sequi pariatur explicabo numquam alias atque officia sit.' );
+
 			this.updateInnerHTML();
+
 			this.taint();
 
+
+
 			var selection = new ContentSelect.Range( this.content.length(), this.content.length() );
+
 			selection.select( this._domElement );
+
 		}
+
+
 
 		return proxied.call( this, ev );
 
+
+
 	};
+
 })();
+
 
 /* globals ContentEdit, HTMLString, pbsParams, __extends, PBSEditor */
 
@@ -7827,7 +8817,7 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 	// Turn on highlight syntaxing on the element.
 	ContentEdit.PreText.prototype.rehighlight = function() {
-		if ( typeof hljs !== 'undefined' ) {
+		if ( this._domElement && typeof hljs !== 'undefined' ) {
 			this.storeState();
 			this.removeAllCSSClasses();
 			hljs.highlightBlock( this._domElement );
@@ -7946,50 +8936,30 @@ window.addEventListener( 'DOMContentLoaded', function() {
     };
 } )();
 
-/* globals ContentTools */
-
-/**
- * Videos can sometimes be unproportional in some themes.
- * IF FitVids is present, then use that to fix the video iframe dimensions,
- * otherwise there should be no problems. (e.g. Twenty Sixteen does not use fitvids.js)
- *
- * @see https://github.com/davatron5000/FitVids.js
- */
-
+/* globals ContentTools, ContentEdit, fluidvids */
 
 // Called when a Twitter embed element is mounted.
-(function() {
-	var fitVideos = function( element ) {
+( function() {
+	wp.hooks.addAction( 'pbs.embed.mount', fluidvids.render );
+	wp.hooks.addAction( 'pbs.embed.update_embed_content', fluidvids.render );
 
-		if ( typeof jQuery === 'undefined' ) {
-			return;
-		}
-		if ( typeof jQuery.fn.fitVids === 'undefined' ) {
-			return;
-		}
+	// When editing stops, re-init all parallax (they would be surely removed).
+    var editor = ContentTools.EditorApp.get();
+	editor.bind( 'stop', fluidvids.render );
+	editor.bind( 'start', fluidvids.render );
+} )();
 
-		var domElement = element._domElement || element;
-		jQuery( domElement ).fitVids();
+
+( function() {
+	var proxy = ContentEdit.Element.prototype.mount;
+	ContentEdit.Element.prototype.mount = function() {
+		var ret = proxy.call( this );
+		if ( fluidvids ) {
+			fluidvids.render();
+		}
+		return ret;
 	};
-	wp.hooks.addAction( 'pbs.embed.mount', fitVideos );
-	wp.hooks.addAction( 'pbs.embed.update_embed_content', fitVideos );
-
-
-	// Call Twitter API when the CT editor saves/stops because Twitter's iframe doesn't have a src.
-	window.addEventListener( 'DOMContentLoaded', function() {
-		var editor = ContentTools.EditorApp.get();
-		editor.bind('stop', function() {
-
-			var shortcodes = document.querySelectorAll( '[data-ce-tag="embed"] iframe' );
-			Array.prototype.forEach.call(shortcodes, function(el){
-				fitVideos( el.parentNode );
-			});
-
-		});
-	});
-
-
-})();
+} )();
 
 /* globals ContentTools, twttr */
 
@@ -8917,7 +9887,7 @@ ContentEdit.DivCol = (function(_super) {
     DivCol.prototype._onMouseMove = function(ev) {
 		DivCol.__super__._onMouseMove.call(this, ev);
 		DivCol.__super__._onMouseOver.call(this, ev);
-		
+
 		clearTimeout(this._dragTimeout);
 
 		var root = ContentEdit.Root.get(),
@@ -9098,17 +10068,19 @@ ContentEdit.DivCol = (function(_super) {
 
 	DivCol.droppers = {};
 
-	DivCol.prototype.mount = function() {
-		DivCol.__super__.mount.call(this);
+	DivCol.prototype.attach = function( component, index ) {
+		DivCol.__super__.attach.call( this, component, index );
 
-		// Make sure columns have a .pbs-col class
-		this.addCSSClass('pbs-col');
+		setTimeout( function() {
+			this.cleanEmptyParagraphs();
+		}.bind( this ), 10 );
+	};
 
-		// Generate a unique class if there isn't one yet.
-		// var currentClass = this._domElement.getAttribute( 'class' );
-		// if ( ! currentClass.match( /pbs_col_uid_/ ) ) {
-		// 	this.addCSSClass( 'pbs_col_uid_' + Math.floor((1 + Math.random()) * 0x10000000).toString(36) );
-		// }
+	DivCol.prototype.cleanEmptyParagraphs = function() {
+
+		if ( ! this.isMounted() ) {
+			return;
+		}
 
 		// Check how many empty paragraphs are there.
 		var numEmpties = 0;
@@ -9123,21 +10095,49 @@ ContentEdit.DivCol = (function(_super) {
 			numNonEmpties++;
 		}
 
-		// Remove empty paragraph tags
+		// Remove empty paragraph tags, retain one.
 		if ( numEmpties > 1 ) {
-			for ( i = this.children.length - 1; i >= 0; i-- ) {
+			for ( i = 0; i < this.children.length; i++ ) {
 				if ( typeof this.children[i].content !== 'undefined' ) {
-					if ( this.children[i].content.isWhitespace() ) {
+					if ( this.children[i].content.isWhitespace() && ! this.children[i].isFocused() ) {
 						if ( numEmpties > 1 && numNonEmpties === 0 ) {
 							this.detach( this.children[i] );
 							numEmpties--;
 						} else {
 							this.detach( this.children[i] );
 						}
+						i--;
 					}
 				}
 			}
 		}
+
+		// Remove all empties.
+		if ( numEmpties && numNonEmpties ) {
+			for ( i = 0; i < this.children.length; i++ ) {
+				if ( typeof this.children[i].content !== 'undefined' ) {
+					if ( this.children[i].content.isWhitespace() && ! this.children[i].isFocused() ) {
+						this.detach( this.children[i] );
+						i--;
+					}
+				}
+			}
+		}
+	};
+
+	DivCol.prototype.mount = function() {
+		DivCol.__super__.mount.call(this);
+
+		// Make sure columns have a .pbs-col class
+		this.addCSSClass('pbs-col');
+
+		// Generate a unique class if there isn't one yet.
+		// var currentClass = this._domElement.getAttribute( 'class' );
+		// if ( ! currentClass.match( /pbs_col_uid_/ ) ) {
+		// 	this.addCSSClass( 'pbs_col_uid_' + Math.floor((1 + Math.random()) * 0x10000000).toString(36) );
+		// }
+
+		this.cleanEmptyParagraphs();
 	};
 
 	DivCol.prototype.merge = function ( element ) {
@@ -9662,274 +10662,438 @@ wp.hooks.addFilter( 'pbs.save', function( html ) {
 	};
 })();
 
+
+
+
 /* globals ContentEdit, __extends, PBSEditor, pbsParams */
 
+
+
+
+
 ContentEdit.Icon = ( function( _super ) {
+
+
 	__extends( Icon, _super );
+
+
+
+
 
 	function Icon( tagName, attributes, content ) {
 
+
+
+
+
 		if ( ! attributes['data-ce-tag'] ) {
+
+
 			attributes['data-ce-tag'] = 'icon';
-		}
-		if ( ! attributes.role ) {
-			attributes.role = 'presentation';
+
+
 		}
 
-		Icon.__super__.constructor.call(this, tagName, attributes);
+
+		if ( ! attributes.role ) {
+
+
+			attributes.role = 'presentation';
+
+
+		}
+
+
+
+
+
+		Icon.__super__.constructor.call( this, tagName, attributes );
+
+
+
+
 
         this._content = content;
 
-        this._domSizeInfoElement = null;
-        this._aspectRatio = 1;
+
 	}
 
+
+
+
+
 	Icon.prototype.cssTypeName = function() {
+
+
 		return 'icon';
+
+
 	};
+
+
+
+
 
 	Icon.prototype.typeName = function() {
+
+
 		return 'Icon';
+
+
 	};
 
-    Icon.fromDOMElement = function(domElement) {
-		return new this(domElement.tagName, this.getDOMElementAttributes(domElement), domElement.innerHTML);
+
+
+
+
+    Icon.fromDOMElement = function( domElement ) {
+
+
+		return new this( domElement.tagName, this.getDOMElementAttributes( domElement ), domElement.innerHTML );
+
+
     };
+
+
+
+
 
     Icon.droppers = PBSEditor.allDroppers;
 
-    Icon.prototype.focus = function(supressDOMFocus) {
-		var root;
-		root = ContentEdit.Root.get();
-		if (this.isFocused()) {
-			return;
-		}
-		if (root.focused()) {
-			root.focused().blur();
-		}
-		this._addCSSClass('ce-element--focused');
-		root._focused = this;
-		if (this.isMounted() && !supressDOMFocus) {
-			this.domElement().focus();
-		}
-		return root.trigger('focus', this);
-    };
 
-    Icon.prototype.blur = function() {
-      var root;
-      root = ContentEdit.Root.get();
-    //   if ( this.isFocused() ) {
-        this._removeCSSClass( 'ce-element--over' );
-        this._removeCSSClass( 'ce-element--focused' );
-        root._focused = null;
-        return root.trigger( 'blur', this );
-    //   }
-    };
+
+
 
 	Icon.prototype.mount = function() {
+
+
 		var ret = Icon.__super__.mount.call( this );
 
+
+
+
+
 		// Required attributes.
-		var svg = this._domElement.children[0];
+
+
+		var svg = this._domElement.querySelector( 'svg' );
+
+
 		svg.setAttribute( 'xmlns', 'http://www.w3.org/2000/svg' );
+
+
 		svg.setAttributeNS( 'http://www.w3.org/2000/xmlns/', 'xmlns:xlink', 'http://www.w3.org/1999/xlink' );
 
+
+
+
+
 		// We need to add a whitespace inside the svg tag or else
+
+
 		// TinyMCE in the backend will remove the svg.
+
+
 		// content = content.replace( /\s*\<\/svg>/g, ' </svg>' );
+
+
 		svg.innerHTML = svg.innerHTML.trim() + ' ';
 
+
+
+
+
 		this._content = this._domElement.innerHTML;
 
-		this._domElement.setAttribute('data-ce-size', this._getSizeInfo());
-		// if ( this._domElement. )
+
+
+
 
 		return ret;
+
+
 	};
+
+
+
+
 
 	Icon.prototype.change = function( svg ) {
-		this._domElement.innerHTML = svg.outerHTML;
+
+
+		var a = this._domElement.querySelector( 'a' );
+
+
+		if ( a ) {
+
+
+			a.innerHTML = svg.outerHTML;
+
+
+		} else {
+
+
+			this._domElement.innerHTML = svg.outerHTML;
+
+
+		}
+
+
 		this._content = this._domElement.innerHTML;
+
+
 		this.taint();
+
+
 	};
+
+
+
+
 
 	Icon.prototype.clone = function() {
-		if ( this.isFocused() ) {
-			this.blur();
-		}
-		var clone = document.createElement('div');
+
+
+		var newElem, index, clone = document.createElement( 'div' );
+
+
 		clone.innerHTML = this.html();
-		var newElem = ContentEdit.Div.fromDOMElement( clone.childNodes[0] );
-		var index = this.parent().children.indexOf( this );
+
+
+		newElem = ContentEdit.Div.fromDOMElement( clone.childNodes[0] );
+
+
+		index = this.parent().children.indexOf( this );
+
+
 		this.parent().attach( newElem, index + 1 );
-		newElem.focus();
+
+
 		return newElem;
+
+
 	};
 
-	Icon.prototype._onMouseOver = function(ev) {
-	  Icon.__super__._onMouseOver.call(this, ev);
-	  return this._addCSSClass('ce-element--over');
+
+
+
+
+	Icon.prototype._onMouseOver = function( ev ) {
+
+
+	  Icon.__super__._onMouseOver.call( this, ev );
+
+
+	  return this._addCSSClass( 'ce-element--over' );
+
+
 	};
+
+
+
+
 
 	Icon.droppers = PBSEditor.allDroppers;
 
 
-    Icon.prototype.aspectRatio = function() {
-      return this._aspectRatio;
-    };
 
-    Icon.prototype.maxSize = function() {
-      var maxWidth;
-      maxWidth = parseInt( this.attr('data-ce-max-width') || 0, 10 );
-      if (!maxWidth) {
-        maxWidth = ContentEdit.DEFAULT_MAX_ELEMENT_WIDTH;
-      }
-      maxWidth = Math.max(maxWidth, this.size()[0]);
-      return [maxWidth, maxWidth * this.aspectRatio()];
-    };
-
-    Icon.prototype.minSize = function() {
-      var minWidth;
-      minWidth = parseInt( this.attr('data-ce-min-width') || 0, 10 );
-      if (!minWidth) {
-        minWidth = 20;
-        //   minWidth = ContentEdit.DEFAULT_MIN_ELEMENT_WIDTH;
-      }
-      minWidth = Math.min(minWidth, this.size()[0]);
-      return [minWidth, minWidth * this.aspectRatio()];
-    };
-
-    Icon.prototype.resize = function(corner, x, y) {
-      if (!this.isMounted()) {
-        return;
-      }
-      return ContentEdit.Root.get().startResizing(this, corner, x, y, true);
-    };
 
 
 	Icon.prototype._onDoubleClick = function() {
-		PBSEditor.iconFrame.open({
+
+
+		PBSEditor.iconFrame.open( {
+
+
 			title: pbsParams.labels.icon_frame_change_title,
+
+
 			button: pbsParams.labels.icon_frame_change_button,
+
+
 			successCallback: function( frameView ) {
+
+
 				this.change( frameView.selected.firstChild );
+
+
 			}.bind( this )
-		});
+
+
+		} );
+
+
 	};
 
-    Icon.prototype.size = function(newSize) {
-		var height, maxSize, minSize, width;
-		if (!newSize) {
-			width = parseInt( this.style( 'width' ) || 1, 10 );
-			height = parseInt( this.style( 'height' ) || 1, 10 );
-			return [width, height];
+
+
+
+
+	Icon.prototype.getLink = function() {
+
+
+		var a = this._domElement.querySelector( 'a' );
+
+
+		if ( a ) {
+
+
+			return a.getAttribute( 'href' );
+
+
 		}
-		newSize[0] = parseInt( newSize[0], 10 );
-		newSize[1] = parseInt( newSize[1], 10 );
-		minSize = this.minSize();
-		newSize[0] = Math.max(newSize[0], minSize[0]);
-		newSize[1] = Math.max(newSize[1], minSize[1]);
-		maxSize = this.maxSize();
-		newSize[0] = Math.min(newSize[0], maxSize[0]);
-		newSize[1] = Math.min(newSize[1], maxSize[1]);
-		this.style( 'width', parseInt( newSize[0], 10 ) + 'px' );
-		this.style( 'height', parseInt( newSize[1], 10 ) + 'px' );
-		if (this.isMounted()) {
-			this._domElement.style.width = newSize[0] + 'px';
-			this._domElement.style.height = newSize[1] + 'px';
-			return this._domElement.setAttribute('data-ce-size', this._getSizeInfo());
+
+
+		return '';
+
+
+	};
+
+
+
+
+
+	Icon.prototype.setLink = function( url ) {
+
+
+		var a, svg;
+
+
+		if ( ! url ) {
+
+
+			this.removeLink();
+
+
+			return;
+
+
 		}
-    };
 
-    Icon.prototype._onMouseDown = function(ev) {
-      var corner;
-      Icon.__super__._onMouseDown.call(this, ev);
-      corner = this._getResizeCorner(ev.clientX, ev.clientY);
-      if (corner) {
 
-		  // Reset the size back to 100px x 100px in SHIFT+CTRL/CMD click.
-		  if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
-			  this.style( 'width', '100px' );
-			  this.style( 'height', '100px' );
-		  }
+		a = this._domElement.querySelector( 'a' );
 
-		  // Cancel the normal dragging behavior
-        clearTimeout(this._dragTimeout);
-        return this.resize(corner, ev.clientX, ev.clientY);
-      } else {
-        clearTimeout(this._dragTimeout);
-        return this._dragTimeout = setTimeout((function(_this) {
-          return function() {
-            return _this.drag(ev.pageX, ev.pageY);
-          };
-        })(this), 150);
-      }
-    };
 
-    Icon.prototype._onMouseMove = function(ev) {
-      var corner;
-      Icon.__super__._onMouseMove.call(this);
-      this._removeCSSClass('ce-element--resize-top-left');
-      this._removeCSSClass('ce-element--resize-top-right');
-      this._removeCSSClass('ce-element--resize-bottom-left');
-      this._removeCSSClass('ce-element--resize-bottom-right');
-      corner = this._getResizeCorner(ev.clientX, ev.clientY);
-      if (corner) {
-        return this._addCSSClass('ce-element--resize-' + corner[0] + '-' + corner[1]);
-      }
-    };
+		if ( a ) {
 
-    Icon.prototype._onMouseOut = function( ev ) {
-		Icon.__super__._onMouseOut.call( this, ev );
-		this._removeCSSClass('ce-element--resize-top-left');
-		this._removeCSSClass('ce-element--resize-top-right');
-		this._removeCSSClass('ce-element--resize-bottom-left');
-		return this._removeCSSClass('ce-element--resize-bottom-right');
-    };
 
-    Icon.prototype._onMouseUp = function( ev ) {
-		Icon.__super__._onMouseUp.call(this, ev );
-		if (this._dragTimeout) {
-			return clearTimeout(this._dragTimeout);
+			a.setAttribute( 'href', url );
+
+
+			this._domElement.innerHTML = a.outerHTML;
+
+
+			this._content = this._domElement.innerHTML;
+
+
+			this.taint();
+
+
+		} else {
+
+
+			a = document.createElement( 'A' );
+
+
+			a.setAttribute( 'href', url );
+
+
+			svg = this._domElement.querySelector( 'svg' );
+
+
+			a.appendChild( svg );
+
+
+			this._domElement.appendChild( a );
+
+
+			this._content = this._domElement.innerHTML;
+
+
+			this.taint();
+
+
 		}
-    };
 
-    Icon.prototype._getResizeCorner = function(x, y) {
-      var corner, cornerSize, rect, size, _ref;
-      rect = this._domElement.getBoundingClientRect();
-      _ref = [x - rect.left, y - rect.top], x = _ref[0], y = _ref[1];
-      size = this.size();
-      cornerSize = ContentEdit.RESIZE_CORNER_SIZE;
-      cornerSize = Math.min(cornerSize, Math.max( parseInt( size[0] / 4, 10 ), 1));
-      cornerSize = Math.min(cornerSize, Math.max( parseInt( size[1] / 4, 10 ), 1));
-      corner = null;
-      if (x < cornerSize) {
-        if (y < cornerSize) {
-          corner = ['top', 'left'];
-        } else if (y > rect.height - cornerSize) {
-          corner = ['bottom', 'left'];
-        }
-      } else if (x > rect.width - cornerSize) {
-        if (y < cornerSize) {
-          corner = ['top', 'right'];
-        } else if (y > rect.height - cornerSize) {
-          corner = ['bottom', 'right'];
-        }
-	}
-      return corner;
-    };
 
-    Icon.prototype._getSizeInfo = function() {
-      var size;
-      size = this.size();
-      return 'w ' + size[0] + ' × h ' + size[1];
-    };
+	};
+
+
+
+
+
+	Icon.prototype.removeLink = function() {
+
+
+		var svg;
+
+
+		if ( this._domElement.querySelector( 'a' ) ) {
+
+
+			svg = this._domElement.querySelector( 'svg' );
+
+
+			this._domElement.innerHTML = svg.outerHTML;
+
+
+			this._content = this._domElement.innerHTML;
+
+
+			this.taint();
+
+
+		}
+
+
+	};
+
+
+
+
+
+	Icon.prototype.removeFills = function() {
+
+
+		var fills = this._domElement.querySelectorAll( 'svg [fill]' );
+
+
+		Array.prototype.forEach.call( fills, function( fill ) {
+
+
+			fill.removeAttribute( 'fill' );
+
+
+		} );
+
+
+		this._content = this._domElement.innerHTML;
+
+
+		this.taint();
+
+
+	};
+
+
+
+
 
 	return Icon;
 
-})(ContentEdit.Static);
+
+
+
+
+} )( ContentEdit.Static );
+
+
+
+
 
 ContentEdit.TagNames.get().register( ContentEdit.Icon, 'icon' );
+
+
 
 /* globals ContentEdit, __extends, PBSEditor, pbsParams */
 
@@ -10046,8 +11210,8 @@ wp.hooks.addFilter( 'pbs.toolbar.shortcode.label', function( scBase ) {
 
 /* globals ContentEdit, __extends, PBSEditor, ContentTools, google */
 
-ContentEdit.Map = (function(_super) {
-	__extends(Map, _super);
+ContentEdit.Map = (function( _super ) {
+	__extends( Map, _super );
 
 	function Map( tagName, attributes ) {
 		if ( ! attributes['data-ce-tag'] ) {
@@ -10056,25 +11220,24 @@ ContentEdit.Map = (function(_super) {
 
 		this.model = new Backbone.Model({});
 
-		Map.__super__.constructor.call(this, tagName, attributes);
+		Map.__super__.constructor.call( this, tagName, attributes );
 
 		this._content = '';
 	}
 
-
     Map.prototype.blur = function() {
       var root = ContentEdit.Root.get();
-      if (this.isFocused()) {
+      if ( this.isFocused() ) {
 		  this._removeCSSClass( 'ce-element--over' );
-        this._removeCSSClass('ce-element--focused');
+        this._removeCSSClass( 'ce-element--focused' );
         root._focused = null;
-        return root.trigger('blur', this);
+        return root.trigger( 'blur', this );
       }
     };
 
-	Map.prototype._onMouseOver = function(ev) {
-		Map.__super__._onMouseOver.call(this, ev);
-		return this._addCSSClass('ce-element--over');
+	Map.prototype._onMouseOver = function( ev ) {
+		Map.__super__._onMouseOver.call( this, ev );
+		return this._addCSSClass( 'ce-element--over' );
 	};
 
     Map.prototype._onMouseUp = function( ev ) {
@@ -10090,9 +11253,11 @@ ContentEdit.Map = (function(_super) {
 
 	Map.prototype.updateMapData = function() {
 
-		if ( ! this._dragging ) {
-			var latlng = this._domElement.map.getCenter();
-			var center = latlng.lat().toFixed( 6 ) + ', ' + latlng.lng().toFixed( 6 );
+		var latlng, center, zoom;
+
+		if ( ! this._dragging && this._domElement ) {
+			latlng = this._domElement.map.getCenter();
+			center = latlng.lat().toFixed( 6 ) + ', ' + latlng.lng().toFixed( 6 );
 
 			if ( this.attr( 'data-center' ) !== center ) {
 				this.attr( 'data-center', center );
@@ -10107,7 +11272,7 @@ ContentEdit.Map = (function(_super) {
 			}
 		}
 
-		var zoom = this._domElement.map.getZoom();
+		zoom = this._domElement.map.getZoom();
 		if ( parseInt( this.attr( 'data-zoom' ), 10 ) !== zoom ) {
 			this.attr( 'data-zoom', zoom );
 			this.model.trigger( 'change', this.model );
@@ -10134,28 +11299,27 @@ ContentEdit.Map = (function(_super) {
 		if ( ! this._dragging && this._clicked ) {
 			this._addCSSClass( 'pbs-map-editing' );
 		}
-		Map.__super__._onMouseMove.call(this, ev );
+		Map.__super__._onMouseMove.call( this, ev );
 
     };
 
-
     Map.droppers = PBSEditor.allDroppers;
 
-    Map.prototype.focus = function(supressDOMFocus) {
+    Map.prototype.focus = function( supressDOMFocus ) {
 		var root;
 		root = ContentEdit.Root.get();
-		if (this.isFocused()) {
+		if ( this.isFocused() ) {
 			return;
 		}
-		if (root.focused()) {
+		if ( root.focused() ) {
 			root.focused().blur();
 		}
-		this._addCSSClass('ce-element--focused');
+		this._addCSSClass( 'ce-element--focused' );
 		root._focused = this;
-		if (this.isMounted() && !supressDOMFocus) {
+		if ( this.isMounted() && ! supressDOMFocus ) {
 			this.domElement().focus();
 		}
-		return root.trigger('focus', this);
+		return root.trigger( 'focus', this );
     };
 
 	Map.prototype.cssTypeName = function() {
@@ -10182,41 +11346,37 @@ ContentEdit.Map = (function(_super) {
 	};
 
 	Map.prototype.unmount = function() {
-		if ( typeof google !== 'undefined' ) {
+		if ( 'undefined' !== typeof google ) {
 			google.maps.event.clearInstanceListeners( this._domElement.map );
 		}
 		return Map.__super__.unmount.call( this );
 	};
 
-
 	// Creates the base element of the shortcode div.
 	// Does not have any contents, need to run `ajaxUpdate` after attaching to update.
 	Map.create = function() {
 
-		var o = document.createElement('DIV');
+		var o = document.createElement( 'DIV' );
 		o.setAttribute( 'data-ce-tag', 'map' );
 		o.setAttribute( 'data-ce-moveable', '' );
-		// o.setAttribute( 'data-url', url );
 
 		return ContentEdit.Map.fromDOMElement( o );
 	};
 
 	return Map;
 
-})(ContentEdit.Static);
+})( ContentEdit.Static );
 
-ContentEdit.TagNames.get().register(ContentEdit.Map, 'map');
-
+ContentEdit.TagNames.get().register( ContentEdit.Map, 'map' );
 
 window.addEventListener( 'DOMContentLoaded', function() {
-	var editor = ContentTools.EditorApp.get();
+	var mapRefreshInterval, editor = ContentTools.EditorApp.get();
 	if ( window.initPBSMaps ) {
 
 		// When we end editing, the DOM gets rebuilt, we need to re-init the maps.
 		editor.bind( 'stop', window.initPBSMaps );
 	}
 
-	var mapRefreshInterval;
 	if ( window.pbsMapsReCenter ) {
 		editor.bind( 'start', function() {
 			mapRefreshInterval = setInterval( function() {
@@ -10233,853 +11393,1701 @@ window.addEventListener( 'DOMContentLoaded', function() {
 } );
 
 
+
 /* globals ContentEdit, __extends, PBSEditor, ContentSelect */
 
+
+
 ContentEdit.Tabs = ( function( _super ) {
+
 	__extends( Tabs, _super );
 
+
+
 	function Tabs( tagName, attributes ) {
+
 		Tabs.__super__.constructor.call( this, tagName, attributes );
+
 		this.isCompundElement = true;
+
 	}
 
+
+
 	Tabs.prototype.cssTypeName = function() {
+
 		return 'tabs';
+
 	};
+
+
 
 	Tabs.prototype.type = function() {
+
 		return 'Tabs';
+
 	};
 
+
+
 	Tabs.prototype.typeName = function() {
+
 		return 'Tabs';
+
 	};
+
+
 
 	Tabs.fromDOMElement = function( domElement ) {
 
+
+
 		var c, childNode, childNodes, list, _i, _len;
+
 		list = new this( domElement.tagName, this.getDOMElementAttributes( domElement ) );
+
 		childNodes = (function() {
+
 			var _i, _len, _ref, _results;
+
 			_ref = domElement.childNodes;
+
 			_results = [];
+
 			for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+
 				c = _ref[_i];
+
 				_results.push(c);
+
 			}
+
 			return _results;
+
 		})();
 
+
+
 		var tagNames = ContentEdit.TagNames.get();
+
 		for (_i = 0, _len = childNodes.length; _i < _len; _i++) {
+
 			childNode = childNodes[_i];
+
 			if (childNode.nodeType !== 1) {
+
 				continue;
+
 			}
+
+
 
 			var cls;
+
 			if ( childNode.getAttribute('data-ce-tag') ) {
+
 				cls = tagNames.match(childNode.getAttribute('data-ce-tag'));
+
 			} else {
+
 				cls = tagNames.match(childNode.tagName);
+
 			}
+
+
 
 			var element = cls.fromDOMElement(childNode);
+
 			if (element) {
+
 				list.attach(element);
+
 			}
+
 		}
 
+
+
 		return list;
+
 	};
+
+
 
 	Tabs.prototype.detachTabAndContent = function( tab ) {
+
 		var inputID = tab._domElement.getAttribute( 'for' );
+
 		var inputElem = this._domElement.querySelector( '[id="' + inputID + '"]' )._ceElement;
+
 		var tabID = inputElem.attr( 'data-tab' );
+
 		var tabRow = this._domElement.querySelector( '[data-panel="' + tabID + '"]' )._ceElement;
+
 		inputElem.parent().detach( inputElem );
+
 		tab.parent().detach( tab );
+
 		tabRow.parent().detach( tabRow );
+
 		this.reIndexTabs();
+
 		return tabRow;
+
 	};
 
+
+
 	Tabs.prototype.attachTabAndContent = function( tab, index, row ) {
+
 		var tabsID = this._domElement.getAttribute( 'class' ).match( /pbs-tabs-(\w+)/ )[0];
+
+
 
 		var tabIndex = this.numTabs() + 1;
 
+
+
 		var hash = window.PBSEditor.generateHash();
+
 		while ( document.querySelector( '[id="pbs-tab-' + hash + '"]') ) {
+
 			hash = window.PBSEditor.generateHash();
+
 		}
+
+
 
 		var radio = document.createElement( 'input' );
+
 		radio.classList.add( 'pbs-tab-state' );
+
 		radio.setAttribute( 'type', 'radio' );
+
 		radio.setAttribute( 'name', tabsID );
+
 		radio.setAttribute( 'id', 'pbs-tab-' + hash );
+
 		radio.setAttribute( 'data-tab', tabIndex );
+
 		radio.setAttribute( 'data-ce-tag', 'static' );
+
 		this.attach( ContentEdit.Static.fromDOMElement( radio ), 0 );
 
+
+
 		tab.attr( 'for', 'pbs-tab-' + hash );
+
 		row.attr( 'data-panel', tabIndex );
 
+
+
 		this._domElement.querySelector( '.pbs-tab-tabs' )._ceElement.attach( tab, index );
+
 		this._domElement.querySelector( '.pbs-tab-panels' )._ceElement.attach( row );
 
+
+
 	};
+
+
 
 	/**
+
 	 * Fixes the indices of the tabs.
+
 	 * Only works when there is only 1 tab missing.
+
 	 */
+
 	Tabs.prototype.reIndexTabs = function() {
+
 		var numTabs = this._domElement.querySelectorAll( '.pbs-tab-state' ).length;
+
 		for ( var i = 1; i <= numTabs; i++ ) {
+
 			var radio = this._domElement.querySelector( '[data-tab="' + i + '"]' );
+
 			if ( ! radio ) {
+
 				radio = this._domElement.querySelector( '[data-tab="' + ( i + 1 ) + '"]' );
+
 				if ( radio ) {
+
 					radio._ceElement.attr( 'data-tab', i );
+
 					this._domElement.querySelector( '[data-panel="' + ( i + 1 ) + '"]' )._ceElement.attr( 'data-panel', i );
+
 				}
+
 			}
+
 		}
+
 	};
+
+
 
 	Tabs.prototype.getOpenTab = function() {
+
 		var radio = this._domElement.querySelector( '.pbs-tab-state:checked' )._ceElement;
+
 		var panel = this._domElement.querySelector( '[data-panel="' + radio.attr( 'data-tab' ) + '"]' );
+
 		if ( ! panel ) {
+
 			panel = this._domElement.querySelector( '[data-panel]' );
+
 		}
+
 		return panel._ceElement;
+
 	};
+
+
 
 	Tabs.prototype.numTabs = function() {
+
 		return this._domElement.querySelectorAll( '.pbs-tab-state' ).length;
+
 	};
+
+
 
 	Tabs.prototype.addTab = function() {
+
 		var firstTab = this._domElement.querySelector( '.pbs-tab-state' )._ceElement;
+
 		var radioID = 'pbs-tab-' + window.PBSEditor.generateHash();
+
 		var tabNum = this.numTabs() + 1;
+
 		var radio = new ContentEdit.TabRadio( 'input', {
+
 			'data-ce-tag': 'tabradio',
+
 			'class': 'pbs-tab-state',
+
 			'data-tab': tabNum,
+
 			'id': radioID,
+
 			'name': firstTab.attr( 'name' ),
+
 			'type': 'radio'
+
 		} );
+
 		this.attach( radio, 0 );
 
+
+
 		var tab = new ContentEdit.Tab( 'label', {
+
 			'data-ce-tag': 'tab',
+
 			'for': radioID
+
 		}, '<span>New Tab</span>' );
 
+
+
 		var tabContainer = this._domElement.querySelector( '.pbs-tab-tabs' )._ceElement;
+
 		tabContainer.attach( tab, tabContainer.children.length );
 
+
+
 		// Copy all existing tab styles.
+
 		if ( tabContainer.children.length ) {
+
 			tab.attr( 'style', tabContainer.children[0].attr( 'style' ) );
+
 		}
+
+
 
 		var panelContainer = this._domElement.querySelector( '.pbs-tab-panels' )._ceElement;
+
 		var row = new ContentEdit.DivRow( 'div', {
+
 			'data-panel': tabNum
+
 		} );
+
 		panelContainer.attach( row );
 
+
+
 		var col = new ContentEdit.DivCol('div');
+
 		row.attach( col );
 
+
+
 		var p = new ContentEdit.Text('p', {}, '');
+
 		col.attach( p );
 
+
+
 		tab.openTab();
+
 		p.focus();
+
 	};
 
+
+
 	Tabs.prototype.removeTab = function( tab ) {
+
 		if ( typeof tab === 'undefined' ) {
+
 			var radio = this._domElement.querySelector( '.pbs-tab-state:checked' )._ceElement;
+
 			tab = this._domElement.querySelector( 'label[for="' + radio.attr( 'id' ) + '"]' )._ceElement;
+
 		}
+
 		var otherTab = tab.nextSibling();
+
 		if ( ! otherTab ) {
+
 			otherTab = tab.previousSibling();
+
 		}
+
 		this.detachTabAndContent( tab );
+
 		if ( otherTab ) {
+
 			otherTab.openTab();
+
 		} else {
+
 			this.blur();
+
 			var focusTo = this.nextSibling();
+
 			if ( ! focusTo ) {
+
 				focusTo = this.previousSibling();
+
 			}
+
 			if ( focusTo ) {
+
 				focusTo.focus();
+
 			}
+
 			this.parent().detach( this );
+
 		}
+
 	};
+
+
 
 	Tabs.droppers = PBSEditor.allDroppers;
 
+
+
 	return Tabs;
 
+
+
 })(ContentEdit.Div);
+
+
+
 
 
 ContentEdit.TagNames.get().register(ContentEdit.Tabs, 'tabs');
 
 
 
+
+
+
+
 ContentEdit.Tab = ( function( _super ) {
+
 	__extends( Tab, _super );
 
+
+
 	function Tab( tagName, attributes, content ) {
+
 		Tab.__super__.constructor.call( this, tagName, attributes, content );
+
 	}
 
+
+
 	Tab.prototype.cssTypeName = function() {
+
 		return 'tab';
+
 	};
+
+
 
 	Tab.prototype.type = function() {
+
 		return 'Tab';
+
 	};
+
+
 
 	Tab.prototype.typeName = function() {
+
 		return 'Tab';
+
 	};
+
+
 
 	Tab.prototype.parentTab = function() {
+
 		return this.parent().parent();
+
 	};
+
+
 
 	Tab.prototype.setActiveTab = function() {
+
 		var activeTab = this.parentTab()._domElement.querySelector( '.pbs-tab-tabs .pbs-tab-active' );
+
 		if ( activeTab ) {
+
 			activeTab._ceElement.removeCSSClass( 'pbs-tab-active' );
+
 		}
+
 		this.addCSSClass( 'pbs-tab-active' );
+
 	};
+
+
 
 	Tab.prototype._onMouseDown = function( ev ) {
+
 		setTimeout( function() {
+
 			this.setActiveTab();
+
 		}.bind( this ), 1 );
+
 		return Tab.__super__._onMouseDown.call( this, ev );
+
 	};
+
+
 
 	Tab.prototype.openTab = function() {
+
 		this.parentTab()._domElement.querySelector( '[id="' + this.attr( 'for' ) + '"]' ).checked = true;
+
 		this.setActiveTab();
+
 	};
 
+
+
 	Tab._dropTab = function( element, target, placement ) {
+
 		var insertIndex = target.parent().children.indexOf( target );
+
 		if ( placement[1] !== 'left' ) {
+
 			insertIndex += 1;
+
 		}
 
+
+
 		// Different handling if the tab is dropped into another set of tabs.
+
 		if ( element.parent() !== target.parent() ) {
+
+
 
 			var originalTabElement = element.parentTab();
 
+
+
 			// Get the closest tab.
+
 			var otherTab = element.previousSibling();
+
 			if ( ! otherTab ) {
+
 				otherTab = element.nextSibling();
+
 			}
+
+
 
 			var tabRow = element.parentTab().detachTabAndContent( element );
 
+
+
 			target.parentTab().attachTabAndContent( element, insertIndex, tabRow );
+
 			element.openTab();
 
+
+
 			// Open the other tab since a tab was removed.
+
 			if ( otherTab ) {
+
 				otherTab.openTab();
+
 			} else {
 
+
+
 				// If there are no more tabs, just remove the whole thing.
+
 				originalTabElement.parent().detach( originalTabElement );
+
 			}
 
+
+
 			return;
+
 		}
+
+
 
 		element.parent().detach( element );
+
 		return target.parent().attach( element, insertIndex );
+
 	};
+
+
 
 	Tab.prototype._onMouseOver = function( ev ) {
+
         var root = ContentEdit.Root.get();
+
         if ( root.dragging() ) {
+
 			this.openTab();
+
 		}
+
 		return Tab.__super__._onMouseOver.call( this, ev );
+
 	};
 
+
+
 	Tab.droppers = {
+
 		'Tab': Tab._dropTab
+
 	};
+
+
 
 	Tab.placements = [ 'left', 'right' ];
 
+
+
 	// If a tab is focused, check the matching radio button since they are all disabled.
+
 	Tab.prototype.focus = function() {
+
 		this.openTab();
+
 		return Tab.__super__.focus.call( this );
+
 	};
+
+
 
 	Tab.prototype._keyReturn = function( ev ) {
+
 		ev.preventDefault();
+
 		var next = this.nextSibling();
+
 		if ( next ) {
+
 			next.focus();
+
 		}
+
 	};
+
+
 
 	Tab.prototype.isLastTab = function() {
+
 		return this.parent().children.indexOf( this ) === this.parent().children.length - 1;
+
 	};
+
+
 
 	//
+
 	Tab.prototype.getMatchingPanel = function() {
+
 		var inputID = this.attr( 'for' );
+
 		var inputElem = this.parentTab()._domElement.querySelector( '[id="' + inputID + '"]' )._ceElement;
+
 		var tabID = inputElem.attr( 'data-tab' );
+
 		return this.parentTab()._domElement.querySelector( '[data-panel="' + tabID + '"]' )._ceElement;
+
 	};
+
+
 
 	/**
+
 	 * Make sure the saved HTML has the first tab active.
+
 	 */
+
 	Tab.prototype.html = function() {
+
 		var ret = Tab.__super__.html.call( this );
+
 		if ( this.parent().children.indexOf( this ) === 0 ) {
+
 			if ( ! ret.match( /pbs-tab-active/ ) ) {
+
 				var r = new RegExp( '(<' + this._tagName + '[^>]+class=[\'"])' );
+
 				if ( ret.match( r ) ) {
+
 					ret = ret.replace( r, '$1pbs-tab-active ' );
+
 				} else {
+
 					r = new RegExp( '(<' + this._tagName + ')' );
+
 					ret = ret.replace( r, '$1 class="pbs-tab-active"' );
+
 				}
+
 			}
+
 		} else {
+
 			ret = ret.replace( /\s*pbs-tab-active\s*/g, '' );
+
 			ret = ret.replace( /\s*class=[\'\"][\'\"]/g, '' );
+
 		}
+
 		return ret;
+
 	};
+
+
 
 	Tab.prototype._keyLeft = function( ev ) {
+
 		if ( this.parent().children.indexOf( this ) === 0 ) {
+
 			var selection = ContentSelect.Range.query( this._domElement );
+
 			if ( selection.get()[0] === 0 && selection.isCollapsed() ) {
+
 				this._keyUp( ev );
+
 			}
+
 		}
+
 		return Tab.__super__._keyLeft.call( this, ev );
+
 	};
+
+
 
 	Tab.prototype._keyUp = function( ev ) {
+
 		if ( this.parent().children.indexOf( this ) === 0 ) {
+
 			var selection = ContentSelect.Range.query( this._domElement );
+
 			if ( selection.get()[0] === 0 && selection.isCollapsed() ) {
 
+
+
 				var tabs = this.parent().parent();
+
 				var index = tabs.parent().children.indexOf( tabs );
+
 				if ( index > 0 ) {
+
 					if ( tabs.parent().children[ index - 1 ].content ) {
+
 						var elem = tabs.parent().children[ index - 1 ];
+
 						elem.focus();
 
+
+
 				        selection = new ContentSelect.Range( elem.content.length(), elem.content.length() );
+
 				        return selection.select( elem.domElement() );
+
 					}
+
 				}
+
 				var p = new ContentEdit.Text('p', {}, '');
+
 				tabs.parent().attach( p, index );
+
 				p.focus();
+
 			}
+
 		}
+
 		return Tab.__super__._keyUp.call( this, ev );
+
 	};
+
+
 
 	Tab.prototype._keyDown = function( ev ) {
 
+
+
 		if ( this.parent().children.indexOf( this ) === this.parent().children.length - 1 ) {
+
 			var selection = ContentSelect.Range.query(this._domElement);
+
 			if (!(this._atEnd(selection) && selection.isCollapsed())) {
+
 				return;
+
 			}
+
 			if ( this._atEnd( selection ) ) {
+
 				ev.preventDefault();
+
 				var row = this.getMatchingPanel();
+
 				row.children[0].children[0].focus();
+
 				return;
+
 			}
+
 		}
+
 		return Tab.__super__._keyDown.call( this, ev );
+
 	};
+
+
 
 	Tab.prototype._keyRight = function( ev ) {
 
+
+
 	      var selection = ContentSelect.Range.query(this._domElement);
+
 	      if (!(this._atEnd(selection) && selection.isCollapsed())) {
+
 	        return;
+
 	      }
+
 		  if ( this.isLastTab() ) {
+
 			  ev.preventDefault();
+
 			  var row = this.getMatchingPanel();
+
 			  row.children[0].children[0].focus();
+
 			  return;
+
 		  }
+
 		return Tab.__super__._keyRight.call( this, ev );
+
 	};
+
+
 
 	return Tab;
 
+
+
 } )( ContentEdit.Text );
+
+
 
 ContentEdit.TagNames.get().register( ContentEdit.Tab, 'tab' );
 
 
+
+
+
 ContentEdit.TabContainer = ( function( _super ) {
+
 	__extends( TabContainer, _super );
 
+
+
 	function TabContainer( tagName, attributes ) {
+
 		TabContainer.__super__.constructor.call( this, tagName, attributes );
+
 		// this._content = '';
+
 	}
 
+
+
 	TabContainer.prototype.cssTypeName = function() {
+
 		return 'tabcontainer';
+
 	};
+
+
 
 	TabContainer.prototype.type = function() {
+
 		return 'TabContainer';
+
 	};
+
+
 
 	TabContainer.prototype.typeName = function() {
+
 		return 'TabContainer';
+
 	};
+
+
 
 	TabContainer._dropOutside = function( element, target, placement ) {
+
 		var insertIndex;
+
 		element.parent().detach( element );
+
 		insertIndex = target.parent().parent().children.indexOf( target.parent() );
+
 		if ( placement[0] === 'below' ) {
+
 			insertIndex += 1;
+
 		}
+
 		return target.parent().parent().attach( element, insertIndex );
+
     };
 
+
+
 	TabContainer.prototype._onOver = function( ev ) {
+
 		var ret = TabContainer.__super__._onOver.call( this, ev );
+
 		if ( ret ) {
+
 			var root = ContentEdit.Root.get();
+
 			this._removeCSSClass( 'ce-element--drop' );
+
 			this.parent()._addCSSClass( 'ce-element--drop' );
+
 			return root._dropTarget = this.parent();
+
 		}
+
 		return ret;
+
 	};
 
+
+
 	TabContainer.droppers = {
+
 		'*': TabContainer._dropOutside
+
 	};
+
+
 
 	// TabContainer.placements = [ 'above', 'below' ];
 
+
+
 	// Cancel the drag event on mouse up
+
 	TabContainer.prototype._onMouseUp = function(ev) {
+
 		TabContainer.__super__._onMouseUp.call(this, ev);
+
 		clearTimeout(this._dragTimeout);
+
 	};
+
+
 
     TabContainer.prototype._onMouseOut = function(ev) {
+
 		TabContainer.__super__._onMouseOut.call(this, ev);
+
 		clearTimeout(this._dragTimeout);
+
 	};
+
+
 
     TabContainer.prototype._onMouseDown = function(ev) {
+
 		TabContainer.__super__._onMouseDown.call(this, ev);
 
+
+
 		clearTimeout(this._dragTimeout);
+
 		if ( this.domElement() !== ev.target ) {
+
 			return;
+
 		}
+
+
 
 		// This fixes dragging in Firefox.
+
 		ev.preventDefault();
 
+
+
 		// If we are in the drag row handle, drag the whole row
+
 		// @see _onMouseMove
+
 		// if ( this._domElement.classList.contains('pbs-drag-row') ) {
+
 		// 	return this.parent().drag(ev.pageX, ev.pageY);
+
 		// }
 
+
+
 		if ( ! this.draggableParent ) {
+
 			this.draggableParent = this.parent();
+
 		}
 
+
+
 		return this._dragTimeout = setTimeout((function(_this) {
+
 			return function() {
+
 				// Drag the column
+
 				return _this.draggableParent.drag(ev.pageX, ev.pageY);
+
 				// return _this.drag(ev.pageX, ev.pageY);
+
 			};
+
 		})(this), ContentEdit.DRAG_HOLD_DURATION);
 
+
+
 	};
+
+
 
 	TabContainer.fromDOMElement = function(domElement) {
 
+
+
 		var c, childNode, childNodes, list, _i, _len;
+
 		list = new this(domElement.tagName, this.getDOMElementAttributes(domElement));
+
 		childNodes = (function() {
+
 			var _i, _len, _ref, _results;
+
 			_ref = domElement.childNodes;
+
 			_results = [];
+
 			for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+
 				c = _ref[_i];
+
 				_results.push(c);
+
 			}
+
 			return _results;
+
 		})();
 
+
+
 		var tagNames = ContentEdit.TagNames.get();
+
 		for (_i = 0, _len = childNodes.length; _i < _len; _i++) {
+
 			childNode = childNodes[_i];
+
 			if (childNode.nodeType !== 1) {
+
 				continue;
+
 			}
+
+
 
 			var cls;
+
 			if ( childNode.getAttribute('data-ce-tag') ) {
+
 				cls = tagNames.match(childNode.getAttribute('data-ce-tag'));
+
 			} else {
+
 				cls = tagNames.match(childNode.tagName);
+
 			}
+
+
 
 			var element = cls.fromDOMElement(childNode);
+
 			if (element) {
+
 				list.attach(element);
+
 			}
+
 		}
 
+
+
 		return list;
+
 	};
+
+
 
 	return TabContainer;
 
+
+
 } )( ContentEdit.Div );
+
 ContentEdit.TagNames.get().register( ContentEdit.TabContainer, 'tabcontainer' );
 
 
+
+
+
 ContentEdit.TabPanelContainer = ( function( _super ) {
+
 	__extends( TabPanelContainer, _super );
 
+
+
 	function TabPanelContainer( tagName, attributes ) {
+
 		TabPanelContainer.__super__.constructor.call( this, tagName, attributes );
+
 	}
 
+
+
 	TabPanelContainer.prototype.cssTypeName = function() {
+
 		return 'tabpanelcontainer';
+
 	};
+
+
 
 	TabPanelContainer.prototype.type = function() {
+
 		return 'TabPanelContainer';
+
 	};
 
+
+
 	TabPanelContainer.prototype.typeName = function() {
+
 		return 'TabPanelContainer';
+
 	};
+
+
 
 	TabPanelContainer.fromDOMElement = function(domElement) {
 
+
+
 		var c, childNode, childNodes, list, _i, _len;
+
 		list = new this(domElement.tagName, this.getDOMElementAttributes(domElement));
+
 		childNodes = (function() {
+
 			var _i, _len, _ref, _results;
+
 			_ref = domElement.childNodes;
+
 			_results = [];
+
 			for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+
 				c = _ref[_i];
+
 				_results.push(c);
+
 			}
+
 			return _results;
+
 		})();
 
+
+
 		var tagNames = ContentEdit.TagNames.get();
+
 		for (_i = 0, _len = childNodes.length; _i < _len; _i++) {
+
 			childNode = childNodes[_i];
+
 			if (childNode.nodeType !== 1) {
+
 				continue;
+
 			}
+
+
 
 			var cls;
+
 			if ( childNode.getAttribute('data-ce-tag') ) {
+
 				cls = tagNames.match(childNode.getAttribute('data-ce-tag'));
+
 			} else {
+
 				cls = tagNames.match(childNode.tagName);
+
 			}
+
+
 
 			var element = cls.fromDOMElement(childNode);
+
 			if (element) {
+
 				list.attach(element);
+
 			}
+
 		}
 
+
+
 		return list;
+
 	};
+
+
 
 	return TabPanelContainer;
 
+
+
 } )( ContentEdit.Div );
+
 ContentEdit.TagNames.get().register( ContentEdit.TabPanelContainer, 'tabpanelcontainer' );
 
 
+
+
+
 ContentEdit.TabRadio = ( function( _super ) {
+
 	__extends( TabRadio, _super );
 
+
+
 	function TabRadio( tagName, attributes ) {
+
 		TabRadio.__super__.constructor.call( this, tagName, attributes );
+
 	}
 
+
+
 	TabRadio.prototype.cssTypeName = function() {
+
 		return 'tabradio';
+
 	};
+
+
 
 	TabRadio.prototype.type = function() {
+
 		return 'TabRadio';
+
 	};
+
+
 
 	TabRadio.prototype.typeName = function() {
+
 		return 'TabRadio';
+
 	};
+
+
 
 	// Disable the radio buttons since when a tab is focused it is preventing text
+
 	// keyboard navigation, since the radio buttons get focused.
+
 	TabRadio.prototype.mount = function() {
+
 		var ret = TabRadio.__super__.mount.call( this );
+
 		this._domElement.setAttribute( 'disabled', 'disabled' );
+
 		return ret;
+
 	};
 
+
+
 	// Re-enable all radio buttons or else we cannot switch tabs after editing.
+
 	TabRadio.prototype.unmount = function() {
+
 		this._domElement.removeAttribute( 'disabled' );
+
 		return TabRadio.__super__.unmount.call( this );
+
 	};
+
+
 
 	return TabRadio;
 
+
+
 } )( ContentEdit.Static );
+
+
 
 ContentEdit.TagNames.get().register( ContentEdit.TabRadio, 'tabradio' );
 
 
+
+
+
 wp.hooks.addFilter( 'pbs.overlay.margin_top.can_apply', function( apply, element ) {
+
 	if ( element && element._domElement && element._domElement.parentNode && element._domElement.parentNode.classList ) {
+
 		var parent = element._domElement.parentNode;
+
 		if ( parent.classList && parent.classList.contains( 'pbs-tab-tabs' ) ) {
+
 			return false;
+
 		}
+
 	}
+
 	return apply;
+
 } );
+
 wp.hooks.addFilter( 'pbs.overlay.margin_bottom.can_apply', function( apply, element ) {
+
 	if ( element && element._domElement && element._domElement.parentNode && element._domElement.parentNode.classList ) {
+
 		var parent = element._domElement.parentNode;
+
 		if ( parent.classList && parent.classList.contains( 'pbs-tab-tabs' ) ) {
+
 			return false;
+
 		}
+
 	}
+
 	return apply;
+
 } );
+
+
+
 
 
 /**
+
  * When pressing the up key at the very start of the current panel, put the cursor on the last tab.
+
  */
+
 (function() {
+
 	var proxied = ContentEdit.Text.prototype._keyUp;
+
 	ContentEdit.Text.prototype._keyUp = function( ev ) {
+
 	    var selection = ContentSelect.Range.query(this._domElement);
+
 		if ( this.parent().constructor.name === 'DivCol' && this.parent().children.indexOf(this) === 0 && selection.get()[0] === 0 ) {
+
 			if ( this.parent().parent().parent().constructor.name === 'TabPanelContainer' ) {
+
 				ev.preventDefault();
+
 				var tabs = this.parent().parent().parent().parent()._domElement.querySelector( '.pbs-tab-tabs' )._ceElement;
+
 				var tab = tabs.children[ tabs.children.length - 1 ];
+
 				tab.focus();
 
+
+
 		        selection = new ContentSelect.Range( tab.content.length(), tab.content.length() );
+
 		        return selection.select( tab.domElement() );
+
 			}
+
 		}
+
 		return proxied.call( this, ev );
+
 	};
+
 })();
 
+
+
 /**
+
  * When pressing the left key at the very start of the current panel, put the cursor on the last tab.
+
  */
+
 (function() {
+
    var proxied = ContentEdit.Text.prototype._keyLeft;
+
    ContentEdit.Text.prototype._keyLeft = function( ev ) {
+
 	   var selection = ContentSelect.Range.query(this._domElement);
+
 	   if ( this.parent().constructor.name === 'DivCol' && this.parent().children.indexOf(this) === 0 && this.parent().parent().children.indexOf( this.parent() ) === 0 && selection.get()[0] === 0 ) {
+
 		   if ( this.parent().parent().parent().constructor.name === 'TabPanelContainer' ) {
+
 			   ev.preventDefault();
+
 			   var tabs = this.parent().parent().parent().parent()._domElement.querySelector( '.pbs-tab-tabs' )._ceElement;
+
 			   var tab = tabs.children[ tabs.children.length - 1 ];
+
 			   tab.focus();
 
+
+
 			   selection = new ContentSelect.Range( tab.content.length(), tab.content.length() );
+
 			   return selection.select( tab.domElement() );
+
 		   }
+
 	   }
+
 	   return proxied.call( this, ev );
+
    };
+
 })();
 
+
+
 /**
+
  * When pressing the down key at the very end of the current panel, put the cursor on the next text element, or create a new one.
+
  */
+
 (function() {
+
    var proxied = ContentEdit.Text.prototype._keyDown;
+
    ContentEdit.Text.prototype._keyDown = function( ev ) {
+
 	   var selection = ContentSelect.Range.query(this._domElement);
+
 	   if ( this.parent().constructor.name === 'DivCol' && this.parent().children.indexOf(this) === this.parent().children.length - 1 && this._atEnd(selection) ) {
+
 		   if ( this.parent().parent().parent().constructor.name === 'TabPanelContainer' ) {
 
+
+
 			   var tabs = this.parent().parent().parent().parent();
+
 	   			var index = tabs.parent().children.indexOf( tabs );
+
 	   			if ( index < tabs.parent().children.length - 1 ) {
+
 	   				if ( tabs.parent().children[ index + 1 ].content ) {
+
 						ev.preventDefault();
 
+
+
 	   					tabs.parent().children[ index + 1 ].focus();
+
 						selection = new ContentSelect.Range( 0, 0 );
+
 						return selection.select( tabs.parent().children[ index + 1 ]._domElement );
+
 	   				}
+
 	   			}
+
 	   			var p = new ContentEdit.Text('p', {}, '');
+
 	   			tabs.parent().attach( p, index + 1 );
+
 	   			p.focus();
+
 				return;
+
 		   }
+
 	   }
+
 	   return proxied.call( this, ev );
+
    };
+
 })();
 
 
+
+
+
 /**
+
  * When pressing the right key at the very end of the current panel, put the cursor on the next text element, or create a new one.
+
  */
+
 (function() {
+
    var proxied = ContentEdit.Text.prototype._keyRight;
+
    ContentEdit.Text.prototype._keyRight = function( ev ) {
+
 	   var selection = ContentSelect.Range.query(this._domElement);
+
 	   if ( this.parent().constructor.name === 'DivCol' && this.parent().children.indexOf(this) === this.parent().children.length - 1 && this.parent().parent().children.indexOf( this.parent() ) === this.parent().parent().children.length - 1 && this._atEnd(selection) ) {
+
 		   if ( this.parent().parent().parent().constructor.name === 'TabPanelContainer' ) {
 
+
+
 			   var tabs = this.parent().parent().parent().parent();
+
 	   			var index = tabs.parent().children.indexOf( tabs );
+
 	   			if ( index < tabs.parent().children.length - 1 ) {
+
 	   				if ( tabs.parent().children[ index + 1 ].content ) {
+
 						ev.preventDefault();
+
 	   					tabs.parent().children[ index + 1 ].focus();
+
 	   					return;
+
 	   				}
+
 	   			}
+
 	   			var p = new ContentEdit.Text('p', {}, '');
+
 	   			tabs.parent().attach( p, index + 1 );
+
 	   			p.focus();
+
 	   			return;
+
 		   }
+
 	   }
+
 	   return proxied.call( this, ev );
+
    };
+
 })();
 
+
+
 /**
+
  * When pressing up key towards a tabs element, select the last element of the current tab.
+
  */
+
 (function() {
+
 	var proxied = ContentEdit.Node.prototype.previous;
+
 	ContentEdit.Node.prototype.previous = function() {
+
 		var node = proxied.call( this );
+
+
 
 		if ( node && node._domElement && window.pbsSelectorMatches( node._domElement, '.pbs-tab-panels *' ) ) {
 
+
+
 			// If not visible.
+
 			if ( node._domElement.offsetWidth === 0 && node._domElement.offsetHeight === 0 ) {
+
 				var tabs = node.parent().parent();
+
 				while ( tabs && tabs.constructor.name !== 'Tabs' ) {
+
 					tabs = tabs.parent();
+
 				}
+
 				if ( tabs ) {
+
 					node = tabs.getOpenTab();
 
+
+
 					var allVisibles = node._domElement.querySelectorAll( '*' );
+
 					for ( var i = allVisibles.length - 1; i >= 0; i-- ) {
+
 						if ( allVisibles[ i ]._ceElement ) {
+
 							return allVisibles[ i ]._ceElement;
+
 						}
+
 					}
+
 				}
+
 			}
+
 		}
 
+
+
 		return node;
+
 	};
+
 })();
 
 
+
+
+
 /**
+
  * Dragging columns inside tabs, drag the whole tabs element.
+
  */
+
 ( function() {
+
 	var proxied = ContentEdit.DivCol.prototype._onMouseDown;
+
     ContentEdit.DivCol.prototype._onMouseDown = function( ev ) {
+
 		if ( this.parent().parent()._domElement.classList.contains( 'pbs-tab-panels' ) ) {
+
 			this.draggableParent = this.parent().parent().parent();
+
 		}
+
 		return proxied.call( this, ev );
+
 	};
+
 } )();
+
+
+
 
 
 ( function() {
+
 	var proxied = ContentEdit.DivRow.prototype._onOver;
+
 	ContentEdit.DivRow.prototype._onOver = function( ev ) {
+
 		var ret = proxied.call( this, ev );
+
 		if ( ret && this.parent().constructor.name === 'TabPanelContainer' ) {
+
 			var root = ContentEdit.Root.get();
+
 			this._removeCSSClass( 'ce-element--drop' );
+
 			this.parent().parent()._addCSSClass( 'ce-element--drop' );
+
 			return root._dropTarget = this.parent().parent();
+
 		}
+
 		return ret;
+
 	};
+
 } )();
+
 
 
 /* globals ContentEdit, ContentTools */
@@ -11185,7 +13193,35 @@ ContentEdit.Image.prototype.mount = function() {
 	this._onKeyDownBound = this._onKeyDown.bind(this);
 	window.addEventListener('keydown', this._onKeyDownBound );
 
-	return ContentEdit.Image.__super__.mount.call(this);
+	// Loading image.
+	if ( this._attributes['height'] && this._attributes['width'] ) {
+		var parentWidth = window.pbsGetBoundingClientRect( this.parent()._domElement ).width;
+		var imageWidth = parseInt( this._attributes['width'], 10 );
+		var imageHeight = parseInt( this._attributes['height'], 10 );
+		if ( imageWidth > parentWidth ) {
+			var ratio = imageHeight / imageWidth;
+			imageWidth = parentWidth;
+			imageHeight = imageWidth * ratio;
+		}
+		this._domElement.style.height = imageHeight + 'px';
+		this._domElement.style.width = imageWidth + 'px';
+		this._domElement.classList.add( 'pbs-image-loading' );
+		var load = function() {
+			if ( this._domElement ) {
+				this._domElement.style.height = '';
+				this._domElement.style.width = '';
+				this._domElement.classList.remove( 'pbs-image-loading' );
+				this._domElement.removeEventListener( 'load', load );
+			}
+		}.bind( this );
+		this._domElement.addEventListener( 'load', load );
+	}
+
+	var ret = ContentEdit.Image.__super__.mount.call( this );
+
+	wp.hooks.doAction( 'pbs.image.mounted' );
+
+	return ret;
 };
 
 
@@ -11851,279 +13887,759 @@ wp.hooks.addFilter( 'pbs.inspector.do_add_section_options', function( doContinue
 	return doContinue;
 } );
 
+/* globals ContentEdit, __extends, PBSEditor */
+
+ContentEdit.Spacer = ( function( _super ) {
+	__extends( Spacer, _super );
+
+	function Spacer( tagName, attributes ) {
+		if ( ! attributes ) {
+			attributes = {};
+		}
+		if ( ! attributes['data-ce-tag'] ) {
+			attributes['data-ce-tag'] = 'spacer';
+		}
+		this.model = new Backbone.Model( {} );
+
+		Spacer.__super__.constructor.call( this, tagName, attributes );
+
+		this._content = '';
+	}
+
+    Spacer.prototype.blur = function() {
+      var root = ContentEdit.Root.get();
+      if ( this.isFocused() ) {
+        this._removeCSSClass( 'ce-element--focused' );
+        root._focused = null;
+        return root.trigger( 'blur', this );
+      }
+    };
+
+    Spacer.droppers = PBSEditor.allDroppers;
+
+    Spacer.prototype.focus = function( supressDOMFocus ) {
+      var root;
+      root = ContentEdit.Root.get();
+      if ( this.isFocused() ) {
+        return;
+      }
+      if ( root.focused() ) {
+        root.focused().blur();
+      }
+      this._addCSSClass( 'ce-element--focused' );
+      root._focused = this;
+      if ( this.isMounted() && ! supressDOMFocus ) {
+        this.domElement().focus();
+      }
+      return root.trigger( 'focus', this );
+    };
+
+	Spacer.prototype.cssTypeName = function() {
+		return 'spacer';
+	};
+
+	Spacer.prototype.typeName = function() {
+		return 'Spacer';
+	};
+
+	return Spacer;
+
+} )( ContentEdit.Static );
+
+ContentEdit.TagNames.get().register( ContentEdit.Spacer, 'spacer' );
+
+
 
 /**
+
  * A collection of functions that extend the capabilities of HTMLString to
+
  * manipulate CSS styles.
+
  *
+
  * This is used by various formatting tools.
+
  */
+
+
+
 
 
 /* globals HTMLString */
 
+
+
+
+
+
+
 /**
- * Removes all inline styles from all the content.
+
+ * Removes a style from a string.
+
  */
-HTMLString.String.prototype.removeStyles = function() {
-	var c, from, i, newString, to, _i, newStyles, tagName;
-	from = arguments[0], to = arguments[1], tagName = arguments[2], newStyles = arguments[3];
+
+HTMLString.String.prototype.removeStyle = function() {
+
+	var c, from, i, to, _i, styleName = null;
+
+	from = arguments[0], to = arguments[1];
+
+	if ( arguments.length >= 3 ) {
+
+		styleName = arguments[2];
+
+	}
+
+
+
+	if ( ! styleName ) {
+
+		return this;
+
+	}
+
+
 
 	if ( to < 0 ) {
+
 		to = this.length() + to + 1;
-	}
-	if ( from < 0 ) {
-		from = this.length() + from;
+
 	}
 
-	newString = this.copy();
+	if ( from < 0 ) {
+
+		from = this.length() + from;
+
+	}
+
+
+
+	var newString = this.copy();
+
 	for (i = _i = from; from <= to ? _i < to : _i > to; i = from <= to ? ++_i : --_i) {
-		c = newString.characters[i];
+
+
+
+		c = newString.characters[ i ];
+
+
 
 		// Make sure we have a span tag for styling.
+
 		if ( c._tags.length ) {
 
+
+
 			// Remove all tags except for anchor tags.
+
 			for ( var z = c._tags.length - 1; z >= 0; z-- ) {
+
 				if ( c.tags()[ z ].name() !== 'a' ) {
-					newString.characters[i].removeTags( c.tags()[ z ] );
+
+
+
+					var currentStyles = window.cssToStyleObject( c.tags()[0].attr('style') );
+
+					if ( currentStyles[ styleName ] ) {
+
+						delete currentStyles[ styleName ];
+
+
+
+						var newStyles = window.cssToStyleString( currentStyles );
+
+						newString.characters[ i ]._tags[0].attr( 'style', newStyles );
+
+
+
+						// Remove the span if it doesn't have any styles.
+
+						if ( newString.characters[ i ]._tags[0].name() === 'span' ) {
+
+							if ( newString.characters[ i ]._tags[0].attr('style').trim() === '' ) {
+
+								newString.characters[ i ].removeTags();
+
+							}
+
+						}
+
+					}
+
 				}
+
 			}
 
 		}
+
 	}
+
+
 
 	newString.optimize();
 
+
+
 	return newString;
-};
 
-
-/**
- * Checks whether a specific style is present anywhere in the content.
- * If the style name is not given, the function checks if there is any style defined.
- */
-HTMLString.String.prototype.hasStyle = function() {
-	var c, from, i, to, _i, styleName = null;
-	from = arguments[0], to = arguments[1];
-	if ( arguments.length >= 3 ) {
-		styleName = arguments[2];
-	}
-
-	if ( to < 0 ) {
-		to = this.length() + to + 1;
-	}
-	if ( from < 0 ) {
-		from = this.length() + from;
-	}
-
-	// newString = this.copy();
-	for (i = _i = from; from <= to ? _i < to : _i > to; i = from <= to ? ++_i : --_i) {
-		c = this.characters[i];
-
-		// Make sure we have a span tag for styling.
-		if ( ! c ) {
-			continue;
-		}
-		if ( ! c._tags.length ) {
-			continue;
-		}
-
-		if ( ! styleName ) {
-			if ( ['b', 'strong', 'i', 'em'].indexOf( c.tags()[0].name() ) !== -1 ) {
-				return true;
-			}
-			if ( c.tags()[0].attr('style') ) {
-				return true;
-			}
-		} else {
-			var currentStyles = window.cssToStyleObject( c.tags()[0].attr('style') );
-			if ( typeof currentStyles[ styleName ] !== 'undefined' ) {
-				return currentStyles[ styleName ];
-			}
-		}
-	}
-
-	return false;
 };
 
 
 
 /**
- * Applies a style to the content.
+
+ * Removes all inline styles from all the content.
+
  */
-HTMLString.String.prototype.style = function() {
-	var c, from, i, newString, tags, to, _i, newStyles, tagName;
+
+HTMLString.String.prototype.removeStyles = function() {
+
+	var c, from, i, newString, to, _i, newStyles, tagName;
+
 	from = arguments[0], to = arguments[1], tagName = arguments[2], newStyles = arguments[3];
-	tags = new HTMLString.Tag('span');
+
+
 
 	if ( to < 0 ) {
+
 		to = this.length() + to + 1;
-	}
-	if ( from < 0 ) {
-		from = this.length() + from;
+
 	}
 
-	// Create a dummy element where we can test styles.
-	var dummy = document.createElement( tagName );
-	dummy.style.display = 'none';
-	document.body.appendChild( dummy );
+	if ( from < 0 ) {
+
+		from = this.length() + from;
+
+	}
+
+
 
 	newString = this.copy();
+
 	for (i = _i = from; from <= to ? _i < to : _i > to; i = from <= to ? ++_i : --_i) {
+
 		c = newString.characters[i];
 
+
+
 		// Make sure we have a span tag for styling.
-		if ( ! c._tags.length ) {
-			c.addTags( tags );
+
+		if ( c._tags.length ) {
+
+
+
+			// Remove all tags except for anchor tags.
+
+			for ( var z = c._tags.length - 1; z >= 0; z-- ) {
+
+				if ( c.tags()[ z ].name() !== 'a' ) {
+
+					newString.characters[i].removeTags( c.tags()[ z ] );
+
+				}
+
+			}
+
+
+
 		}
+
+	}
+
+
+
+	newString.optimize();
+
+
+
+	return newString;
+
+};
+
+
+
+
+
+/**
+
+ * Checks whether a specific style is present anywhere in the content.
+
+ * If the style name is not given, the function checks if there is any style defined.
+
+ */
+
+HTMLString.String.prototype.hasStyle = function() {
+
+	var c, from, i, to, _i, styleName = null;
+
+	from = arguments[0], to = arguments[1];
+
+	if ( arguments.length >= 3 ) {
+
+		styleName = arguments[2];
+
+	}
+
+
+
+	if ( to < 0 ) {
+
+		to = this.length() + to + 1;
+
+	}
+
+	if ( from < 0 ) {
+
+		from = this.length() + from;
+
+	}
+
+
+
+	// newString = this.copy();
+
+	for (i = _i = from; from <= to ? _i < to : _i > to; i = from <= to ? ++_i : --_i) {
+
+		c = this.characters[i];
+
+
+
+		// Make sure we have a span tag for styling.
+
+		if ( ! c ) {
+
+			continue;
+
+		}
+
+		if ( ! c._tags.length ) {
+
+			continue;
+
+		}
+
+
+
+		if ( ! styleName ) {
+
+			if ( ['b', 'strong', 'i', 'em'].indexOf( c.tags()[0].name() ) !== -1 ) {
+
+				return true;
+
+			}
+
+			if ( c.tags()[0].attr('style') ) {
+
+				return true;
+
+			}
+
+		} else {
+
+			var currentStyles = window.cssToStyleObject( c.tags()[0].attr('style') );
+
+			if ( typeof currentStyles[ styleName ] !== 'undefined' ) {
+
+				return currentStyles[ styleName ];
+
+			}
+
+		}
+
+	}
+
+
+
+	return false;
+
+};
+
+
+
+
+
+
+
+/**
+
+ * Applies a style to the content.
+
+ */
+
+HTMLString.String.prototype.style = function() {
+
+	var c, from, i, newString, tags, to, _i, newStyles, tagName;
+
+	from = arguments[0], to = arguments[1], tagName = arguments[2], newStyles = arguments[3];
+
+	tags = new HTMLString.Tag('span');
+
+
+
+	if ( to < 0 ) {
+
+		to = this.length() + to + 1;
+
+	}
+
+	if ( from < 0 ) {
+
+		from = this.length() + from;
+
+	}
+
+
+
+	// Create a dummy element where we can test styles.
+
+	var dummy = document.createElement( tagName );
+
+	dummy.style.display = 'none';
+
+	document.body.appendChild( dummy );
+
+
+
+	newString = this.copy();
+
+	for (i = _i = from; from <= to ? _i < to : _i > to; i = from <= to ? ++_i : --_i) {
+
+		c = newString.characters[i];
+
+
+
+		// Make sure we have a span tag for styling.
+
+		if ( ! c._tags.length ) {
+
+			c.addTags( tags );
+
+		}
+
+
 
 		// Don't apply styles to BR tags.
+
 		var isBr = false;
+
 		for ( var z = 0; z < c._tags.length; z++ ) {
+
 			if ( c._tags[ z ].name() === 'br' ) {
+
 				isBr = true;
+
 				break;
+
 			}
+
 		}
+
 		if ( isBr ) {
+
 			continue;
+
 		}
+
+
 
 		// Add the new styles to the existing styles.
+
 		var currentStyles = window.cssToStyleObject( c.tags()[0].attr('style') );
+
 		for ( var styleName in newStyles ) {
+
 			if ( newStyles.hasOwnProperty( styleName ) && newStyles[ styleName ] ) {
 
+
+
 				if ( typeof newStyles[ styleName ] === 'string' ) {
+
 					newStyles[ styleName ] = [ '', newStyles[ styleName ] ];
+
 				} else if ( newStyles[ styleName ][0] !== '' ) {
+
 					newStyles[ styleName ].unshift( '' );
+
 				}
+
 				var expectedStyleValue = newStyles[ styleName ][ newStyles[ styleName ].length - 1 ];
 
+
+
 				// Go through styles we want to apply.
+
 				var applyStyle;
+
 				for ( var k = 0; k < newStyles[ styleName ].length; k++ ) {
+
 					applyStyle = newStyles[ styleName ][ k ];
 
+
+
 					// Try it out if it works.
+
+					/*
+
 					var dummyStyleAttribute = '';
+
 					if ( applyStyle ) {
+
 						dummyStyleAttribute = 'style="' + styleName + ': ' + applyStyle + '"';
+
 					}
+
 					dummy.innerHTML = '<span ' + dummyStyleAttribute + '>' + c.c() + '</span>';
+
 					var appliedStyles = window.getComputedStyle( dummy.firstChild );
 
+
+
 					if ( appliedStyles[ styleName ] === expectedStyleValue ) {
+
 						break;
+
 					}
+
+					*/
+
 				}
+
+
 
 				currentStyles[ styleName ] = applyStyle;
 
+
+
 			} else {
 
+
+
 				// Remove the style.
+
 				delete currentStyles[ styleName ];
+
 			}
+
+
 
 			// If the style is blank, just don't include it.
+
 			if ( currentStyles[ styleName ] === '' ) {
+
 				delete currentStyles[ styleName ];
+
 			}
 
+
+
 		}
+
+
 
 		// Apply the styles.
+
 		newString.characters[i]._tags[0].attr('style', window.cssToStyleString( currentStyles ) );
 
+
+
 		// Remove the span if it doesn't have any styles.
+
 		if ( newString.characters[i]._tags[0].name() === 'span' ) {
+
 			if ( newString.characters[i]._tags[0].attr('style').trim() === '' ) {
+
 				newString.characters[i].removeTags();
+
 			}
+
 		}
+
 	}
 
+
+
 	// Remove the style tester.
+
 	document.body.removeChild( dummy );
+
+
 
 	newString.optimize();
 
+
+
 	return newString;
+
 };
 
 
+
+
+
 /**
+
  * Gets the style of the content. This only returns the first encountered
+
  * style.
+
  */
+
 HTMLString.String.prototype.getStyle = function( styleName, element ) {
+
 	var dashedStyleName = styleName;
+
 	styleName = styleName.replace(/-([a-z])/g, function (m, w) {
+
 	    return w.toUpperCase();
+
 	});
 
+
+
 	// We check this node's styles.
+
 	var nodeToCheck = element._domElement;
 
+
+
 	// If the highlighted text is a node, find it in the element
+
 	var nodeHTML = this.html();
+
 	var foundNode = false;
+
 	if ( nodeHTML.indexOf( '<' ) === 0 ) {
+
 		for ( var i = 0; i < element._domElement.children.length; i++ ) {
+
 			if ( element._domElement.children[ i ].outerHTML === nodeHTML ) {
+
 				nodeToCheck = element._domElement.children[ i ];
+
 				foundNode = true;
+
 				break;
+
 			}
+
 		}
+
 	}
+
+
 
 	// If the node cannot be found, this means multiple nodes are selected,
+
 	// use the first node's styles
+
 	if ( ! foundNode && nodeHTML.indexOf( '<' ) === 0 ) {
-		var styleRegex = new RegExp( '(<\\w+[^>]+style=[^>]*[^-]' + dashedStyleName + ':\\s*)([\\w.]+)' );
-		var match = nodeHTML.match( styleRegex );
-		if ( match ) {
-			return match[2];
+
+
+
+		// Check using style attribute first because this is faster.
+
+		var style = nodeToCheck.firstChild.style[ dashedStyleName ];
+
+		if ( '' !== style ) {
+
+			return style;
+
 		}
+
+
+
+		// var styleRegex = new RegExp( '(<\\w+[^>]+style=[^>]*[^-]' + dashedStyleName + ':\\s*)([\\w.]+)' );
+
+		var styleRegex = new RegExp( '(<\\w+[^>]+style=[^>]*[^-]' + dashedStyleName + ':\\s*)([^;"]+)' );
+
+		var match = nodeHTML.match( styleRegex );
+
+		if ( match ) {
+
+			return match[2];
+
+		}
+
 	}
 
-	return getComputedStyle( nodeToCheck )[ styleName ];
+
+
+	if ( nodeToCheck.style[ styleName ] ) {
+
+		return nodeToCheck.style[ styleName ];
+
+	}
+
+
+
+	return window.pbsGetComputedStyle( nodeToCheck )[ styleName ];
+
 };
+
+
+
 
 
 /**
+
  * Fixed: Edge bug where PBS did not start at all and was stuck in "Please Wait".
+
  * HACK: IE Edge sometimes sends an array containing an empty array to this method.
+
  *
+
  * @see https://github.com/GetmeUK/ContentTools/issues/258
+
  */
+
 HTMLString.Character.prototype.addTags = function() {
+
 	var tag, tags, _i, _len, _results;
+
 	tags = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+
 	_results = [];
+
 	for (_i = 0, _len = tags.length; _i < _len; _i++) {
+
 		tag = tags[_i];
 
+
+
         // HACK: IE Edge sometimes sends an array containing an empty array to this method.
+
         if ( Array.isArray( tag ) ) {
+
 			continue;
+
         }
 
+
+
 		if (tag.selfClosing()) {
+
 			if (!this.isTag()) {
+
 				this._tags.unshift(tag.copy());
+
 			}
+
 			continue;
+
 		}
 
+
+
 		_results.push(this._tags.push(tag.copy()));
+
 	}
+
 	return _results;
+
 };
+
 
 /* globals PBSEditor, pbsParams */
 
@@ -12315,6 +14831,19 @@ ContentTools.ToolboxBarUI = ( function( _super ) {
 					tool = this.constructor.createDiv(['pbs-tool-sep']);
 					domToolGroup.appendChild( tool );
 					continue;
+				}
+
+				// Add placeholder premium elements in the lite version.
+				if ( pbsParams.is_lite && window.PBSEditor.premiumTools ) {
+					if ( window.PBSEditor.premiumTools[ toolName ] ) {
+						tool = ContentTools.ToolShelf.fetch( 'premium-formatting' );
+						tool.icon = toolName;
+						tool.label = window.PBSEditor.premiumTools[ toolName ];
+						this._toolUIs[toolName] = new ContentTools.ToolUI(tool);
+						this._toolUIs[toolName].mount(domToolGroup);
+						this._toolUIs[toolName]._domElement.classList.add( 'pbs-premium-flag' );
+						continue;
+					}
 				}
 
 				tool = ContentTools.ToolShelf.fetch(toolName);
@@ -12556,7 +15085,31 @@ ContentTools.ToolboxFixedUI = ( function( _super ) {
 			this._domElement.appendChild(domToolGroup);
 			for (_j = 0, _len1 = toolGroup.length; _j < _len1; _j++) {
 				toolName = toolGroup[_j];
-				tool = ContentTools.ToolShelf.fetch(toolName);
+
+				// Add placeholder premium elements in the lite version.
+				if ( pbsParams.is_lite && window.PBSEditor.premiumElements ) {
+					if ( window.PBSEditor.premiumElements[ toolName ] ) {
+						tool = ContentTools.ToolShelf.fetch( 'premium-formatting' );
+						tool.icon = toolName;
+						tool.buttonName = window.PBSEditor.premiumElements[ toolName ];
+						tool.label = '';
+						this._toolUIs[ toolName ] = new ContentTools.ToolUI(tool);
+						this._toolUIs[ toolName ].mount(domToolGroup);
+						this._toolUIs[ toolName ]._domElement.setAttribute( 'title', 'Premium Element' );
+						this._toolUIs[ toolName ]._domElement.classList.add( 'pbs-premium-flag' );
+						continue;
+					}
+				}
+
+				try {
+					tool = ContentTools.ToolShelf.fetch( toolName );
+				} catch ( err ) {
+			        var label = this.constructor.createDiv( ['ct-tool', 'pbs-element-label'] );
+					label.innerHTML = toolName;
+					domToolGroup.appendChild( label );
+					continue;
+				}
+
 				this._toolUIs[toolName] = new ContentTools.ToolUI(tool);
 				this._toolUIs[toolName].mount(domToolGroup);
 				this._toolUIs[toolName].disabled(true);
@@ -12726,30 +15279,47 @@ ContentTools.ToolboxFixedUI = ( function( _super ) {
 } )();
 
 
-// Close the elemen list when contents are clicked.
-window.addEventListener( 'DOMContentLoaded', function() {
-	document.querySelector( '.pbs-main-wrapper' ).addEventListener( 'mousedown', function() {
-		ContentTools.EditorApp.get()._toolboxElements.hide();
-	} );
-	document.querySelector( '.pbs-main-wrapper' ).addEventListener( 'mouseup', function() {
-		ContentTools.EditorApp.get()._toolboxElements.hide();
-	} );
-	document.querySelector( '.pbs-main-wrapper' ).addEventListener( 'keydown', function() {
-		ContentTools.EditorApp.get()._toolboxElements.hide();
-	} );
-} );
+( function() {
+	var editor = ContentTools.EditorApp.get();
 
-/* globals ContentTools, ContentEdit, __extends, PBSEditor */
+	var hideAddElementsPanelListener = function() {
+		ContentTools.EditorApp.get()._toolboxElements.hide();
+	};
+
+	// Close the elemen list when contents are clicked.
+	editor.bind( 'start', function() {
+		document.querySelector( '.pbs-main-wrapper' ).addEventListener( 'mousedown', hideAddElementsPanelListener );
+		document.querySelector( '.pbs-main-wrapper' ).addEventListener( 'mouseup', hideAddElementsPanelListener );
+		document.querySelector( '.pbs-main-wrapper' ).addEventListener( 'keydown', hideAddElementsPanelListener );
+	} );
+
+	editor.bind( 'stop', function() {
+		document.querySelector( '.pbs-main-wrapper' ).removeEventListener( 'mousedown', hideAddElementsPanelListener );
+		document.querySelector( '.pbs-main-wrapper' ).removeEventListener( 'mouseup', hideAddElementsPanelListener );
+		document.querySelector( '.pbs-main-wrapper' ).removeEventListener( 'keydown', hideAddElementsPanelListener );
+	} );
+} )();
+
+/* globals ContentTools, ContentEdit, __extends, PBSEditor, pbsParams */
 
 
 ( function() {
 	var proxied = ContentTools.ToolUI.prototype._onMouseLeave;
 	ContentTools.ToolUI.prototype._onMouseLeave = function( ev ) {
 		if ( this._mouseDown && this._domElement.classList.contains( 'pbs-tool-large' ) ) {
+
+			// Premium elements do nothing.
+			if ( pbsParams.is_lite && window.PBSEditor.premiumElements ) {
+				if ( window.PBSEditor.premiumElements[ this.tool.tagName ] || window.PBSEditor.premiumElements[ this.tool.icon.toLowerCase() ] ) {
+					ev.stopPropagation();
+					ev.preventDefault();
+					return proxied.call( this, ev );
+				}
+			}
+
 			var element = new ContentEdit.NewElementDragHelper( this.tool );
-			var scrollY = window.scrollY || window.pageYOffset;
 			ContentTools.EditorApp.get().regions()['main-content'].attach( element );
-			element.drag( ev.screenX, ev.screenY + scrollY );
+			element.drag( ev.screenX, ev.screenY + window.pbsScrollY() );
 			ev.stopPropagation();
 			ev.preventDefault();
 		}
@@ -12933,6 +15503,9 @@ ContentTools.ToolboxPropertiesUI = (function(_super) {
     ToolboxPropertiesUI.prototype._contain = function() {
 		var rect;
 		if ( ! this.isMounted() ) {
+			return;
+		}
+		if ( window.innerWidth <= 800 ) {
 			return;
 		}
 
@@ -13260,6 +15833,20 @@ ContentTools.ToolboxPropertiesUI = (function(_super) {
 			}
 			element = element.parent();
 		}
+
+		// If all options are premium, display a premium flag on the title.
+		if ( pbsParams.is_lite ) {
+			var groups = this._domElement.querySelectorAll( '[data-collapse-group]' );
+			Array.prototype.forEach.call( groups, function( group ) {
+				var numOptions = group.querySelectorAll( '.pbs-tool-option:not(.pbs-collapsable-title)' ).length;
+				var numPremiumOptions = group.querySelectorAll( '.pbs-tool-option.pbs-premium-flag' ).length;
+				var title = group.firstChild;
+				if ( numOptions > 0 && numOptions === numPremiumOptions ) {
+					title.classList.add( 'pbs-premium-flag' );
+					title.parentNode.classList.add( 'pbs-premium-flag-container' );
+				}
+			} );
+		}
 	};
 
 	ToolboxPropertiesUI.prototype.addOptions = function( element ) {
@@ -13347,6 +15934,56 @@ ContentTools.ToolboxPropertiesUI = (function(_super) {
 		this._toolboxProperties.hide();
 	};
 
+} )();
+
+/* globals ContentTools, PBSEditor, pbsParams */
+
+function isBlankPage() {
+	var editor = ContentTools.EditorApp.get();
+	return editor.regions()['main-content'].html().match( /^\s*<p>\s*<\/p>\s*$/ );
+}
+
+function openPageTemplates( ev ) {
+	ev.preventDefault();
+
+	PBSEditor.pageTemplateFrame.open({
+		title: pbsParams.labels.page_templates,
+		button: isBlankPage() ? pbsParams.labels.use_page_template : pbsParams.labels.replace_contents_with_template,
+		successCallback: function( view ) {
+
+		}.bind( this )
+	} );
+}
+
+var ready = function() {
+	var editor = ContentTools.EditorApp.get();
+	if ( ! editor ) {
+		return;
+	}
+
+	// Start bindings.
+	editor.bind( 'start', function() {
+		document.querySelector( '#wp-admin-bar-pbs_page_templates' ).addEventListener( 'click', openPageTemplates );
+
+		// If the page is blank, then open the page templates to suggest usage.
+		if ( isBlankPage() ) {
+			document.querySelector( '#wp-admin-bar-pbs_page_templates' ).dispatchEvent( new CustomEvent( 'click' ) );
+		}
+	} );
+
+	// End bindings.
+	editor.bind( 'end', function() {
+		document.querySelector( '#wp-admin-bar-pbs_page_templates' ).removeEventListener( 'click', openPageTemplates );
+	} );
+
+};
+
+( function() {
+	if ( document.readyState !== 'loading' ) {
+		ready();
+	} else {
+		document.addEventListener( 'DOMContentLoaded', ready );
+	}
 } )();
 
 /* globals ContentEdit, ContentTools, PBSOption, pbsParams */
@@ -13769,7 +16406,22 @@ ContentTools.ToolboxPropertiesUI.prototype.addSectionOptions = function( divGrou
 				model: model,
 				el: optionWrapper
 			});
+
+			// Add the premium flag.
+			if ( pbsParams.is_lite && o.dummy ) {
+				o.el.classList.add( 'pbs-premium-flag' );
+			}
+
 			_pbsCreatedViews.push( o.render() );
+
+			// Apply visibility.
+			if ( o.optionSettings && typeof o.optionSettings.visible === 'function' ) {
+				if ( o.optionSettings.visible( o.model.get('element') ) ) {
+					o.$el.show();
+				} else {
+					o.$el.hide();
+				}
+			}
 
 			divGroup.view = o;
 
@@ -13781,6 +16433,27 @@ ContentTools.ToolboxPropertiesUI.prototype.addSectionOptions = function( divGrou
 	}
 
 };
+
+
+/**
+ * Option dependency. This adds the 'visible' function.
+ */
+window.addEventListener( 'DOMContentLoaded', function() {
+	wp.hooks.addAction( 'pbs.option.changed', function() {
+		for ( var i = 0; i < _pbsCreatedViews.length; i++ ) {
+			var option = _pbsCreatedViews[ i ];
+			if ( option.optionSettings && typeof option.optionSettings.visible === 'function' ) {
+				if ( option.optionSettings.visible( option.model.get('element') ) ) {
+					option.$el.show();
+					// option.render();
+				} else {
+					option.$el.hide();
+				}
+			}
+		}
+	} );
+} );
+
 
 
 ContentTools.ToolboxPropertiesUI.prototype.applyOptionDependencies = function( view ) {
@@ -14335,7 +17008,9 @@ ContentTools.ToolboxPropertiesUI.prototype.clearSections = function() {
 
 	while ( _pbsCreatedViews.length > 0 ) {
 		var o = _pbsCreatedViews.pop();
-		o.remove();
+		if ( o ) {
+			o.remove();
+		}
 	}
 
 	if ( this._domInspectorGroups ) {
@@ -14763,6 +17438,26 @@ var PBSBaseView = Backbone.View.extend( {
 		}
 	},
 
+	render: function() {
+		var data = _.extend( {}, this.model.attributes, this.optionSettings );
+		data.value = '';
+
+		if ( this.optionSettings.value ) {
+			data.value = this.optionSettings.value( this.model.get('element' ) );
+		} else if ( this.optionSettings.id ) {
+			data.value = this.model.get( this.optionSettings.id );
+		}
+
+		// Add the template if it doesn't exist yet.
+		if ( ! this.$el.html() ) {
+	    	this.$el.html( this.template( data ) );
+		// If it exists, only update the value so that we don't lose focus on the field.
+		} else if ( this.$el.find( 'input[type="text"]' ).val() !== data.value ) {
+			this.$el.find( 'input[type="text"]' ).val( data.value );
+		}
+	    return this;
+	},
+
 	remove: function() {
 		if ( this.optionSettings.visible ) {
 			wp.hooks.removeAction( 'pbs.option.changed', this._visibleBound );
@@ -15110,7 +17805,11 @@ PBSOption.Border = Backbone.View.extend({
 			// hide the color picker controls on load
 			hide: false,
 			// Add our own pretty colors
-			palettes: [ '#000', '#fff', '#CF000F', '#D2527F', '#F89406', '#F9BF3B', '#2ECC71', '#19B5FE', '#8E44AD' ]
+			palettes: [
+				'#282425', '#3d3a3b', '#555152', '#6b6969', '#838181', '#9b999a', '#b4b1b2', '#cccbcb', '#e5e4e4', '#ffffff',
+				'#fd3d3f', '#f70363', '#eb389a', '#a812a9', '#7330b0', '#4b4bae', '#1490ec', '#00a4ed', '#00bacf', '#009586',
+				'#e1d6b8', '#5b7b88', '#7c554a', '#fe5234', '#fe9631', '#fec03b', '#fbec57', '#c2dd52', '#75c457', '#12b059'
+			]
 		});
 	    return this;
 
@@ -15322,7 +18021,11 @@ PBSOption.Color = PBSBaseView.extend({
 			// hide the color picker controls on load
 			hide: false,
 			// Add our own pretty colors
-			palettes: [ '#000', '#fff', '#CF000F', '#D2527F', '#F89406', '#F9BF3B', '#2ECC71', '#19B5FE', '#8E44AD' ]
+			palettes: [
+				'#282425', '#3d3a3b', '#555152', '#6b6969', '#838181', '#9b999a', '#b4b1b2', '#cccbcb', '#e5e4e4', '#ffffff',
+				'#fd3d3f', '#f70363', '#eb389a', '#a812a9', '#7330b0', '#4b4bae', '#1490ec', '#00a4ed', '#00bacf', '#009586',
+				'#e1d6b8', '#5b7b88', '#7c554a', '#fe5234', '#fe9631', '#fec03b', '#fbec57', '#c2dd52', '#75c457', '#12b059'
+			]
 		});
 
 		this._canApplyUpdater();
@@ -15606,11 +18309,11 @@ PBSOption.Number = PBSOption.Text.extend( {
 
 	render: function() {
 
-		var input;
+		var value, input;
 		if ( this.$el.html() ) {
 
 			if ( this.optionSettings.value ) {
-				var value = this.optionSettings.value( this.model.get('element' ) );
+				value = this.optionSettings.value( this.model.get('element' ) );
 				var slider = this.$el.find( '.pbs-option-number-slider' );
 				input = this.$el.find( 'input' );
 
@@ -15621,6 +18324,12 @@ PBSOption.Number = PBSOption.Text.extend( {
 			}
 
 			return this;
+		} else {
+			if ( this.optionSettings.value ) {
+				input = this.$el.find( 'input' );
+				value = this.optionSettings.value( this.model.get('element' ) );
+				input.val( value );
+			}
 		}
 
 		PBSOption.Number.__super__.render.call( this );
@@ -15676,6 +18385,61 @@ PBSOption.Number = PBSOption.Text.extend( {
 			this.optionSettings.change( this.model.get('element'), inputVal, this );
 		}
 		wp.hooks.doAction( 'pbs.option.changed' );
+	}
+} );
+
+PBSOption.File = PBSOption.Text.extend( {
+	template: wp.template( 'pbs-option-file' ),
+
+	multiple: false,
+
+	events: {
+		'change input': 'selectChanged',
+		'click button': 'openImagePicker'
+	},
+
+	openImagePicker: function() {
+		var frame = wp.media( {
+			title: pbsParams.labels.s_attribute.replace( '%s', this.optionSettings.name ),
+			multiple: this.multiple,
+			// library: { type: 'image' },
+			button : { text : pbsParams.labels.select_file }
+		});
+
+		frame.on( 'open', function() {
+		}.bind( this ) );
+
+		// get the url when done
+		frame.on('select', function() {
+			var selection = frame.state().get( 'selection' );
+			var value = '';
+
+			selection.each( function( attachment ) {
+				if ( typeof attachment.attributes.url === 'undefined' ) {
+					return;
+				}
+
+				value = attachment.attributes.url;
+
+			}.bind( this ) );
+
+			this.$el.find( 'input[type="text"]' ).val( value );
+
+			// Set the new image value.
+			this.model.set( this.optionSettings.id, value );
+
+			if ( this.optionSettings.change ) {
+				this.optionSettings.change( this.model.get('element'), value, this );
+			}
+
+			wp.hooks.doAction( 'pbs.option.changed' );
+
+			frame.off( 'select' );
+		}.bind( this ) );
+
+		// open the uploader
+		frame.open();
+		return false;
 	}
 } );
 
@@ -15760,6 +18524,14 @@ PBSOption.Image = PBSOption.Text.extend( {
 
 			var attachmentURLs = [];
 			var attachmentIDs = [];
+
+			var useURLs = false;
+			if ( typeof this.optionSettings.urls !== 'undefined' ) {
+				if ( this.optionSettings.urls ) {
+					useURLs = true;
+				}
+			}
+
 			selection.each( function( attachment ) {
 				if ( typeof attachment.attributes.sizes === 'undefined' ) {
 					return;
@@ -15775,14 +18547,17 @@ PBSOption.Image = PBSOption.Text.extend( {
 					.addClass( 'pbs-image-preview' )
 					.css( 'backgroundImage', 'url(' + image.url + ')' )
 					.attr( 'data-id', attachment.id )
+					.attr( 'data-url', attachment.attributes.sizes.full.url )
 					.append( jQuery( '<div></div>' ).addClass( 'pbs-image-preview-remove' ) )
 					.appendTo( this.$el );
 
 				attachmentURLs.push( attachment.attributes.sizes.full.url );
 				attachmentIDs.push( attachment.id );
 
+				// value += value ? ',' : '';
+				// value += attachment.id;
 				value += value ? ',' : '';
-				value += attachment.id;
+				value += useURLs ? attachment.attributes.sizes.full.url : attachment.id;
 
 				// Keep the image preview URL in memory for future renders.
 				PBSOption.Image._imageURLs[ attachment.id ] = image.url;
@@ -15791,11 +18566,12 @@ PBSOption.Image = PBSOption.Text.extend( {
 
 			// Set the new image value.
 			this.model.set( this.optionSettings.id, value );
-			wp.hooks.doAction( 'pbs.option.changed' );
 
 			if ( this.optionSettings.change ) {
-				this.optionSettings.change( this.model.get('element'), attachmentIDs, attachmentURLs, this );
+				this.optionSettings.change( this.model.get('element'), ! useURLs ? attachmentIDs : attachmentURLs, ! useURLs ? attachmentURLs : attachmentIDs, this );
 			}
+
+			wp.hooks.doAction( 'pbs.option.changed' );
 
 			frame.off('select');
 		}.bind( this ) );
@@ -15809,15 +18585,23 @@ PBSOption.Image = PBSOption.Text.extend( {
 
 		var value = '', removeMe = e.target.parentNode.getAttribute( 'data-id' );
 
+		var useURLs = false;
+		if ( typeof this.optionSettings.urls !== 'undefined' ) {
+			if ( this.optionSettings.urls ) {
+				useURLs = true;
+			}
+		}
+
 		var attachmentIDs = [];
+		var attachmentURLs = [];
 
 		if ( this.multiple ) {
 			this.$el.find( '.pbs-image-preview' ).each( function() {
 				if ( this.getAttribute( 'data-id' ) !== removeMe ) {
 					value += value ? ',' : '';
 					value += this.getAttribute( 'data-id' );
-
 					attachmentIDs.push( this.getAttribute( 'data-id' ) );
+					attachmentURLs.push( this.getAttribute( 'data-url' ) ? this.getAttribute( 'data-url' ) : this.getAttribute( 'data-id' ) );
 				}
 			} );
 		}
@@ -15831,11 +18615,12 @@ PBSOption.Image = PBSOption.Text.extend( {
 		}
 
 		this.model.set( this.optionSettings.id, value );
-		wp.hooks.doAction( 'pbs.option.changed' );
 
 		if ( this.optionSettings.remove ) {
-			this.optionSettings.remove( this.model.get('element'), attachmentIDs, this );
+			this.optionSettings.remove( this.model.get('element'), useURLs ? attachmentURLs : attachmentIDs, this );
 		}
+
+		wp.hooks.doAction( 'pbs.option.changed' );
 
 		return false;
 	}
@@ -16243,98 +19028,202 @@ PBSOption.Button2 = PBSBaseView.extend({
 	}
 });
 
+/* globals PBSOption, PBSBaseView */
+
+PBSOption.Dummy = PBSBaseView.extend( {
+	dummy: true,
+	template: wp.template( 'pbs-dummy-option-text' ),
+	render: function() {
+		var data = _.extend( {}, this.model.attributes, this.optionSettings );
+		if ( ! this.$el.html() ) {
+			this.$el.html( this.template( data ) );
+		}
+	}
+} );
+PBSOption.TextDummy = PBSOption.Dummy.extend( {
+	template: wp.template( 'pbs-dummy-option-text' )
+} );
+PBSOption.NumberDummy = PBSOption.Dummy.extend( {
+	template: wp.template( 'pbs-dummy-option-number' )
+} );
+PBSOption.ColorDummy = PBSOption.Dummy.extend( {
+	template: wp.template( 'pbs-dummy-option-color' )
+} );
+PBSOption.SelectDummy = PBSOption.Dummy.extend( {
+	template: wp.template( 'pbs-dummy-option-select' )
+} );
+PBSOption.CheckboxDummy = PBSOption.Dummy.extend( {
+	template: wp.template( 'pbs-dummy-option-checkbox' )
+} );
+PBSOption.Button2Dummy = PBSOption.Dummy.extend( {
+	template: wp.template( 'pbs-dummy-option-button2' )
+} );
+PBSOption.ImageDummy = PBSOption.Dummy.extend( {
+	template: wp.template( 'pbs-dummy-option-image' )
+} );
+PBSOption.TextareaDummy = PBSOption.Dummy.extend( {
+	template: wp.template( 'pbs-dummy-option-textarea' )
+} );
+PBSOption.FileDummy = PBSOption.Dummy.extend( {
+	template: wp.template( 'pbs-dummy-option-file' )
+} );
+
+/* globals pbsParams */
+
+var options = [];
+
+options.push(
+	{
+		'name': pbsParams.labels.border_radius,
+		'type': 'number',
+		'step': '1',
+		'min': '0',
+		'max': '1000',
+		'initialize': function( element ) {
+			this.max = parseInt( parseInt( element._domElement.getBoundingClientRect().height, 10 ) / 2 + 1, 10 );
+		},
+		'value': function( element ) {
+			var size = parseInt( element._domElement.style['border-radius'], 10 );
+			if ( isNaN( size ) ) {
+				return 0;
+			}
+			return size;
+		},
+		'change': function( element, value ) {
+			element.style( 'border-radius', value + 'px' );
+		}
+	},
+	{
+		'name': pbsParams.labels.shadows,
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy',
+		'group': pbsParams.labels.shadows
+	},
+	{
+		'name': pbsParams.labels.shadow_strength,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'group': pbsParams.labels.shadows
+	}
+);
+
+window.pbsAddInspector( 'Image', {
+	'label': pbsParams.labels.image,
+	'options': options
+} );
 
 
 /* globals PBSEditor, pbsParams */
 
-
-
 var options = [];
 
-
-
 options.push(
-
 	{
-
 		'name': pbsParams.labels.icon_frame_change_title,
-
 		'button': pbsParams.labels.pick_an_icon,
-
 		'type': 'button2',
-
 		'group': pbsParams.labels.general,
-
 		'click': function( element ) {
-
 			PBSEditor.iconFrame.open({
-
 				title: pbsParams.labels.choose_icon,
-
 				button: pbsParams.labels.choose_icon,
-
 				successCallback: function( frameView ) {
-
 					element.change( frameView.selected.firstChild );
-
 				}
-
 			});
-
 		}
-
 	},
-
 	{
-
+		'name': pbsParams.labels.link,
+		'type': ! pbsParams.is_lite ? 'text' : 'textDummy',
+		'placeholder': 'http://',
+		'desc': pbsParams.labels.desc_icon_url,
+		'group': pbsParams.labels.general
+	},
+	{
 		'name': pbsParams.labels.icon_color,
-
 		'type': 'color',
-
 		'group': pbsParams.labels.general,
-
 		'value': function( element ) {
-
 			return element._domElement.style.fill;
-
 		},
-
 		'change': function( element, value ) {
-
 			element.style( 'fill', value );
-
+			element.removeFills();
 		}
-
 	}
-
 );
 
 
-
+options.push(
+	{
+		'name': pbsParams.labels.background_color,
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+		'group': pbsParams.labels.general
+	},
+	{
+		'name': pbsParams.labels.padding,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'group': pbsParams.labels.general
+	},
+	{
+		'name': pbsParams.labels.border_radius,
+		// 'id': 'border_radius',
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'group': pbsParams.labels.general
+	},
+	{
+		'name': pbsParams.labels.tooltip_text,
+		'type': ! pbsParams.is_lite ? 'text' : 'textDummy',
+		'desc': pbsParams.labels.desc_icon_tooltip,
+		'group': pbsParams.labels.tooltip
+	},
+	{
+		'name': pbsParams.labels.tooltip_location,
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy',
+		'group': pbsParams.labels.tooltip
+	},
+	{
+		'name': pbsParams.labels.background_color,
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+		'group': pbsParams.labels.tooltip
+	},
+	{
+		'name': pbsParams.labels.text_color,
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+		'group': pbsParams.labels.tooltip
+	},
+	{
+		'name': pbsParams.labels.toggle_shadow,
+		'type': ! pbsParams.is_lite ? 'checkbox' : 'checkboxDummy',
+		'group': pbsParams.labels.tooltip
+	},
+	{
+		'name': pbsParams.labels.width,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'group': pbsParams.labels.tooltip
+	},
+	{
+		'name': pbsParams.labels.padding,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'group': pbsParams.labels.tooltip
+	},
+	{
+		'name': pbsParams.labels.border_radius,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'group': pbsParams.labels.tooltip
+	}
+);
 
 
 window.pbsAddInspector( 'Icon', {
-
 	'label': pbsParams.labels.icon,
-
-	'footer': pbsParams.labels.icon_lite_footer, // LITE-ONLY
-
 	'onMouseEnter': function( element ) {
-
 		element._addCSSClass( 'ce-element--over' );
-
 	},
-
 	'onMouseLeave': function( element ) {
-
 		element._removeCSSClass( 'ce-element--over' );
-
 	},
-
 	'options': options
-
 } );
-
 
 /* globals pbsParams */
 
@@ -16348,182 +19237,6 @@ window.pbsAddInspector('pbs_widget', {
 		}
 	]
 });
-//
-//
-// window.pbsAddInspector('divider_advanced', {
-// 	'label': 'Champion - Advanced Divider Line',
-// 	'desc': 'A more customizable divider.',
-// 	'options': [
-// 		{
-// 			'name': 'Color',
-// 			'type': 'color',
-// 			'id': 'color',
-// 			'desc': 'The divider&apos;s color',
-// 			'default': ''
-// 		},
-// 		{
-// 			'name': 'Top Padding',
-// 			'type': 'text',
-// 			'id': 'paddingtop',
-// 			'desc': 'in px',
-// 			'default': '20'
-// 		},
-// 		{
-// 			'name': 'Bottom Padding',
-// 			'type': 'text',
-// 			'id': 'paddingbottom',
-// 			'desc': 'in px',
-// 			'default': 'false'
-// 		},
-// 		{
-// 			'name': 'Thickness',
-// 			'type': 'text',
-// 			'id': 'thickness',
-// 			'desc': 'in px',
-// 			'default': 'false'
-// 		},
-// 		{
-// 			'name': 'Width',
-// 			'type': 'text',
-// 			'id': 'width',
-// 			'desc': 'add units, e.g. px or %',
-// 			'default': 'false'
-// 		},
-// 		{
-// 			'name': 'Go to top link',
-// 			'type': 'checkbox',
-// 			'id': 'top',
-// 			'checked': 'true',
-// 			'unchecked': 'false',
-// 			'default': 'false'
-// 		}
-// 	]
-// });
-//
-// window.pbsAddInspector('divider_arrow', {
-// 	'label': 'Champion - Divider Arrow',
-// 	'desc': 'A customizable divider with arrows.',
-// 	'options': [
-// 		{
-// 			'name': 'Color',
-// 			'type': 'color',
-// 			'id': 'color',
-// 			'desc': 'The divider&apos;s color',
-// 			'group': 'Colors',
-// 			'default': ''
-// 		},
-// 		{
-// 			'name': 'Background Color',
-// 			'type': 'color',
-// 			'id': 'bgcolor',
-// 			'desc': 'The divider&apos;s background color',
-// 			'group': 'Colors',
-// 			'default': ''
-// 		},
-// 		{
-// 			'name': 'Arrow Width Left',
-// 			'type': 'text',
-// 			'id': 'widthleft',
-// 			'desc': 'in px',
-// 			'group': 'Arrow',
-// 			'default': ''
-// 		},
-// 		{
-// 			'name': 'Arrow Width Right',
-// 			'type': 'text',
-// 			'id': 'widthright',
-// 			'desc': 'in px',
-// 			'group': 'Arrow',
-// 			'default': ''
-// 		},
-// 		{
-// 			'name': 'Arrow Height',
-// 			'type': 'text',
-// 			'id': 'height',
-// 			'desc': 'in px',
-// 			'group': 'Arrow',
-// 			'default': '30'
-// 		},
-// 		{
-// 			'name': 'Arrow Horizontal Position',
-// 			'type': 'text',
-// 			'id': 'horizontal',
-// 			'desc': 'add units, e.g. px or %',
-// 			'group': 'Arrow',
-// 			'default': ''
-// 		},
-// 		{
-// 			'name': 'Arrow Offset',
-// 			'type': 'text',
-// 			'id': 'offset',
-// 			'desc': 'in px',
-// 			'group': 'Arrow',
-// 			'default': ''
-// 		},
-// 		{
-// 			'name': 'Arrow Type',
-// 			'type': 'select',
-// 			'id': 'arrow',
-// 			'options': {
-// 				'down': 'Down Arrow',
-// 				'up': 'Up Arrow'
-// 			},
-// 			'desc': 'The direction of the arrow',
-// 			'group': 'Arrow',
-// 			'default': 'down'
-// 		},
-// 		{
-// 			'name': 'Divider Line Thickness',
-// 			'type': 'text',
-// 			'id': 'thickness',
-// 			'desc': 'in px',
-// 			'group': 'Line',
-// 			'default': ''
-// 		},
-// 		{
-// 			'name': 'Divider Line Color',
-// 			'type': 'color',
-// 			'id': 'linecolor',
-// 			'desc': '',
-// 			'group': 'Line',
-// 			'default': '',
-// 			'depends': [
-// 				{
-// 					'id': 'thickness',
-// 					'value': '__not_empty'
-// 				}
-// 			]
-// 		},
-// 		{
-// 			'name': 'Optional Class',
-// 			'type': 'text',
-// 			'id': 'class',
-// 			'desc': '',
-// 			'group': 'Advanced',
-// 			'default': ''
-// 		},
-// 		{
-// 			'name': 'Visible Screen Size',
-// 			'type': 'select',
-// 			'id': 'visible',
-// 			'options': {
-// 				'all': 'All',
-// 				'320': '0-320',
-// 				'480': '0-480',
-// 				'568': '0-568',
-// 				'768': '0-768',
-// 				'980': '0-980',
-// 				'-480': '480-all',
-// 				'-568': '568-all',
-// 				'-768': '768-all',
-// 				'-980': '980-all'
-// 			},
-// 			'desc': '',
-// 			'group': 'Advanced',
-// 			'default': 'all'
-// 		}
-// 	]
-// });
 
 /* globals pbsParams */
 
@@ -16544,7 +19257,11 @@ window.pbsAddInspector('pbs_sidebar', {
 
 
 
+
 /* globals pbsParams, Color, ContentEdit */
+
+
+
 
 
 
@@ -16552,247 +19269,370 @@ window.pbsAddInspector('pbs_sidebar', {
 
 var options = [];
 
+
 options.push(
+
 
 	{
 
+
 		'name': pbsParams.labels.row_width,
+
 
 		'desc': pbsParams.labels.desc_row_width,
 
+
 		'type': 'select',
+
 
 		'group': pbsParams.labels.general,
 
+
 		'options': {
+
 
 			'': pbsParams.labels.normal_width,
 
+
 			'full-width-retain-content': pbsParams.labels.full_width_retained_content_width,
+
 
 			'full-width': pbsParams.labels.full_width
 
+
 		},
 
+
 		'getRootRow': function( element ) {
+
 
 			var rootRow = element;
 
 
 
+
+
 			// Get the root row element, we can only set the root row as full width
+
 
 			var currElem = element._domElement;
 
+
 			while ( currElem && currElem._ceElement ) {
+
 
 				if ( currElem.classList.contains( 'pbs-row' ) ) {
 
+
 					rootRow = currElem._ceElement;
+
 
 				}
 
+
 				currElem = currElem.parentNode;
 
+
 			}
+
+
 
 
 
 			return rootRow;
 
+
 		},
+
 
 		'value': function ( element ) {
 
+
 			return element._domElement.getAttribute( 'data-width' ) || '';
+
 
 			// return wp.hooks.applyFilters( 'inspector.row.change_width.can_apply', true, element );
 
+
 		},
+
 
 		'render': function( element, view ) {
 
+
 			// Get the root row element, we can only set the root row as full width.
 
+
 			var rootRow = view.optionSettings.getRootRow( element );
+
+
 
 
 
 			var val = rootRow._domElement.getAttribute('data-width');
 
+
 			if ( ! val ) {
+
 
 				val = '';
 
+
 			}
+
+
 
 
 
 			view.el.classList.remove('full');
 
+
 			view.el.classList.remove('full-retain');
+
 
 			if ( val === 'full-width' ) {
 
+
 				view.el.classList.add('full');
+
 
 			} else if ( val === 'full-width-retain-content' ) {
 
+
 				view.el.classList.add('full-retain');
 
+
 			}
+
+
 
 
 
 			// Set the model width so other views can detect the value.
 
+
 			view.model.set( view.optionSettings.id, val );
+
 
 		},
 
+
 		'change': function( element, value, view ) {
 
+
 			// Get the root row element, we can only set the root row as full width.
+
 
 			var rootRow = view.optionSettings.getRootRow( element );
 
 
 
+
+
 			// var val = rootRow._domElement.getAttribute('data-width');
+
 
 			// if ( ! val ) {
 
+
 				// val = '';
 
+
 			// }
+
+
 
 
 
 			rootRow.style('margin-left', '');
 
+
 			rootRow.style('margin-right', '');
 
+
 			rootRow.style('padding-left', '');
+
 
 			rootRow.style('padding-right', '');
 
 
 
+
+
 			view.el.classList.remove('full');
+
 
 			view.el.classList.remove('full-retain');
 
+
 			// if ( window.PBSEditor.isCtrlDown && window.PBSEditor.isShiftDown ) {
+
 
 				// val = '';
 
+
 			// } else if ( window.PBSEditor.isCtrlDown ) {
+
 
 			// 	if ( val === 'full-width' ) {
 
+
 			// 		val = 'full-width-retain-content';
+
 
 			// 		view.el.classList.add('full-retain');
 
+
 			// 	} else if ( val === 'full-width-retain-content' ) {
+
 
 			// 		val = '';
 
+
 			// 	} else {
+
 
 			// 		val = 'full-width';
 
+
 			// 		view.el.classList.add('full');
+
 
 			// 	}
 
+
 			// } else {
+
 
 				// if ( value === 'full-width' ) {
 
+
 					// value = '';
+
 
 				if ( value === 'full-width' ) {
 
+
 					// value = 'full-width';
+
 
 					view.el.classList.add( 'full' );
 
+
 				} else if ( value === 'full-width-retain-content' ) {
+
 
 					// value = 'full-width-retain-content';
 
+
 					view.el.classList.add( 'full-retain' );
 
+
 				}
+
 
 			// }
 
 
 
+
+
 			rootRow.attr( 'data-width', value );
 
+
 			window._pbsFixRowWidth( rootRow._domElement );
+
 
 			rootRow.taint();
 
 
 
+
+
 			view.model.set( view.optionSettings.id, value );
+
 
 		}
 
+
 	},
 
+
 	{
+
 
 		'name': pbsParams.labels.full_height,
 
+
 		'type': 'checkbox',
+
 
 		'group': pbsParams.labels.general,
 
+
 		'value': function( element ) {
+
 
 			return element._domElement.style['min-height'] === '100vh';
 
+
 		},
 
+
 		'change': function( element, value ) {
+
 
 			element.style( 'min-height', value ? '100vh' : '' );
 
+
 		}
+
 
 	},
 
+
 	{
+
 
 		'name': pbsParams.labels.background_color,
 
+
 		'type': 'color',
+
 
 		'group': pbsParams.labels.background,
 
+
 		'initialize': function( element, view ) {
+
 
 			view.listenTo( view.model, 'change:background-color', view.render );
 
+
 		},
+
 
 		'value': function( element ) {
 
+
 			return element._domElement.style.backgroundColor || '';
+
 
 		},
 
+
 		'change': function( element, value ) {
+
+
 
 
 
 			var bgImage = element._domElement.style['background-image'];
 
+
 			var url = bgImage.match( /url\([^\)]+\)/i ) || '';
+
+
 
 
 
@@ -16800,277 +19640,690 @@ options.push(
 
 
 
+
+
 			// If there's a gradient, change that also.
+
 
 			if ( bgImage.indexOf( 'gradient' ) !== -1 ) {
 
+
 				element.style( 'background-image', 'linear-gradient(' + value + ', ' + value + '), ' + url );
+
 
 			}
 
+
 		}
+
 
 	},
 
+
 	{
+
 
 		'name': pbsParams.labels.background_image,
 
+
 		'type': 'image',
+
 
 		'group': pbsParams.labels.background,
 
+
 		'value': function( element ) {
+
 
 			if ( element._domElement.style.backgroundImage ) {
 
+
 				var matches = element._domElement.style.backgroundImage.match( /url\([^,$]+/ );
+
 
 				if ( matches ) {
 
+
 					return matches[0];
+
 
 				}
 
+
 				return element._domElement.style.backgroundImage;
 
+
 			}
+
 
 			return '';
 
+
 		},
+
 
 		'change': function( element, attachmentIDs, attachmentURLs ) {
 
+
 			var backgrounds = '';
+
 
 			for ( var i = 0; i < attachmentURLs.length; i++ ) {
 
+
 				backgrounds += backgrounds ? ',' : '';
+
 
 				backgrounds += 'url(' + attachmentURLs[ i ] + ')';
 
+
 			}
+
 
 			var background = element.style( 'background-image' );
 
+
 			if ( background.match( /url\(/ ) ) {
+
 
 				background = background.replace( /url\([^\)]+\)/, backgrounds );
 
+
 				element.style( 'background-image', background );
+
 
 			} else {
 
+
 				element.style( 'background-image', backgrounds );
+
 
 			}
 
+
 		},
+
 
 		'remove': function( element, attachmentIDs, view ) {
 
+
 			element.style( 'background-image', '' );
+
 
 			view.model.set( 'background-image', '' );
 
+
 		}
+
 
 	}
 
+
 );
+
+
 
 
 
 options.push(
 
+
 	{
 
-		'name': pbsParams.labels.border_style,
 
-		'type': 'select',
+		'name': pbsParams.labels.toggle_background_image_tint,
 
-		'group': pbsParams.labels.borders,
+
+		'desc': pbsParams.labels.desc_background_tint,
+
+
+		'type': ! pbsParams.is_lite ? 'checkbox' : 'checkboxDummy',
+
+
+		'group': pbsParams.labels.background
+
+
+	},
+
+
+	{
+
+
+		'name': pbsParams.labels.background_size,
+
+
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+
+
+		'desc': pbsParams.labels.desc_background_size,
+
+
+		'group': pbsParams.labels.background
+
+
+	},
+
+
+	{
+
 
 		'options': {
 
-			'': pbsParams.labels.none,
 
-			'solid': pbsParams.labels.solid,
+			'': pbsParams.labels.normal_background_image,
 
-			'dashed': pbsParams.labels.dashed,
 
-			'dotted': pbsParams.labels.dotted
+			'fixed': pbsParams.labels.fixed_background_image,
+
+
+			'parallax': pbsParams.labels.parallax_image,
+
+
+			'kenburns': 'Ken Burns Slider',
+
+
+			'video': pbsParams.labels.video_background_youtube_vimeo,
+
+
+			'video-html5': pbsParams.labels.video_background_uploaded
+
 
 		},
 
-		'value': function ( element ) {
 
-			return element._domElement.style['border-style'];
+		'name': pbsParams.labels.background_image_type,
 
-		},
 
-		'change': function( element, value, view ) {
+		'desc': pbsParams.labels.desc_background_image_type,
 
-			element.style( 'border-style', value );
 
-			if ( value ) {
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy',
 
-				if ( element._domElement.style['border-width'] === '' || element._domElement.style['border-width'] === 'transparent' ) {
 
-					element.style( 'border-width', '1px' );
+		'group': pbsParams.labels.background
 
-					view.model.set( 'border-width', '1' );
-
-				}
-
-				if ( element._domElement.style['border-color'] === '' || element._domElement.style['border-color'] === '0px' ) {
-
-					element.style( 'border-color', '#000000' );
-
-					view.model.set( 'border-color', '#000000' );
-
-				}
-
-			} else {
-
-				element.style( 'border-width', '' );
-
-				element.style( 'border-color', '' );
-
-				view.model.set( 'border-width', '' );
-
-				view.model.set( 'border-color', '' );
-
-			}
-
-		}
 
 	},
 
+
 	{
 
-		'name': pbsParams.labels.border_color,
 
-		'type': 'color',
+		'name': pbsParams.labels.parallax,
 
-		'group': pbsParams.labels.borders,
 
-		'initialize': function( element, view ) {
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
 
-			view.listenTo( view.model, 'change:border-color', view.render );
 
-		},
+		'desc': pbsParams.labels.desc_parallax,
 
-		'value': function( element ) {
 
-			return element._domElement.style.borderColor || '';
+		'group': pbsParams.labels.background
 
-		},
-
-		'change': function( element, value ) {
-
-			element.style( 'border-color', value );
-
-		}
 
 	},
 
+
 	{
 
-		'name': pbsParams.labels.border_thickness,
 
-		'type': 'number',
+		'placeholder': 'http://',
 
-		'group': pbsParams.labels.borders,
 
-		'step': '1',
+		'name': pbsParams.labels.video_background,
 
-		'min': '0',
 
-		'max': '20',
+		'type': ! pbsParams.is_lite ? 'text' : 'textDummy',
 
-		'initialize': function( element, view ) {
 
-			view.listenTo( view.model, 'change:border-width', view.render );
+		'desc': pbsParams.labels.desc_video_background,
 
-		},
 
-		'value': function( element ) {
+		'group': pbsParams.labels.background
 
-			var size = parseInt( element._domElement.style['border-width'], 10 );
-
-			if ( isNaN( size ) ) {
-
-				return 0;
-
-			}
-
-			return size;
-
-		},
-
-		'change': function( element, value ) {
-
-			element.style( 'border-width', value + 'px' );
-
-		}
 
 	},
 
+
 	{
 
-		'name': pbsParams.labels.border_radius,
 
-		'type': 'number',
+		'name': pbsParams.labels.webm_video,
 
-		'group': pbsParams.labels.borders,
 
-		'step': '1',
+		'type': ! pbsParams.is_lite ? 'file' : 'fileDummy',
 
-		'min': '0',
 
-		'max': '1000',
+		'desc': pbsParams.labels.desc_webm_video,
 
-		'initialize': function( element ) {
 
-			this.max = parseInt( parseInt( element._domElement.getBoundingClientRect().height, 10 ) / 2 + 1, 10 );
+		'group': pbsParams.labels.background
 
-		},
 
-		'value': function( element ) {
+	},
 
-			var size = parseInt( element._domElement.style['border-radius'], 10 );
 
-			if ( isNaN( size ) ) {
+	{
 
-				return 0;
 
-			}
+		'name': pbsParams.labels.mp4_video,
 
-			return size;
 
-		},
+		'type': ! pbsParams.is_lite ? 'file' : 'fileDummy',
 
-		'change': function( element, value ) {
 
-			element.style( 'border-radius', value + 'px' );
+		'desc': pbsParams.labels.desc_mp4_video,
 
-		}
+
+		'group': pbsParams.labels.background
+
+
+	},
+
+
+	{
+
+
+		'name': pbsParams.labels.kenburns_images,
+
+
+		'type': ! pbsParams.is_lite ? 'images' : 'imageDummy',
+
+
+		'desc': pbsParams.labels.desc_kenburns_images,
+
+
+		'group': pbsParams.labels.background,
+
+
+		'urls': true
+
+
+	},
+
+
+	{
+
+
+		'name': pbsParams.labels.text_color,
+
+
+		'desc': pbsParams.labels.note_overridden_by_elements,
+
+
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+
+
+		'group': pbsParams.labels.general
+
+
+	},
+
+
+	{
+
+
+		'name': pbsParams.labels.column_gap,
+
+
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+
+
+		'group': pbsParams.labels.general
+
 
 	}
+
 
 );
 
 
 
+
+
+options.push(
+
+
+	{
+
+
+		'name': pbsParams.labels.border_style,
+
+
+		'type': 'select',
+
+
+		'group': pbsParams.labels.borders,
+
+
+		'options': {
+
+
+			'': pbsParams.labels.none,
+
+
+			'solid': pbsParams.labels.solid,
+
+
+			'dashed': pbsParams.labels.dashed,
+
+
+			'dotted': pbsParams.labels.dotted
+
+
+		},
+
+
+		'value': function ( element ) {
+
+
+			return element._domElement.style['border-style'];
+
+
+		},
+
+
+		'change': function( element, value, view ) {
+
+
+			element.style( 'border-style', value );
+
+
+			if ( value ) {
+
+
+				if ( element._domElement.style['border-width'] === '' || element._domElement.style['border-width'] === 'transparent' ) {
+
+
+					element.style( 'border-width', '1px' );
+
+
+					view.model.set( 'border-width', '1' );
+
+
+				}
+
+
+				if ( element._domElement.style['border-color'] === '' || element._domElement.style['border-color'] === '0px' ) {
+
+
+					element.style( 'border-color', '#000000' );
+
+
+					view.model.set( 'border-color', '#000000' );
+
+
+				}
+
+
+			} else {
+
+
+				element.style( 'border-width', '' );
+
+
+				element.style( 'border-color', '' );
+
+
+				view.model.set( 'border-width', '' );
+
+
+				view.model.set( 'border-color', '' );
+
+
+			}
+
+
+		}
+
+
+	},
+
+
+	{
+
+
+		'name': pbsParams.labels.border_color,
+
+
+		'type': 'color',
+
+
+		'group': pbsParams.labels.borders,
+
+
+		'initialize': function( element, view ) {
+
+
+			view.listenTo( view.model, 'change:border-color', view.render );
+
+
+		},
+
+
+		'value': function( element ) {
+
+
+			return element._domElement.style.borderColor || '';
+
+
+		},
+
+
+		'change': function( element, value ) {
+
+
+			element.style( 'border-color', value );
+
+
+		}
+
+
+	},
+
+
+	{
+
+
+		'name': pbsParams.labels.border_thickness,
+
+
+		'type': 'number',
+
+
+		'group': pbsParams.labels.borders,
+
+
+		'step': '1',
+
+
+		'min': '0',
+
+
+		'max': '20',
+
+
+		'initialize': function( element, view ) {
+
+
+			view.listenTo( view.model, 'change:border-width', view.render );
+
+
+		},
+
+
+		'value': function( element ) {
+
+
+			var size = parseInt( element._domElement.style['border-width'], 10 );
+
+
+			if ( isNaN( size ) ) {
+
+
+				return 0;
+
+
+			}
+
+
+			return size;
+
+
+		},
+
+
+		'change': function( element, value ) {
+
+
+			element.style( 'border-width', value + 'px' );
+
+
+		}
+
+
+	},
+
+
+	{
+
+
+		'name': pbsParams.labels.border_radius,
+
+
+		'type': 'number',
+
+
+		'group': pbsParams.labels.borders,
+
+
+		'step': '1',
+
+
+		'min': '0',
+
+
+		'max': '1000',
+
+
+		'initialize': function( element ) {
+
+
+			this.max = parseInt( parseInt( element._domElement.getBoundingClientRect().height, 10 ) / 2 + 1, 10 );
+
+
+		},
+
+
+		'value': function( element ) {
+
+
+			var size = parseInt( element._domElement.style['border-radius'], 10 );
+
+
+			if ( isNaN( size ) ) {
+
+
+				return 0;
+
+
+			}
+
+
+			return size;
+
+
+		},
+
+
+		'change': function( element, value ) {
+
+
+			element.style( 'border-radius', value + 'px' );
+
+
+		}
+
+
+	}
+
+
+);
+
+
+
+
+
+options.push(
+
+
+	{
+
+
+		'name': pbsParams.labels.shadows,
+
+
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy',
+
+
+		'group': pbsParams.labels.shadows
+
+
+	},
+
+
+	{
+
+
+		'name': pbsParams.labels.shadow_strength,
+
+
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+
+
+		'group': pbsParams.labels.shadows
+
+
+	},
+
+
+	{
+
+
+		'name': pbsParams.labels.overflow_hidden,
+
+
+		'type': ! pbsParams.is_lite ? 'checkbox' : 'checkboxDummy',
+
+
+		'group': pbsParams.labels.advanced,
+
+
+		'desc': pbsParams.labels.desc_overflow_hidden
+
+
+	}
+
+
+);
+
+
+
+
+
 window.pbsAddInspector( 'DivRow', {
+
 
 	'label': pbsParams.labels.row,
 
+
 	'options': options
 
+
 } );
+
+
+
 
 
 
@@ -17078,15 +20331,22 @@ window.pbsAddInspector( 'DivRow', {
 
 /**
 
+
  * Remove other border styles on blur if the border style was removed.
+
 
  * We need to do this or else the border will come back when focusing again.
 
+
  */
+
 
 window.addEventListener( 'DOMContentLoaded', function() {
 
+
 	ContentEdit.Root.get().bind('blur', function (element) {
+
+
 
 
 
@@ -17094,45 +20354,67 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 
 
+
+
 		while ( element && element.constructor.name !== 'Region' ) {
+
 
 			if ( element.constructor.name === 'DivRow' ) {
 
+
 				row = element;
+
 
 			}
 
+
 			element = element.parent();
 
+
 		}
+
+
 
 
 
 		if ( row ) {
 
+
 			if ( row.style( 'border-style' ) === 'none' ) {
+
 
 				if ( row.style( 'border-width' ) !== '0px' ) {
 
+
 					row.style( 'border-width', '' );
 
+
 				}
+
 
 				if ( row.style( 'border-color' ) !== '' ) {
 
+
 					row.style( 'border-color', '' );
+
 
 				}
 
+
 			}
+
 
 		}
 
 
 
+
+
 	});
 
+
 } );
+
 
 
 /* globals pbsParams, Color, ContentEdit */
@@ -17196,7 +20478,44 @@ options.push(
 		}
 	}
 );
+
 options.push(
+	{
+		'name': pbsParams.labels.toggle_background_image_tint,
+		'desc': pbsParams.labels.desc_background_tint,
+		'type': ! pbsParams.is_lite ? 'checkbox' : 'checkboxDummy',
+		'group': pbsParams.labels.background
+	},
+	{
+		'name': pbsParams.labels.background_size,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'desc': pbsParams.labels.desc_background_size,
+		'group': pbsParams.labels.background
+	},
+	{
+		'name': pbsParams.labels.content_orientation,
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy',
+		'desc': pbsParams.labels.desc_content_orientation,
+		'group': pbsParams.labels.alignment
+	},
+	{
+		'name': pbsParams.labels.vertical_column_alignment,
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy',
+		'desc': pbsParams.labels.desc_vertical_column_alignment,
+		'group': pbsParams.labels.alignment
+	},
+	{
+		'name': pbsParams.labels.vertical_content_alignment,
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy',
+		'desc': pbsParams.labels.desc_vertical_content_alignment,
+		'group': pbsParams.labels.alignment
+	},
+	{
+		'name': pbsParams.labels.horizontal_content_alignment,
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy',
+		'desc': pbsParams.labels.desc_horizontal_content_alignment,
+		'group': pbsParams.labels.alignment
+	},
 	{
 		'name': pbsParams.labels.border_style,
 		'type': 'select',
@@ -17284,6 +20603,25 @@ options.push(
 		'change': function( element, value ) {
 			element.style( 'border-radius', value + 'px' );
 		}
+	}
+);
+
+options.push(
+	{
+		'name': pbsParams.labels.shadows,
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy',
+		'group': pbsParams.labels.shadows
+	},
+	{
+		'name': pbsParams.labels.shadow_strength,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'group': pbsParams.labels.shadows
+	},
+	{
+		'name': pbsParams.labels.overflow_hidden,
+		'type': ! pbsParams.is_lite ? 'checkbox' : 'checkboxDummy',
+		'group': pbsParams.labels.advanced,
+		'desc': pbsParams.labels.desc_overflow_hidden
 	}
 );
 
@@ -17324,6 +20662,46 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	});
 } );
 
+
+/* globals pbsParams, PBSEditor, ContentTools */
+
+window.pbsAddInspector( 'List', {
+	'label': pbsParams.labels.list,
+	'options': [
+		{
+			'name': pbsParams.labels.font_size,
+			'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+			'group': pbsParams.labels.general
+		},
+		{
+			'name': pbsParams.labels.line_height,
+			'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+			'group': pbsParams.labels.general
+		},
+		{
+			'name': pbsParams.labels.bullet_icon,
+			'button': pbsParams.labels.pick_an_icon,
+			'type': ! pbsParams.is_lite ? 'button2' : 'button2Dummy',
+			'group': pbsParams.labels.bullet
+		},
+		{
+			'name': pbsParams.labels.reset_bullet_icon,
+			'button': pbsParams.labels.remove_icon,
+			'type': ! pbsParams.is_lite ? 'button2' : 'button2Dummy',
+			'group': pbsParams.labels.bullet
+		},
+		{
+			'name': pbsParams.labels.border_color,
+			'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+			'group': pbsParams.labels.bullet
+		},
+		{
+			'name': pbsParams.labels.icon_size,
+			'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+			'group': pbsParams.labels.bullet
+		}
+	]
+} );
 
 /* globals pbsParams, ContentTools */
 
@@ -17579,9 +20957,24 @@ options.push(
 	}
 );
 
+options.push(
+	{
+		'name': pbsParams.labels.custom_map_marker,
+		'type': ! pbsParams.is_lite ? 'image' : 'imageDummy'
+	},
+	{
+		'name': pbsParams.labels.tint_map,
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy'
+	},
+	{
+		'name': pbsParams.labels.custom_map_styles,
+		'type': ! pbsParams.is_lite ? 'textarea' : 'textareaDummy',
+		'desc': pbsParams.labels.custom_map_styles_desc
+	}
+);
+
 window.pbsAddInspector( 'Map', {
  	'label': pbsParams.labels.map,
-	'footer': pbsParams.is_lite ? pbsParams.labels.map_lite_footer : '',
  	'options': options
 } );
 
@@ -17589,12 +20982,96 @@ window.pbsAddInspector( 'Map', {
 
 var options = [];
 
+options.push(
+	{
+		'name': pbsParams.labels.vertical_tabs,
+		'type': ! pbsParams.is_lite ? 'checkbox' : 'checkboxDummy'
+	},
+	{
+		'name': pbsParams.labels.tab_alignment,
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy'
+	},
+	{
+		'name': pbsParams.labels.tab_style,
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy',
+		'group': pbsParams.labels.tab_styles
+	},
+	{
+		'name': pbsParams.labels.border_thickness,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'group': pbsParams.labels.tab_styles
+	},
+	{
+		'name': pbsParams.labels.border_color,
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+		'group': pbsParams.labels.tab_styles
+	},
+	// This is for classic & simple classic
+	{
+		'name': pbsParams.labels.border_color,
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+		'group': pbsParams.labels.tab_styles
+	},
+	{
+		'name': pbsParams.labels.active_tab_background_color,
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+		'group': pbsParams.labels.tab_styles
+	},
+	{
+		'name': pbsParams.labels.active_tab_text_color,
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+		'group': pbsParams.labels.tab_styles
+	},
+	{
+		'name': pbsParams.labels.inactive_tab_text_color,
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+		'group': pbsParams.labels.tab_styles
+	},
+	{
+		'name': pbsParams.labels.tab_content_background_color,
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+		'group': pbsParams.labels.tab_styles
+	},
+	{
+		'name': pbsParams.labels.tab_content_text_color,
+		'type': ! pbsParams.is_lite ? 'color' : 'colorDummy',
+		'group': pbsParams.labels.tab_styles
+	}
+);
+
 window.pbsAddInspector( 'Tabs', {
 	'label': pbsParams.labels.tabs,
-	'footer': pbsParams.is_lite ? pbsParams.labels.tabs_lite_footer : '',
 	'options': options
 } );
 
+/* globals pbsParams */
+
+var options = [];
+options.push(
+	{
+		'name': pbsParams.labels.count_up_numbers,
+		'desc': pbsParams.labels.desc_count_up_number,
+		'type': ! pbsParams.is_lite ? 'checkbox' : 'checkboxDummy',
+		'group': pbsParams.labels.count_up
+	},
+	{
+		'name': pbsParams.labels.count_up_time,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'desc': pbsParams.labels.desc_count_up_time,
+		'group': pbsParams.labels.count_up
+	},
+	{
+		'name': pbsParams.labels.count_up_delay,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'desc': pbsParams.labels.desc_count_up_delay,
+		'group': pbsParams.labels.count_up
+	}
+);
+
+window.pbsAddInspector( 'Text', {
+	'label': pbsParams.labels.text,
+	'options': options
+} );
 
 /* globals ContentEdit, pbsParams */
 
@@ -17603,6 +21080,51 @@ window.pbsAddInspector( 'Tabs', {
  * These are all the common options.
  */
 var options = [];
+
+options.push(
+	{
+		'name': pbsParams.labels.animation,
+		'type': ! pbsParams.is_lite ? 'select' : 'selectDummy',
+		'group': pbsParams.labels.animation,
+		'desc': pbsParams.labels.desc_animation
+	},
+	{
+		'name': pbsParams.labels.animation_speed,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'group': pbsParams.labels.animation,
+		'desc': pbsParams.labels.in_milliseconds
+	},
+	{
+		'name': pbsParams.labels.animation_start_delay,
+		'type': ! pbsParams.is_lite ? 'number' : 'numberDummy',
+		'group': pbsParams.labels.animation,
+		'desc': pbsParams.labels.desc_animation_start_delay
+	},
+	{
+		'name': pbsParams.labels.elastic_animation,
+		'type': ! pbsParams.is_lite ? 'checkbox' : 'checkboxDummy',
+		'group': pbsParams.labels.animation,
+		'desc': pbsParams.labels.desc_elastic_animation
+	},
+	{
+		'name': pbsParams.labels.play_animation_once,
+		'type': ! pbsParams.is_lite ? 'checkbox' : 'checkboxDummy',
+		'group': pbsParams.labels.animation,
+		'desc': pbsParams.labels.desc_play_animation_once
+	},
+	{
+		'name': pbsParams.labels.custom_class,
+		'type': ! pbsParams.is_lite ? 'text' : 'textDummy',
+		'group': pbsParams.labels.advanced,
+		'desc': pbsParams.labels.desc_custom_class
+	},
+	{
+		'name': pbsParams.labels.custom_id,
+		'type': ! pbsParams.is_lite ? 'text' : 'textDummy',
+		'group': pbsParams.labels.advanced,
+		'desc': pbsParams.labels.desc_custom_id
+	}
+);
 
 
 /**
@@ -17740,7 +21262,7 @@ ContentTools.Tools.Paragraph.isApplied = function(element) {
  * Allow lists to be placed inside divs.
  ***************************************************************************/
 ContentTools.Tools.UnorderedList.canApply = function(element, selection) {
-	var ret = ContentTools.Tools.Heading1.canApply( element, selection );
+	var ret = ContentTools.Tools.Bold.canApply( element, selection );
    	if ( element.parent() ) {
 		if ( element.parent().tagName ) {
 	   		if ( element.parent().tagName() === 'li' ) {
@@ -17756,7 +21278,7 @@ ContentTools.Tools.OrderedList.canApply = ContentTools.Tools.UnorderedList.canAp
 /***************************************************************************
  * Applied state for the list tools.
  ***************************************************************************/
-ContentTools.Tools.UnorderedList.isApplied = function( element ) {
+ContentTools.Tools.UnorderedList.isApplied = function( element, selection ) {
 	if ( element.parent() ) {
 		if ( element.parent().parent() ) {
 			if ( element.parent().parent().tagName ) {
@@ -18735,127 +22257,167 @@ ContentTools.Tools.Blockquote = (function(_super) {
 
 
 
-ContentTools.Tools.ClearFormatting = (function(_super) {
+ContentTools.Tools.ClearFormatting = ( function( _super ) {
 
-  __extends(ClearFormatting, _super);
-
-
-
-  function ClearFormatting() {
-
-    return ClearFormatting.__super__.constructor.apply(this, arguments);
-
-  }
+	__extends( ClearFormatting, _super );
 
 
 
-  ContentTools.ToolShelf.stow(ClearFormatting, 'clear-formatting');
+	function ClearFormatting() {
+
+		return ClearFormatting.__super__.constructor.apply( this, arguments );
+
+	}
 
 
 
-  ClearFormatting.label = pbsParams.labels.clear_formatting;
+	ContentTools.ToolShelf.stow( ClearFormatting, 'clear-formatting' );
 
 
 
-  ClearFormatting.icon = 'clear-formatting';
+	ClearFormatting.label = pbsParams.labels.clear_formatting;
 
 
 
-  ClearFormatting.tagName = 'span';
+	ClearFormatting.icon = 'clear-formatting';
 
 
 
+	ClearFormatting.tagName = 'span';
 
 
-  /**
 
-   * Disable the button if there's NO styling applied in the content.
+	/**
 
-   */
+	 * Disable the button if there's NO styling applied in the content.
 
-  ClearFormatting.canApply = function(element, selection) {
+	 */
 
-  	if ( ! ContentTools.Tools.Bold.canApply( element, selection ) ) {
+	ClearFormatting.canApply = function( element, selection ) {
+
+		var from = 0, to = 0, _ref;
+
+
+
+		if ( ! ContentTools.Tools.Bold.canApply( element, selection ) ) {
+
+			return false;
+
+		}
+
+
+
+		if ( element.content === void 0 || ! element.content.length() ) {
+
+			return false;
+
+		}
+
+
+
+		if ( selection ) {
+
+			_ref = selection.get(), from = _ref[0], to = _ref[1];
+
+		}
+
+
+
+		// If nothing is selected, adjust the whole element
+
+		if ( from === to ) {
+
+			from = 0;
+
+			to = element.content.length();
+
+		}
+
+
+
+		if ( element.content.hasStyle( from, to ) ) {
+
+			return true;
+
+		}
+
+
+
+		if ( ContentTools.Tools.Align.isApplied( element, selection ) ) {
+
+			return true;
+
+		}
+
+
+
+		if ( 'undefined' !== typeof ContentTools.Tools.LineHeight ) {
+
+			if ( ContentTools.Tools.LineHeight.isApplied( element ) ) {
+
+				return true;
+
+			}
+
+		}
+
+
 
 		return false;
 
-	}
+	};
 
 
 
-	var from = 0, to = 0, _ref;
+	ClearFormatting.apply = function( element, selection, callback ) {
 
-	if (element.content === void 0 || ! element.content.length()) {
+		var from, to, _ref;
 
-		return false;
-
-	}
+		element.storeState();
 
 
 
-	if ( selection ) {
+		if ( selection ) {
 
-		_ref = selection.get(), from = _ref[0], to = _ref[1];
+			_ref = selection.get(), from = _ref[0], to = _ref[1];
 
-	}
-
-
-
-	// If nothing is selected, adjust the whole element
-
-	if ( from === to ) {
-
-		from = 0;
-
-		to = element.content.length();
-
-	}
+		}
 
 
 
-	return element.content.hasStyle(from, to);
+		// If nothing is selected, adjust the whole element
 
-  };
+		if ( from === to ) {
 
+			from = 0;
 
+			to = element.content.length();
 
-  ClearFormatting.apply = function(element, selection, callback) {
-
-	  var from, to, _ref;
-
-	  element.storeState();
+		}
 
 
 
-	  _ref = selection.get(), from = _ref[0], to = _ref[1];
+		element.content = element.content.removeStyles( from, to );
+
+		if ( 'undefined' !== typeof ContentTools.Tools.LineHeight ) {
+
+			ContentTools.Tools.LineHeight.apply( element, selection, function() {}, 'reset' );
+
+		}
+
+		ContentTools.Tools.Align._apply( 'reset' );
 
 
 
-	  // If nothing is selected, adjust the whole element
+		element.updateInnerHTML();
 
-	  if ( from === to ) {
+		element.taint();
 
-		  from = 0;
+		element.restoreState();
 
-		  to = element.content.length();
+		return callback( true );
 
-	  }
-
-
-
-  	  element.content = element.content.removeStyles( from, to );
-
-
-
-  	  element.updateInnerHTML();
-
-  	  element.taint();
-
-  	  element.restoreState();
-
-  	  return callback(true);
-
-  };
+	};
 
 
 
@@ -18863,19 +22425,19 @@ ContentTools.Tools.ClearFormatting = (function(_super) {
 
 
 
-})(ContentTools.Tool);
+} )( ContentTools.Tool );
 
 
 /* globals ContentTools, HTMLString, __extends, pbsParams */
 
-ContentTools.Tools.Code = (function(_super) {
-	__extends(Code, _super);
+ContentTools.Tools.Code = (function( _super ) {
+	__extends( Code, _super );
 
 	function Code() {
-		return Code.__super__.constructor.apply(this, arguments);
+		return Code.__super__.constructor.apply( this, arguments );
 	}
 
-	ContentTools.ToolShelf.stow(Code, 'code');
+	ContentTools.ToolShelf.stow( Code, 'code' );
 
 	Code.label = pbsParams.labels.code;
 
@@ -18884,61 +22446,65 @@ ContentTools.Tools.Code = (function(_super) {
 	Code.tagName = 'code';
 
 	Code.canApply = function( element, selection ) {
+		var _ref, from, to;
 		if ( ! selection ) {
 			return false;
 		}
-		var _ref = selection.get(), from = _ref[0], to = _ref[1];
+		_ref = selection.get();
+		from = _ref[0];
+		to = _ref[1];
 		return from !== to;
 	};
 
 	// This is the original apply function of Bold that ONLY uses tags.
-	Code.apply = function(element, selection, callback) {
+	Code.apply = function( element, selection, callback ) {
 		var from, to, _ref;
 		element.storeState();
 		_ref = selection.get(), from = _ref[0], to = _ref[1];
-		if (this.isApplied(element, selection)) {
-			element.content = element.content.unformat(from, to, new HTMLString.Tag(this.tagName));
+		if ( this.isApplied( element, selection ) ) {
+			element.content = element.content.unformat( from, to, new HTMLString.Tag( this.tagName ) );
 		} else {
-			element.content = element.content.format(from, to, new HTMLString.Tag(this.tagName));
+			element.content = element.content.format( from, to, new HTMLString.Tag( this.tagName ) );
 		}
 		element.updateInnerHTML();
 		element.taint();
 		element.restoreState();
-		return callback(true);
+		return callback( true );
 	};
 
 	Code.isApplied = function( element, selection ) {
-	 	if ( selection ) {
+		var from, to, _ref;
 
-	 		// From the original Bold.isApplied
-	 		var from, to, _ref;
-	 		if (element.content === void 0 || !element.content.length()) {
-	 			return false;
-	 		}
-	 		_ref = selection.get(), from = _ref[0], to = _ref[1];
-	 		if (from === to) {
-	 			to += 1;
-	 		}
-	 		return element.content.slice(from, to).hasTags(this.tagName, true);
-	 	}
+		if ( selection ) {
+
+			// From the original Bold.isApplied
+			if ( element.content === void 0 || ! element.content.length() ) {
+				return false;
+			}
+			_ref = selection.get(), from = _ref[0], to = _ref[1];
+			if ( from === to ) {
+				to += 1;
+			}
+			return element.content.slice( from, to ).hasTags( this.tagName, true );
+		}
 
 		return false;
 	};
 
   return Code;
 
-})(ContentTools.Tools.Bold);
+})( ContentTools.Tools.Bold );
 
 /* globals ContentTools, ContentEdit, __extends, pbsParams */
 
-ContentTools.Tools.Color = (function(_super) {
-	__extends(Color, _super);
+ContentTools.Tools.Color = ( function( _super ) {
+	__extends( Color, _super );
 
 	function Color() {
-		return Color.__super__.constructor.apply(this, arguments);
+		return Color.__super__.constructor.apply( this, arguments );
 	}
 
-	ContentTools.ToolShelf.stow(Color, 'color');
+	ContentTools.ToolShelf.stow( Color, 'color' );
 
 	Color.label = pbsParams.labels.color;
 
@@ -18946,44 +22512,59 @@ ContentTools.Tools.Color = (function(_super) {
 
 	Color.tagName = 'span';
 
-	Color.canApply = function(element, selection) {
-		// Don't do anything when there's no text
-		if ( ! element.content ) {
-			return false;
-		}
+	Color.canApply = function( element, selection ) {
 
-		var from, to;
-		var apply = selection && !selection.isCollapsed();
+		var from, to, _ref, selectedContent, matches, s;
+		var apply = selection && ! selection.isCollapsed();
 		var color = '';
 
-		// Find the selected text, if nothing's selected, make the whole area selected.
-		if ( apply ) {
-			var _ref = selection.get();
-			from = _ref[0];
-			to = _ref[1];
-			if (from === to) {
-				to += 1;
+		// Allow HRs color to be changed.
+		if ( 'Hr' === element.constructor.name ) {
+			color = getComputedStyle( element._domElement ).background;
+			color = color.match( /linear-gradient\(\s*\w+,\s*\w+,\s*(rgba?\([^\)]+\)|#?\w+)/i )[1];
+
+			// Make sure rgba() opacity don't have more than 2 decimals.
+			while ( color.match( /(rgba\(\s*\d+,\s*\d+,\s*\d+,\s*\d+.\d{2})\d+/i ) ) {
+				color = color.replace( /(rgba\(\s*\d+,\s*\d+,\s*\d+,\s*\d+.\d{2})\d+/i, '$1' );
 			}
 		} else {
-			from = 0;
-			to = element.content.length();
-		}
 
-		// Find the color from the span
-		var selectedContent = element.content.slice(from, to).html();
-		var matches = selectedContent.match( /^<span[^>]style[^>]+['"\s;]color:\s?([#().,\w]+)/ );
-		if ( matches ) {
-			color = matches[1];
-		} else {
-		}
-
-		// Change the tool's color to the color found
-		if ( ! color ) {
-			if ( typeof this._defaultBodyTextColor === 'undefined' ) {
-				var s = getComputedStyle( document.body );
-				this._defaultBodyTextColor = s.color;
+			// Don't do anything when there's no text
+			if ( ! element.content ) {
+				return false;
 			}
-			color = this._defaultBodyTextColor;
+
+			apply = selection && ! selection.isCollapsed();
+
+			// Find the selected text, if nothing's selected, make the whole area selected.
+			if ( apply ) {
+				_ref = selection.get();
+				from = _ref[0];
+				to = _ref[1];
+				if ( from === to ) {
+					to += 1;
+				}
+			} else {
+				from = 0;
+				to = element.content.length();
+			}
+
+			// Find the color from the span
+			selectedContent = element.content.slice( from, to ).html();
+			matches = selectedContent.match( /^<span[^>]style[^>]+['"\s;]color:\s?([#().,\w]+)/ );
+			if ( matches ) {
+				color = matches[1];
+			} else {
+			}
+
+			// Change the tool's color to the color found
+			if ( ! color ) {
+				if ( 'undefined' === typeof this._defaultBodyTextColor ) {
+					s = getComputedStyle( document.body );
+					this._defaultBodyTextColor = s.color;
+				}
+				color = this._defaultBodyTextColor;
+			}
 		}
 
 		if ( this._ceElement._domElement.style.backgroundColor !== color ) {
@@ -18991,29 +22572,33 @@ ContentTools.Tools.Color = (function(_super) {
 		}
 
 		if ( color ) {
-			window.PBSEditor.getToolUI( this.icon )._domElement.setAttribute('data-tooltip', this.label + ': ' + color );
+			window.PBSEditor.getToolUI( this.icon )._domElement.setAttribute( 'data-tooltip', this.label + ': ' + color );
 		} else {
-			window.PBSEditor.getToolUI( this.icon )._domElement.setAttribute('data-tooltip', this.label );
+			window.PBSEditor.getToolUI( this.icon )._domElement.setAttribute( 'data-tooltip', this.label );
 		}
 
-
-		return true;
+		return color;
 	};
 
 	Color.isApplied = function() {
 		return false;
 	};
 
-	Color.apply = function(element, selection, callback) {
-		var from, to, _ref;
-		element.storeState();
+	Color.applyColor = function( color, element, selection ) {
+		var _ref, from, to;
 
-		// When text has been selected before, change that (the text loses focus when manually entering a color, the text is stored here).
-		if ( this.rememberedSelection ) {
-			selection = this.rememberedSelection;
+		if ( ! element.isMounted() ) {
+			return;
 		}
 
-		_ref = selection.get(), from = _ref[0], to = _ref[1];
+		if ( 'Hr' === element.constructor.name ) {
+			element.style( 'background-image', 'linear-gradient(0deg, transparent, ' + color + ', transparent)' );
+			return;
+		}
+
+		if ( selection ) {
+			_ref = selection.get(), from = _ref[0], to = _ref[1];
+		}
 
 		// If nothing is selected, color the whole element
 		if ( from === to ) {
@@ -19021,98 +22606,122 @@ ContentTools.Tools.Color = (function(_super) {
 			to = element.content.length();
 		}
 
-		// Get the iris color
-		var currColor = jQuery(this._ceElement._domElement.querySelector('input')).iris('color');
-		if ( this._ceElement._domElement.querySelector('input').value === '' ) {
-			currColor = '';
-		}
-
-		// Apply the new color
-		element.content = element.content.style( from, to, element._tagName, { 'color': currColor } );
+		element.content = element.content.style( from, to, element._tagName, { 'color': color } );
 
 		element.updateInnerHTML();
 		element.taint();
 		element.restoreState();
+	};
+
+	Color.apply = function( element, selection, callback ) {
+		var currColor;
+
+		// When text has been selected before, change that (the text loses focus when manually entering a color, the text is stored here).
+		if ( this.rememberedSelection ) {
+			selection = this.rememberedSelection;
+		}
+
+		// Get the iris color
+		currColor = jQuery( this._ceElement._domElement.querySelector( 'input' ) ).iris( 'color' );
+		if ( '' === this._ceElement._domElement.querySelector( 'input' ).value ) {
+			currColor = '';
+		}
+
+		// Apply the new color
+		this.applyColor( currColor, element, selection );
 
 		wp.hooks.doAction( 'pbs.tool.color.applied', element );
 
-		return callback(true);
+		return callback( true );
 	};
-
 
 	Color._colorPickerMount = function() {
 		var _this = this;
-		var d = document.createElement('DIV');
-		var o = document.createElement('INPUT');
+		var d = document.createElement( 'DIV' );
+		var o = document.createElement( 'INPUT' );
 
 		// When the input field is clicked, remember if we had text selected before since we lose the focus on that one.
-		o.addEventListener('mousedown', function() {
-			var element = ContentEdit.Root.get().focused();
+		o.addEventListener( 'mousedown', function() {
+			var _ref, from, to, element = ContentEdit.Root.get().focused();
 	        var selection = null;
-	        if (element.selection) {
+	        if ( element.selection ) {
 	          selection = element.selection();
 	        }
-			var _ref = selection.get(), from = _ref[0], to = _ref[1];
-			if ( ! ( from === 0 && to === 0 ) ) {
+			_ref = selection.get(), from = _ref[0], to = _ref[1];
+			if ( ! ( 0 === from && 0 === to ) ) {
 				_this.rememberedSelection = selection;
 			}
-		});
+		} );
 
 		// When typing in the input field, trigger the color to be cleared when empty.
-		o.addEventListener('keyup', function(e) {
-			if ( e.target.value === '' ) {
+		o.addEventListener( 'keyup', function( e ) {
+			if ( '' === e.target.value ) {
 				_this.selectedColor = e.target.value;
 				_this._ceElement._mouseDown = true; // Stop other tool behavior.
 				_this._ceElement._onMouseUp();
-				jQuery(_this._ceElement._domElement.querySelector('input')).iris('color', _this.selectedColor);
+				jQuery( _this._ceElement._domElement.querySelector( 'input' ) ).iris( 'color', _this.selectedColor );
+				e.target.focus();
 			}
-		});
+		} );
 
 		// Iris colorpicker makes us lose focus in the input field, always bring it back
-		o.addEventListener('blur', function() {
-			_this._ceElement._domElement.querySelector('input').focus();
-		});
+		// o.addEventListener( 'blur', function() {
+		// 	_this._ceElement._domElement.querySelector( 'input' ).focus();
+		// });
 
-		o.classList.add('color-picker');
-		o.setAttribute('data-alpha', 'true');
-		d.appendChild(o);
-		this._ceElement._domElement.appendChild(d);
+		o.classList.add( 'color-picker' );
+		o.setAttribute( 'data-alpha', 'true' );
+		d.appendChild( o );
+		this._ceElement._domElement.appendChild( d );
 
 		// Initialize the color picker
-		jQuery(o).iris({
+		jQuery( o ).iris( {
 			defaultColor: this._ceElement._domElement.style.backgroundColor,
-			change: function(event){
+			change: function( event ) {
 				if ( ! _this._ceElement._justShowedPicker ) {
 					_this.selectedColor = event.target.value;
 					_this._ceElement._mouseDown = true;
-					_this._ceElement._onMouseUp(event);
+					_this._ceElement._onMouseUp( event );
 				}
 				_this._ceElement._justShowedPicker = undefined;
 			},
-			// a callback to fire when the input is emptied or an invalid color (doesn't work)
+
+			// A callback to fire when the input is emptied or an invalid color (doesn't work).
 			clear: function() {},
-			// hide the color picker controls on load
+
+			// Hide the color picker controls on load.
 			hide: false,
+
 			// Add our own pretty colors
-			palettes: [ '#000', '#fff', '#CF000F', '#D2527F', '#F89406', '#F9BF3B', '#2ECC71', '#19B5FE', '#8E44AD' ]
-		});
+			palettes: [
+				'#282425', '#3d3a3b', '#555152', '#6b6969', '#838181', '#9b999a', '#b4b1b2', '#cccbcb', '#e5e4e4', '#ffffff',
+				'#fd3d3f', '#f70363', '#eb389a', '#a812a9', '#7330b0', '#4b4bae', '#1490ec', '#00a4ed', '#00bacf', '#009586',
+				'#e1d6b8', '#5b7b88', '#7c554a', '#fe5234', '#fe9631', '#fec03b', '#fbec57', '#c2dd52', '#75c457', '#12b059'
+			]
+		} );
 
 		// Hide the colorpicker when going out of the inspector
-		document.querySelector('.ct-toolbox').addEventListener('mouseleave', function() {
+		document.querySelector( '.ct-toolbox' ).addEventListener( 'mouseleave', function() {
 			_this.hidePicker();
-		});
+		} );
+
+		document.body.addEventListener( 'mousedown', function( e ) {
+			if ( ! window.pbsSelectorMatches( e.target, '.ct-tool--color, .ct-tool--color *' ) ) {
+				_this.hidePicker();
+			}
+		} );
 
 		// Close popup if other popups open.
 		wp.hooks.addAction( 'pbs.tool.popup.open', function() {
 			this.hidePicker();
-		}.bind(this));
+		}.bind( this ) );
 
 	};
 
-
 	Color.hidePicker = function() {
+
 		// Hide the colorpicker container.
-		this._ceElement._domElement.firstChild.style.display = '';
+		this._ceElement._domElement.classList.remove( 'pbs-tool-show' );
 
 		// Forget the previously selected text.
 		this.rememberedSelection = null;
@@ -19120,76 +22729,82 @@ ContentTools.Tools.Color = (function(_super) {
 
 	return Color;
 
-})(ContentTools.Tool);
-
-
+} )( ContentTools.Tool );
 
 // If another element is selected, hide the color picker
-ContentEdit.Root.get().bind('blur', function() {
+ContentEdit.Root.get().bind( 'blur', function() {
 	var tool = window.PBSEditor.getToolUI( 'color' );
-	// var tool = ContentTools.EditorApp.get()._toolbox._toolUIs.color;
-	if ( typeof tool !== 'undefined' ) {
+	if ( 'undefined' !== typeof tool ) {
 		tool.tool.hidePicker();
 	}
-});
-
+} );
 
 // Implement our own mount event handler.
 ContentTools.ToolUI.prototype._colorPickerMountOverride = ContentTools.ToolUI.prototype.mount;
-ContentTools.ToolUI.prototype.mount = function(domParent, before) {
+ContentTools.ToolUI.prototype.mount = function( domParent, before ) {
 	var ret = this._colorPickerMountOverride( domParent, before );
 	this.tool._ceElement = this;
-	if ( typeof this.tool._colorPickerMount !== 'undefined' ) {
+	if ( 'undefined' !== typeof this.tool._colorPickerMount ) {
 		this.tool._colorPickerMount();
 	}
 	return ret;
 };
 
-
 // Remove the existing event handlers for the color tool. We are going to use our own
 ContentTools.ToolUI.prototype._toolColorAddDOMEventListeners = ContentTools.ToolUI.prototype._addDOMEventListeners;
 ContentTools.ToolUI.prototype._addDOMEventListeners = function() {
-	if ( this.tool.name === 'Color' ) {
-		var _this = this;
+	var _this;
+
+	if ( 'Color' === this.tool.name ) {
+		_this = this;
 
 		// Cancel the mouse down event to prevent focusing
-        this._domElement.addEventListener('mousedown', function(e) {
-			if ( e.target.classList.contains('ct-tool') ) {
+        this._domElement.addEventListener( 'mousedown', function( e ) {
+			if ( e.target.classList.contains( 'ct-tool' ) ) {
 				e.preventDefault();
 			}
-		});
+		} );
 
 		// Show the colorpicker on click
-        this._domElement.addEventListener('click', function(e) {
-			if ( e.target.classList.contains('ct-tool') ) {
+        this._domElement.addEventListener( 'click', function( e ) {
+			var elements, element;
+
+			if ( e.target.classList.contains( 'ct-tool' ) && ! e.target.classList.contains( 'ct-tool--disabled' ) ) {
 
 				// Set the input field's value
-				_this._domElement.querySelector('input').value = _this._domElement.style.backgroundColor;
+				_this._domElement.querySelector( 'input' ).value = _this._domElement.style.backgroundColor;
 
 				// Set the color
 				_this._justShowedPicker = true; // Do not implement the selected color when just showing the picker
-				jQuery(_this._domElement.querySelector('input')).iris('color', _this._domElement.style.backgroundColor);
+				jQuery( _this._domElement.querySelector( 'input' ) ).iris( 'color', _this._domElement.style.backgroundColor );
 
 				// Let others know that we're going to open a popup.
-				if ( _this._domElement.firstChild.style.display === '' ) {
+				if ( ! _this._domElement.classList.contains( 'pbs-tool-show' ) ) {
 					wp.hooks.doAction( 'pbs.tool.popup.open' );
 				}
 
 				// Show the color picker
-				_this._domElement.firstChild.style.display = _this._domElement.firstChild.style.display ? '' : 'block';
+				_this._domElement.classList.toggle( 'pbs-tool-show' );
+
+				element = ContentEdit.Root.get().focused();
+		        if ( element.selection ) {
+					_this.tool.rememberedSelection = element.selection();
+		        }
+				_this._domElement.querySelector( 'input' ).focus();
+				_this._domElement.querySelector( 'input' ).select();
 
 				// Don't lose the focus when a palette color is clicked
-				var elements = _this._domElement.querySelectorAll('.iris-palette');
-				Array.prototype.forEach.call(elements, function(el){
-					if ( typeof el._pbsInitDone === 'undefined' ) {
+				elements = _this._domElement.querySelectorAll( '.iris-palette' );
+				Array.prototype.forEach.call( elements, function( el ) {
+					if ( 'undefined' === typeof el._pbsInitDone ) {
 						el._pbsInitDone = true;
-						el.addEventListener('mousedown', function(e) {
+						el.addEventListener( 'mousedown', function( e ) {
 							e.preventDefault();
-						});
+						} );
 					}
-				});
+				} );
 			}
-        });
+        } );
 
 	// Normal process
 	} else {
@@ -19235,6 +22850,8 @@ ContentTools.Tools.TwoColumn = (function(_super) {
 
 		p.focus();
 
+		col.style( 'justify-content', 'center' );
+		row.style( 'min-height', '200px' );
 		row.showOutline();
 
 		wp.hooks.doAction( 'pbs.tool.row.applied', row );
@@ -19283,6 +22900,7 @@ ContentTools.Tools.TwoColumn = (function(_super) {
 		row.attach(col);
 		col.attach(p);
 		col.style( 'flex-basis', '50%' );
+		row.style( 'min-height', '200px' );
 		row.showOutline();
 	};
 
@@ -19334,6 +22952,7 @@ ContentTools.Tools.ThreeColumn = (function(_super) {
 		row.attach(col);
 		col.attach(p);
 		col.style( 'flex-basis', '33.33%' );
+		row.style( 'min-height', '200px' );
 		row.showOutline();
 	};
 
@@ -19390,6 +23009,7 @@ ContentTools.Tools.FourColumn = (function(_super) {
 		row.attach(col);
 		col.attach(p);
 		col.style( 'flex-basis', '25%' );
+		row.style( 'min-height', '200px' );
 		row.showOutline();
 	};
 
@@ -19452,17 +23072,30 @@ ContentTools.Tools.InsertElement = (function(_super) {
 				if ( ! window.PBSEditor.isEditing() ) {
 					return;
 				}
+				if ( ContentTools.EditorApp.get()._toolboxElements._domElement.classList.contains( 'ct-widget--active' ) ) {
+					return;
+				}
 				if ( ev.screenX <= 10 && ev.screenY > 70 ) {
 					ContentTools.EditorApp.get()._toolboxElements.show();
 				}
 			};
 			document.body.addEventListener( 'mousemove', this._toolboxElementsSideMouseEnterHandler );
 
-			// Hide the toolbar when mouse moves on the admin bar.
-			this._toolboxElementsAdminbarEnterHandler = function() {
-				ContentTools.EditorApp.get()._toolboxElements.hide();
+			// Hide the toolbar when leaving the button.
+			this._toolboxElementsLeaveHide = function( ev ) {
+
+				// Only hide the button if it didn't mouse over the add elements panel.
+				if ( ! window.pbsSelectorMatches( ev.relatedTarget, '.pbs-toolbox-elements, .pbs-toolbox-elements *' ) ) {
+					ContentTools.EditorApp.get()._toolboxElements.hide();
+				}
 			};
-			document.querySelector( '#wpadminbar' ).addEventListener( 'mousemove', this._toolboxElementsAdminbarEnterHandler );
+			this._domElement.addEventListener( 'mouseleave', this._toolboxElementsLeaveHide );
+
+			// Hide the toolbar when mouse moves on the admin bar.
+			// this._toolboxElementsAdminbarEnterHandler = function() {
+				// ContentTools.EditorApp.get()._toolboxElements.hide();
+			// };
+			// document.querySelector( '#wpadminbar' ).addEventListener( 'mousemove', this._toolboxElementsAdminbarEnterHandler );
 		}
 		return ret;
 	};
@@ -19479,225 +23112,306 @@ ContentTools.Tools.InsertElement = (function(_super) {
 
 		   document.body.removeEventListener( 'mousemove', this._toolboxElementsSideMouseEnterHandler );
 
-		   document.querySelector( '#wpadminbar' ).removeEventListener( 'mousemove', this._toolboxElementsAdminbarEnterHandler );
+		//    document.querySelector( '#wpadminbar' ).removeEventListener( 'mousemove', this._toolboxElementsAdminbarEnterHandler );
 	   }
 	   return proxied.call( this, t, e );
    };
 } )();
 
-/* globals ContentTools */
+/* globals ContentTools, __extends, pbsParams, ContentEdit */
+
+var defaultAlign;
 
 ( function() {
-
-	ContentTools.Tools.AlignLeft.className = '';
-
-	ContentTools.Tools.AlignLeft.apply = function( element, selection, callback ) {
-		var _ref;
-		if ( ( _ref = element.constructor.name ) === 'ListItemText' || _ref === 'TableCellText' ) {
-			element = element.parent();
-		}
-
-		if ( element.constructor.name === 'Icon' ) {
-			if ( element.hasCSSClass( 'alignleft' ) ) {
-				element.removeCSSClass( 'alignleft' );
-			} else {
-				element.removeCSSClass( 'alignleft' );
-				element.removeCSSClass( 'alignright' );
-				element.removeCSSClass( 'aligncenter' );
-				element.removeCSSClass( 'alignnone' );
-				element.addCSSClass( 'alignleft' );
-			}
-			return callback( true );
-		}
-
-		element.style( 'textAlign', 'left' );
-
-		return callback( true );
+	var ready = function() {
+		defaultAlign = getComputedStyle( document.querySelector( 'html' ) ).textAlign;
 	};
 
-	ContentTools.Tools.AlignLeft.isApplied = function( element ) {
-		var _ref;
-		if ( ! this.canApply( element ) ) {
-			return false;
-		}
-		if ( ( _ref = element.type() ) === 'ListItemText' || _ref === 'TableCellText' ) {
-			element = element.parent();
-		}
-
-		if ( element.constructor.name === 'Icon' ) {
-			return element.hasCSSClass( 'alignleft' );
-		}
-
-		return element.style( 'textAlign' ) === 'left' || element.style( 'textAlign' ) === 'start';
-	};
-
-	var proxiedCanApply = ContentTools.Tools.AlignLeft.canApply;
-	ContentTools.Tools.AlignLeft.canApply = function( element, selection ) {
-		if ( element.constructor.name === 'Icon' ) {
-			return true;
-		}
-		return proxiedCanApply.call( this, element, selection );
-	};
+	if ( 'loading' !== document.readyState ) {
+		ready();
+	} else {
+		document.addEventListener( 'DOMContentLoaded', ready );
+	}
 } )();
 
-/* globals ContentTools */
+ContentTools.Tools.Align = ( function( _super ) {
+	__extends( Align, _super );
 
-( function() {
-
-	ContentTools.Tools.AlignCenter.className = '';
-
-	ContentTools.Tools.AlignCenter.apply = function( element, selection, callback ) {
-		var _ref;
-		if ( ( _ref = element.constructor.name ) === 'ListItemText' || _ref === 'TableCellText' ) {
-			element = element.parent();
-		}
-
-		if ( element.constructor.name === 'Icon' ) {
-			if ( element.hasCSSClass( 'aligncenter' ) ) {
-				element.removeCSSClass( 'aligncenter' );
-			} else {
-				element.removeCSSClass( 'alignleft' );
-				element.removeCSSClass( 'alignright' );
-				element.removeCSSClass( 'aligncenter' );
-				element.removeCSSClass( 'alignnone' );
-				element.addCSSClass( 'aligncenter' );
-			}
-			return callback( true );
-		}
-
-		element.style( 'textAlign', 'center' );
-
-		return callback( true );
-	};
-
-	ContentTools.Tools.AlignCenter.isApplied = function( element ) {
-		var _ref;
-		if ( ! this.canApply( element ) ) {
-			return false;
-		}
-		if ( ( _ref = element.type() ) === 'ListItemText' || _ref === 'TableCellText' ) {
-			element = element.parent();
-		}
-
-		if ( element.constructor.name === 'Icon' ) {
-			return element.hasCSSClass( 'aligncenter' );
-		}
-
-		return element.style( 'textAlign' ) === 'center';
-	};
-
-	var proxiedCanApply = ContentTools.Tools.AlignCenter.canApply;
-	ContentTools.Tools.AlignCenter.canApply = function( element, selection ) {
-		if ( element.constructor.name === 'Icon' ) {
-			return true;
-		}
-		return proxiedCanApply.call( this, element, selection );
-	};
-} )();
-
-/* globals ContentTools */
-
-( function() {
-
-	ContentTools.Tools.AlignRight.className = '';
-
-	ContentTools.Tools.AlignRight.apply = function( element, selection, callback ) {
-		var _ref;
-		if ( ( _ref = element.constructor.name ) === 'ListItemText' || _ref === 'TableCellText' ) {
-			element = element.parent();
-		}
-
-		if ( element.constructor.name === 'Icon' ) {
-			if ( element.hasCSSClass( 'alignright' ) ) {
-				element.removeCSSClass( 'alignright' );
-			} else {
-				element.removeCSSClass( 'alignleft' );
-				element.removeCSSClass( 'alignright' );
-				element.removeCSSClass( 'aligncenter' );
-				element.removeCSSClass( 'alignnone' );
-				element.addCSSClass( 'alignright' );
-			}
-			return callback( true );
-		}
-
-		element.style( 'textAlign', 'right' );
-
-		return callback( true );
-	};
-
-	ContentTools.Tools.AlignRight.isApplied = function( element ) {
-		var _ref;
-		if ( ! this.canApply( element ) ) {
-			return false;
-		}
-		if ( ( _ref = element.type() ) === 'ListItemText' || _ref === 'TableCellText' ) {
-			element = element.parent();
-		}
-
-		if ( element.constructor.name === 'Icon' ) {
-			return element.hasCSSClass( 'alignright' );
-		}
-
-		return element.style( 'textAlign' ) === 'right' || element.style( 'textAlign' ) === 'end';
-	};
-
-	var proxiedCanApply = ContentTools.Tools.AlignRight.canApply;
-	ContentTools.Tools.AlignRight.canApply = function( element, selection ) {
-		if ( element.constructor.name === 'Icon' ) {
-			return true;
-		}
-		return proxiedCanApply.call( this, element, selection );
-	};
-} )();
-
-/* globals ContentTools, __extends, pbsParams */
-
-ContentTools.Tools.AlignJustify = (function(_super) {
-	__extends(AlignJustify, _super);
-
-	function AlignJustify() {
-		return AlignJustify.__super__.constructor.apply(this, arguments);
+	function Align() {
+		return Align.__super__.constructor.apply( this, arguments );
 	}
 
-	ContentTools.ToolShelf.stow( AlignJustify, 'align-justify' );
+	ContentTools.ToolShelf.stow( Align, 'align' );
 
-	AlignJustify.label = pbsParams.labels.justify;
+	Align.label = pbsParams.labels.alignment;
+	Align.labelDown = pbsParams.labels.alignment;
+	Align.labelReset = pbsParams.labels.reset_alignment;
 
-	AlignJustify.icon = 'align-justify';
+	Align.labelLeft = pbsParams.labels.align_left;
+	Align.labelCenter = pbsParams.labels.align_center;
+	Align.labelRight = pbsParams.labels.align_right;
+	Align.labelJustify = pbsParams.labels.justify;
 
-	AlignJustify.className = '';
+	Align.icon = 'align';
 
-	AlignJustify.apply = function(element, selection, callback) {
-		var _ref;
-		if ((_ref = element.constructor.name) === 'ListItemText' || _ref === 'TableCellText') {
-			element = element.parent();
+	Align.tagName = 'span';
+
+	Align.canApply = function( element, selection ) {
+		if ( 'Icon' === element.constructor.name ) {
+			return true;
 		}
-		element.style( 'textAlign', 'justify' );
-		return callback(true);
+		return ContentTools.Tools.Bold.canApply( element, selection );
 	};
 
-	AlignJustify.canApply = function( element, selection ) {
-		if ( element.constructor.name === 'Icon' ) {
-			return false;
+	Align.isApplied = function( element ) {
+		var align;
+		if ( 'Icon' === element.constructor.name ) {
+			return element.hasCSSClass( 'alignleft' ) || element.hasCSSClass( 'alignright' ) || element.hasCSSClass( 'aligncenter' );
+		} else {
+			align = element.style( 'textAlign' );
+			if ( ! window.pbsIsRTL() && ( 'start' === align || 'left' === align ) && ( 'start' === defaultAlign || 'left' === defaultAlign ) ) {
+				return false;
+			}
+			if ( window.pbsIsRTL() && ( 'start' === align || 'right' === align ) && ( 'start' === defaultAlign || 'right' === defaultAlign ) ) {
+				return false;
+			}
+			return true;
 		}
-		return AlignJustify.__super__.constructor.canApply.call( this, element, selection );
 	};
 
- 	AlignJustify.isApplied = function(element, selection) {
-  		var _ref;
-		if ( ! this.canApply( element ) ) {
-			return false;
-		}
-		if ( ( _ref = element.type() ) === 'ListItemText' || _ref === 'TableCellText' ) {
-			element = element.parent();
-		}
-		return element.style( 'textAlign' ) === 'justify';
+	Align.apply = function( element, selection, callback ) {
+		return callback( true );
 	};
 
-	return AlignJustify;
+	Align._apply = function( alignment, button ) {
+		var element = ContentEdit.Root.get().focused();
+		if ( button ) {
+			if ( button.classList.contains( '.ct-tool--disabled' ) || button.classList.contains( 'ct-tool--applied' ) ) {
+				return;
+			}
+		}
 
-})(ContentTools.Tools.AlignLeft);
+		if ( 'Icon' === element.constructor.name ) {
+			element.removeCSSClass( 'alignleft' );
+			element.removeCSSClass( 'alignright' );
+			element.removeCSSClass( 'aligncenter' );
+			element.removeCSSClass( 'alignnone' );
+			if ( 'reset' !== alignment ) {
+				element.addCSSClass( 'align' + alignment );
+			}
+		} else {
+			if ( 'reset' !== alignment ) {
+				element.style( 'textAlign', alignment );
+			} else {
+				element.style( 'textAlign', '' );
+			}
+		}
 
+		if ( button ) {
+			button.parentNode.querySelector( '.ct-tool--applied' ).classList.remove( 'ct-tool--applied' );
+			button.classList.add( 'ct-tool--applied' );
+		}
+	};
+
+	Align._alignButtonsMount = function() {
+		var _this = this;
+		var d = document.createElement( 'DIV' );
+
+		var alignLeft = document.createElement( 'DIV' );
+		var alignCenter = document.createElement( 'DIV' );
+		var alignRight = document.createElement( 'DIV' );
+		var alignJustify = document.createElement( 'DIV' );
+		alignLeft.classList.add( 'ct-tool' );
+		alignCenter.classList.add( 'ct-tool' );
+		alignRight.classList.add( 'ct-tool' );
+		alignJustify.classList.add( 'ct-tool' );
+		alignLeft.classList.add( 'ct-tool--align-left' );
+		alignCenter.classList.add( 'ct-tool--align-center' );
+		alignRight.classList.add( 'ct-tool--align-right' );
+		alignJustify.classList.add( 'ct-tool--align-justify' );
+
+		alignLeft.setAttribute( 'data-tooltip', this.labelLeft );
+		alignCenter.setAttribute( 'data-tooltip', this.labelCenter );
+		alignRight.setAttribute( 'data-tooltip', this.labelRight );
+		alignJustify.setAttribute( 'data-tooltip', this.labelJustify );
+
+		d.appendChild( alignLeft );
+		d.appendChild( alignCenter );
+		d.appendChild( alignRight );
+		d.appendChild( alignJustify );
+
+		this.alignLeft = alignLeft;
+		this.alignCenter = alignCenter;
+		this.alignRight = alignRight;
+		this.alignJustify = alignJustify;
+
+		this._ceElement._domElement.appendChild( d );
+
+		alignLeft.addEventListener( 'click', function( e ) {
+			this._apply( 'left', e.target );
+		}.bind( this ) );
+		alignCenter.addEventListener( 'click', function( e ) {
+			this._apply( 'center', e.target );
+		}.bind( this ) );
+		alignRight.addEventListener( 'click', function( e ) {
+			this._apply( 'right', e.target );
+		}.bind( this ) );
+		alignJustify.addEventListener( 'click', function( e ) {
+			this._apply( 'justify', e.target );
+		}.bind( this ) );
+
+		// Hide the picker when clicking outside.
+		document.body.addEventListener( 'mousedown', function( e ) {
+			if ( ! window.pbsSelectorMatches( e.target, '.ct-tool--align, .ct-tool--align *' ) ) {
+				_this.hidePicker();
+			}
+		} );
+
+		// Close popup if other popups open.
+		wp.hooks.addAction( 'pbs.tool.popup.open', function() {
+			this.hidePicker();
+		}.bind( this ) );
+	};
+
+	Align.hidePicker = function() {
+
+		// Hide the paragraphpicker container.
+		// this._ceElement._domElement.querySelector( 'div' ).style.display = '';
+		this._ceElement._domElement.classList.remove( 'pbs-tool-show' );
+	};
+
+	return Align;
+
+} )( ContentTools.Tool );
+
+// Implement our own mount event handler.
+( function() {
+	var proxied = ContentTools.ToolUI.prototype.mount;
+	ContentTools.ToolUI.prototype.mount = function( domParent, before ) {
+		var ret = proxied.call( this, domParent, before );
+		this.tool._ceElement = this;
+		if ( 'undefined' !== typeof this.tool._alignButtonsMount ) {
+			this.tool._alignButtonsMount();
+		}
+		return ret;
+	};
+} )();
+
+// Show the alignment dropdown on click.
+( function() {
+	var proxied = ContentTools.ToolUI.prototype._addDOMEventListeners;
+	ContentTools.ToolUI.prototype._addDOMEventListeners = function() {
+		var _this = this;
+		if ( 'Align' === this.tool.name ) {
+
+			// Cancel the mouse down event to prevent focusing
+			this._domElement.addEventListener( 'mousedown', function( e ) {
+				if ( e.target.classList.contains( 'ct-tool' ) ) {
+					e.preventDefault();
+				}
+			} );
+
+			// Show the paragraphpicker on click
+			this._domElement.addEventListener( 'click', function( e ) {
+				var element, _ref;
+
+				if ( e.target.classList.contains( 'ct-tool' ) && ! e.target.classList.contains( 'ct-tool--disabled' ) ) {
+
+					// Let others know that we're going to open a popup.
+					if ( ! _this._domElement.classList.contains( 'pbs-tool-show' ) ) {
+						wp.hooks.doAction( 'pbs.tool.popup.open' );
+					}
+
+					element = ContentEdit.Root.get().focused();
+
+					if ( 'ListItemText' === ( _ref = element.type() ) || 'TableCellText' === _ref ) {
+						element = element.parent();
+					}
+
+					_this.tool.alignLeft.classList.remove( 'ct-tool--applied' );
+					_this.tool.alignCenter.classList.remove( 'ct-tool--applied' );
+					_this.tool.alignRight.classList.remove( 'ct-tool--applied' );
+					_this.tool.alignJustify.classList.remove( 'ct-tool--applied' );
+
+					if ( 'Icon' === element.constructor.name ) {
+						if ( element.hasCSSClass( 'alignleft' ) ) {
+							_this.tool.alignLeft.classList.add( 'ct-tool--applied' );
+						} else if ( element.hasCSSClass( 'alignright' ) ) {
+							_this.tool.alignRight.classList.add( 'ct-tool--applied' );
+						} else {
+							_this.tool.alignCenter.classList.add( 'ct-tool--applied' );
+						}
+						_this.tool.alignJustify.classList.add( 'ct-tool--disabled' );
+
+					} else {
+
+						if ( 'left' === element.style( 'textAlign' ) || 'start' === element.style( 'textAlign' ) ) {
+							_this.tool.alignLeft.classList.add( 'ct-tool--applied' );
+						} else if ( 'right' === element.style( 'textAlign' ) || 'end' === element.style( 'textAlign' ) ) {
+							_this.tool.alignRight.classList.add( 'ct-tool--applied' );
+						} else if ( 'center' === element.style( 'textAlign' ) ) {
+							_this.tool.alignCenter.classList.add( 'ct-tool--applied' );
+						} else if ( 'justify' === element.style( 'textAlign' ) ) {
+							_this.tool.alignJustify.classList.add( 'ct-tool--applied' );
+						}
+						_this.tool.alignJustify.classList.remove( 'ct-tool--disabled' );
+					}
+
+					// Show the picker
+					_this._domElement.classList.toggle( 'pbs-tool-show' );
+				}
+			} );
+
+		// Normal process
+		} else {
+			return proxied.call( this );
+		}
+	};
+} )();
+
+/* globals ContentEdit, ContentTools, __extends, pbsParams */
+
+ContentTools.Tools.Spacer = ( function( _super ) {
+	__extends( Spacer, _super );
+
+	function Spacer() {
+		return Spacer.__super__.constructor.apply( this, arguments );
+	}
+
+	ContentTools.ToolShelf.stow( Spacer, 'spacer' );
+
+	Spacer.label = pbsParams.labels.spacer;
+
+	Spacer.icon = 'spacer';
+
+	Spacer.tagName = 'div';
+
+	Spacer.buttonName = pbsParams.labels.spacer;
+
+	Spacer.canApply = function() {
+		return true;
+	};
+
+	Spacer.apply = function( element, selection, callback ) {
+		var index = element.parent().children.indexOf( element ) + 1;
+		this.createNew( element.parent(), index );
+		return callback( true );
+	};
+
+	Spacer.createNew = function( parent, index ) {
+		var spacer = new ContentEdit.Spacer( 'div' );
+
+		parent.attach( spacer, index );
+	};
+
+	return Spacer;
+
+} )( ContentTools.Tool );
+
+////= include _tool-align-left.js
+////= include _tool-align-center.js
+////= include _tool-align-right.js
+////= include _tool-align-justify.js
 /* globals ContentEdit, ContentTools, __extends, pbsParams */
 
 ContentTools.Tools.Sidebar = (function(_super) {
@@ -19750,14 +23464,14 @@ ContentTools.Tools.Sidebar = (function(_super) {
 
 /* globals ContentEdit, ContentTools, __extends, pbsParams */
 
-ContentTools.Tools.Hr = (function(_super) {
-	__extends(Hr, _super);
+ContentTools.Tools.Hr = ( function( _super ) {
+	__extends( Hr, _super );
 
 	function Hr() {
-		return Hr.__super__.constructor.apply(this, arguments);
+		return Hr.__super__.constructor.apply( this, arguments );
 	}
 
-	ContentTools.ToolShelf.stow(Hr, 'hr');
+	ContentTools.ToolShelf.stow( Hr, 'hr' );
 
 	Hr.label = pbsParams.labels.horizontal_rule;
 
@@ -19765,25 +23479,27 @@ ContentTools.Tools.Hr = (function(_super) {
 
 	Hr.tagName = 'hr';
 
+	Hr.buttonName = pbsParams.labels.horizontal_rule;
+
 	Hr.canApply = function() {
 		return true;
 	};
 
-	Hr.apply = function(element, selection, callback) {
+	Hr.apply = function( element, selection, callback ) {
+		var index = element.parent().children.indexOf( element ) + 1;
+		this.createNew( element.parent(), index );
+		return callback( true );
+	};
 
-		var hr = new ContentEdit.Hr('hr');
-		var index = element.parent().children.indexOf(element);
+	Hr.createNew = function( parent, index ) {
+		var hr = new ContentEdit.Hr( 'hr' );
 
-		element.parent().attach( hr, index + 1 );
-
-		hr.focus();
-
-		return callback(true);
+		parent.attach( hr, index );
 	};
 
 	return Hr;
 
-})(ContentTools.Tool);
+} )( ContentTools.Tool );
 
 /* globals ContentEdit, ContentTools, __extends, pbsParams, PBSEditor */
 
@@ -19813,7 +23529,6 @@ ContentTools.Tools.Icon = (function(_super) {
 				var newElem = new ContentEdit.Icon( 'div', {}, view.selected.innerHTML );
 				var index = element.parent().children.indexOf( element );
 				element.parent().attach( newElem, index + 1 );
-				newElem.focus();
 			}
 		});
 		return callback( true );
@@ -19826,7 +23541,6 @@ ContentTools.Tools.Icon = (function(_super) {
 			successCallback: function( view ) {
 				var newElem = new ContentEdit.Icon( 'div', {}, view.selected.innerHTML );
 				parent.attach( newElem, index );
-				newElem.focus();
 			}
 		});
 		return null;
@@ -19891,43 +23605,51 @@ ContentTools.Tools.Link.getSelectedLink = function( element, from, to ) {
  */
 ContentTools.Tools.Link.apply = function(element, selection, callback) {
 
-	if (element.constructor.name === 'Image') {
-		element.openMediaManager();
-		return;
-	}
-
-	// Get the selected text.
-	var _ref = selection.get(), from = _ref[0], to = _ref[1];
-
-	var selected = this.getSelectedLink( element, from, to );
-	from = selected.from;
-	to = selected.to;
-
-	// Adjust the selection since for links we are selecting whole blocks of links.
-	selection = new ContentSelect.Range( from, to );
-
-	// Get the details of the link.
-	var tag = this.getTag( element, selection );
 	var url = '', target = '', text = '', existingClass = '', existingStyles = '';
 
-	if ( tag ) {
-		// Editing an existing link
-		if ( tag.attr( 'href' ) ) {
-			url = tag.attr( 'href' );
-		}
-		if ( tag.attr( 'target' ) ) {
-			target = tag.attr( 'target' );
-		}
-		if ( tag.attr( 'class' ) ) {
-			existingClass = tag.attr( 'class' );
-		}
-		if ( tag.attr( 'style' ) ) {
-			existingStyles = tag.attr( 'style' );
-		}
-	}
+	if ( element.constructor.name === 'Image' ) {
 
-	text = element.content.unformat( from, to, 'a' );
-	text = text.slice( from, to );
+		if ( element.a ) {
+			url = element.a.href;
+ 			target = element.a.target || '';
+		} else {
+
+		}
+		
+	} else {
+
+		// Get the selected text.
+		var _ref = selection.get(), from = _ref[0], to = _ref[1];
+
+		var selected = this.getSelectedLink( element, from, to );
+		from = selected.from;
+		to = selected.to;
+
+		// Adjust the selection since for links we are selecting whole blocks of links.
+		selection = new ContentSelect.Range( from, to );
+
+		// Get the details of the link.
+		var tag = this.getTag( element, selection );
+
+		if ( tag ) {
+			// Editing an existing link
+			if ( tag.attr( 'href' ) ) {
+				url = tag.attr( 'href' );
+			}
+			if ( tag.attr( 'target' ) ) {
+				target = tag.attr( 'target' );
+			}
+			if ( tag.attr( 'class' ) ) {
+				existingClass = tag.attr( 'class' );
+			}
+			if ( tag.attr( 'style' ) ) {
+				existingStyles = tag.attr( 'style' );
+			}
+		}
+
+		text = element.content.unformat( from, to, 'a' );
+		text = text.slice( from, to );
+	}
 
 	// Remember the cursor position.
 	if ( element.storeState ) {
@@ -19939,7 +23661,7 @@ ContentTools.Tools.Link.apply = function(element, selection, callback) {
 	wpLink.open( 'dummy-wplink-textarea' );
 
 	// If the selected text is plain (without formatting), display the text.
-	if ( text.html().trim() === text.text().trim() ) {
+	if ( element.constructor.name !== 'Image' && text.html().trim() === text.text().trim() ) {
 		document.querySelector( '#wp-link-wrap' ).classList.add( 'has-text-field' );
 		text = text.text();
 	} else {
@@ -19978,8 +23700,72 @@ window.addEventListener( 'DOMContentLoaded', function() {
 				existingStyles = window._pbsCurrentLink.existingStyles,
 				linkType = window._pbsCurrentLink.type;
 
-			// Remove any old links.
-			var _ref = selection.get(), from = _ref[0], to = _ref[1];
+			// #link-options are backward compatible with 4.1.x.
+			var url = document.querySelector('#wp-link-url, #link-options #url-field').value,
+				text = document.querySelector('#wp-link-text, #link-options #link-title-field').value,
+				target = document.querySelector('#wp-link-target, #link-options #link-target-checkbox').checked;
+
+			if ( element.constructor.name === 'Image' ) {
+
+				if ( ! element.a ) {
+					element.a = {};
+				}
+				element.a.href = url;
+				element.a.target = target ? '_blank' : '';
+
+			} else {
+				// Remove any old links.
+				var _ref = selection.get(), from = _ref[0], to = _ref[1];
+
+				element.content = element.content.unformat(from, to, 'a');
+
+				if ( url ) {
+					var args = {
+						href: url
+					};
+					if ( target ) {
+						args.target = '_blank';
+					}
+					if ( existingClass ) {
+						args['class'] = existingClass;
+					}
+					if ( existingStyles ) {
+						args['style'] = existingStyles;
+					}
+
+					args = wp.hooks.applyFilters( 'pbs.tool.' + linkType.toLowerCase() + '.args', args );
+
+					// If we CAN edit the text (meaning the text doesn't have fancy formatting),
+					// and it's blank, use the URL as the text instead. This is WP's behavior.
+					if ( document.querySelector( '#wp-link-wrap' ).classList.contains( 'has-text-field' ) && text.trim() === '' ) {
+						text = url;
+					}
+
+					if ( text ) {
+
+						// Create the new content.
+						var content = new HTMLString.String( text, element.constructor.name === 'PreText' );
+						content = content.format( 0, content.characters.length, new HTMLString.Tag( 'a', args ) );
+
+						// Replace the old content with the new one.
+						var tip = element.content.substring(0, selection.get()[0]);
+						var tail = element.content.substring(selection.get()[1]);
+						element.content = tip.concat(content);
+						element.content = element.content.concat(tail, false);
+
+						if ( from === to ) {
+							to += content.length();
+						}
+
+					} else {
+						// Just format it.
+						element.content = element.content.format( from, to, new HTMLString.Tag( 'a', args ) );
+					}
+
+				} else {
+					element.content = element.content.unformat( from, to, 'a' );
+				}
+			}
 			// var currentSelection = element.content.substring(from, to);
 			// if ( currentSelection.hasTags( 'a' ) ) {
 			// 	var tags = currentSelection.charAt(0).tags();
@@ -19993,69 +23779,18 @@ window.addEventListener( 'DOMContentLoaded', function() {
 			// 		}
 			// 	}
 			// }
-			element.content = element.content.unformat(from, to, 'a');
-
-			// #link-options are backward compatible with 4.1.x.
-			var url = document.querySelector('#wp-link-url, #link-options #url-field').value,
-				text = document.querySelector('#wp-link-text, #link-options #link-title-field').value,
-				target = document.querySelector('#wp-link-target, #link-options #link-target-checkbox').checked;
-
-			if ( url ) {
-				var args = {
-					href: url
-				};
-				if ( target ) {
-					args.target = '_blank';
-				}
-				if ( existingClass ) {
-					args['class'] = existingClass;
-				}
-				if ( existingStyles ) {
-					args['style'] = existingStyles;
-				}
-
-				args = wp.hooks.applyFilters( 'pbs.tool.' + linkType.toLowerCase() + '.args', args );
-
-				// If we CAN edit the text (meaning the text doesn't have fancy formatting),
-				// and it's blank, use the URL as the text instead. This is WP's behavior.
-				if ( document.querySelector( '#wp-link-wrap' ).classList.contains( 'has-text-field' ) && text.trim() === '' ) {
-					text = url;
-				}
-
-				if ( text ) {
-
-					// Create the new content.
-					var content = new HTMLString.String( text, element.constructor.name === 'PreText' );
-					content = content.format( 0, content.characters.length, new HTMLString.Tag( 'a', args ) );
-
-					// Replace the old content with the new one.
-					var tip = element.content.substring(0, selection.get()[0]);
-					var tail = element.content.substring(selection.get()[1]);
-					element.content = tip.concat(content);
-					element.content = element.content.concat(tail, false);
-
-					if ( from === to ) {
-						to += content.length();
-					}
-
-				} else {
-					// Just format it.
-					element.content = element.content.format( from, to, new HTMLString.Tag( 'a', args ) );
-				}
-
-			} else {
-				element.content = element.content.unformat( from, to, 'a' );
-			}
 
 			delete window._pbsCurrentLink;
 			wp.hooks.doAction( 'pbs.tool.' + linkType.toLowerCase() + '.applied', element, from, to );
 
-			element.updateInnerHTML();
-			element.taint();
+			if ( element.constructor.name !== 'Image' ) {
+				element.updateInnerHTML();
+				element.taint();
 
-			// Restore the caret position.
-			if ( element.restoreState ) {
-				element.restoreState();
+				// Restore the caret position.
+				if ( element.restoreState ) {
+					element.restoreState();
+				}
 			}
 
 			// Update the inspector.
@@ -20196,63 +23931,122 @@ ContentTools.Tools.Text = ( function( _super ) {
 
 } )( ContentTools.Tools.ElementButton );
 
+
+
 /* globals ContentEdit, ContentTools, __extends, pbsParams */
 
+
+
 ContentTools.Tools.Html = (function(_super) {
+
 	__extends(Html, _super);
 
+
+
 	function Html() {
+
 		return Html.__super__.constructor.apply(this, arguments);
+
 	}
+
+
 
 	ContentTools.ToolShelf.stow(Html, 'html');
 
+
+
 	Html.label = pbsParams.labels.html;
+
+
 
 	Html.icon = 'html';
 
+
+
 	Html.tagName = 'html';
+
+
 
 	Html.buttonName = pbsParams.labels.html;
 
+
+
 	Html.apply = function(element, selection, callback) {
 
+
+
 		var root = ContentEdit.Root.get();
+
 		var elemFocused = null;
+
         if ( root.focused() ) {
+
 			elemFocused = root.focused();
+
 		} else {
+
 			var mainRegion = ContentTools.EditorApp.get().regions()['main-content'];
+
 			if ( mainRegion.children ) {
+
 				elemFocused = mainRegion.children[0];
+
 			}
+
 		}
 
+
+
 		var dummy = document.createElement( 'DIV' );
+
 		dummy.setAttribute( 'data-ce-tag', 'html' );
+
 		var elem = ContentEdit.Html.fromDOMElement( dummy );
+
 		var index = elemFocused.parent().children.indexOf( elemFocused );
+
 		elemFocused.parent().attach( elem, index + 1 );
 
+
+
 		elem.focus();
+
 		elem.openEditor();
+
+
 
 		return callback( true );
+
 	};
+
+
 
 	Html.createNew = function( parent, index ) {
+
 		var dummy = document.createElement( 'DIV' );
+
 		dummy.setAttribute( 'data-ce-tag', 'html' );
+
 		var elem = ContentEdit.Html.fromDOMElement( dummy );
+
 		parent.attach( elem, index );
 
+
+
 		elem.focus();
+
 		elem.openEditor();
+
 	};
+
+
 
 	return Html;
 
+
+
 } )( ContentTools.Tools.ElementButton );
+
 
 /* globals ContentEdit, ContentTools, __extends, pbsParams */
 
@@ -20273,7 +24067,7 @@ ContentTools.Tools.Map = ( function( _super ) {
 
 	Map.shortcut = '';
 
-	Map.buttonName = pbsParams.labels.map;
+	Map.buttonName = pbsParams.labels.google_map;
 
 	// Map.premium = true;
 
@@ -20374,19 +24168,23 @@ ContentTools.Tools.Tabs = ( function( _super ) {
 
 /* globals ContentTools, ContentEdit, ContentSelect, __extends, pbsParams */
 
+var toolMediaFrame;
+var imageInserted;
+var boundInsertHandler;
+
 // The Media Manager window needs to know our post ID so that Insert from URL will work.
 if ( wp.media.view.settings.post ) {
 	wp.media.view.settings.post.id = pbsParams.post_id;
 }
 
-ContentTools.Tools.pbsMedia = (function(_super) {
-	__extends(pbsMedia, _super);
+ContentTools.Tools.pbsMedia = ( function( _super ) {
+	__extends( pbsMedia, _super );
 
 	function pbsMedia() {
-		return pbsMedia.__super__.constructor.apply(this, arguments);
+		return pbsMedia.__super__.constructor.apply( this, arguments );
 	}
 
-	ContentTools.ToolShelf.stow(pbsMedia, 'pbs-media');
+	ContentTools.ToolShelf.stow( pbsMedia, 'pbs-media' );
 
 	pbsMedia.label = pbsParams.labels.media;
 
@@ -20394,26 +24192,21 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 	pbsMedia.buttonName = pbsParams.labels.media;
 
-	pbsMedia.apply = function(element, selection) {
+	pbsMedia.apply = function( element, selection ) {
+
+		var root, elem;
 		if ( this._isOpen() ) {
 			return;
 		}
 
-		var root = ContentEdit.Root.get();
-		var elem = root.focused();
+		root = ContentEdit.Root.get();
+		elem = root.focused();
 
-        ContentSelect.Range.query(elem._domElement);
-        selection = ContentSelect.Range.query(elem._domElement);
+        ContentSelect.Range.query( elem._domElement );
+        selection = ContentSelect.Range.query( elem._domElement );
 		window._tempSelection = selection;
 
-		this._attachToParent = elem.parent();
-		this._attachIndex = elem.parent().children.indexOf( elem ) + 1;
-
-		// We override the insert function to make this insert in CT.
-		window._pbsAddMediaOrigInsert = wp.media.editor.insert;
-		wp.media.editor.insert = this.pbsAddMediaOverrideInsert.bind( this );
-
-		wp.media.editor.open();
+		this.createNew( element.parent(), elem.parent().children.indexOf( elem ) + 1 );
 	};
 
 	pbsMedia.createNew = function( parent, index ) {
@@ -20424,75 +24217,104 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 		window._pbsAddMediaOrigInsert = wp.media.editor.insert;
 		wp.media.editor.insert = this.pbsAddMediaOverrideInsert.bind( this );
 
-		wp.media.editor.open();
+		toolMediaFrame = wp.media.editor.open();
+
+		// Inserting media uses ajax, put a placeholder first while the image loads.
+		if ( ! boundInsertHandler ) {
+			boundInsertHandler = pbsMedia.insertHandler.bind( this );
+		}
+		toolMediaFrame.on( 'insert', boundInsertHandler );
+	};
+
+	pbsMedia.insertHandler = function( g ) {
+		var size = g.single().attributes.sizes[ toolMediaFrame.$el.find( '[name="size"]' ).val() ];
+
+		var img = document.createElement( 'IMG' );
+		img.setAttribute( 'height', size.height );
+		img.setAttribute( 'width', size.width );
+		img.classList.add( 'aligncenter' );
+		img.classList.add( 'ce-element' );
+		img.classList.add( 'ce-element--type-image' );
+		img.classList.add( 'wp-image-' + pbsParams.dummy_image_id );
+		img.setAttribute( 'data-ce-size', 'w ' + size.width + ' x h 1' );
+		img.setAttribute( 'alt', '' );
+		imageInserted = ContentEdit.Image.fromDOMElement( img );
+		this._attachToParent.attach( imageInserted, this._attachIndex );
+
+		toolMediaFrame.off( 'insert', boundInsertHandler );
 	};
 
 	pbsMedia._isOpen = function() {
+
+		var el;
+
 		// The editor is not present at the start.
 		if ( ! wp.media.editor.get() ) {
 			return false;
 		}
 
 		// Check if the media manager window is visible.
-		var el = wp.media.editor.get().el;
-		return ! ( el.offsetWidth === 0 && el.offsetHeight === 0 );
+		el = wp.media.editor.get().el;
+		return ! ( 0 === el.offsetWidth && 0 === el.offsetHeight );
 	};
 
 	pbsMedia.pbsAddMediaOverrideInsert = function( html ) {
 
-	    var index, newElem, root = ContentEdit.Root.get();
+	    var base, shortcode, dummy, newElem;
 
-		// Blur the currently selected element.
-	    if ( root.focused() ) {
-
-			// If adding an image, add an Image Element.
-			var addedImage = false;
-			if ( ! html.match( /^\[/ ) ) {
-				var dummy = document.createElement('p');
-				dummy.innerHTML = html;
-				newElem = ContentEdit.Image.fromDOMElement( dummy.firstChild );
-				if ( newElem ) {
-					this._attachToParent.attach( newElem, this._attachIndex );
-					addedImage = true;
-					newElem.focus();
-				}
-
-			} else {
-
-				var base = html.match( /^\[(\w+)/ );
-				base = base[1];
-				var shortcode = wp.shortcode.next( base, html, 0 );
-				newElem = ContentEdit.Shortcode.createShortcode( shortcode );
-				this._attachToParent.attach( newElem, this._attachIndex );
-
-				newElem.ajaxUpdate( true );
-				newElem.focus();
-
+		// If adding an image, add an Image Element.
+		var addedImage = false;
+		if ( ! html.match( /^\[/ ) ) {
+			dummy = document.createElement( 'p' );
+			dummy.innerHTML = html;
+			newElem = ContentEdit.Image.fromDOMElement( dummy.firstChild );
+			if ( imageInserted ) {
+				this._attachToParent.detach( imageInserted );
+				imageInserted = null;
 			}
-	    }
+			if ( newElem ) {
+				this._attachToParent.attach( newElem, this._attachIndex );
+				addedImage = true;
+			}
+
+		} else {
+
+			base = html.match( /^\[(\w+)/ );
+			base = base[1];
+			shortcode = wp.shortcode.next( base, html, 0 );
+			newElem = ContentEdit.Shortcode.createShortcode( shortcode );
+
+			if ( imageInserted ) {
+				this._attachToParent.detach( imageInserted );
+				imageInserted = null;
+			}
+			this._attachToParent.attach( newElem, this._attachIndex );
+
+			newElem.ajaxUpdate( true );
+
+		}
 
 		// Revert to the original insert function.
 		wp.media.editor.insert = window._pbsAddMediaOrigInsert;
 		delete window._pbsAddMediaOrigInsert;
 	};
 
-
 	return pbsMedia;
 
 } )( ContentTools.Tools.ElementButton );
 
-
 /**
  * Open the media tool when an image gets dragged into the screen.
  */
-(function() {
+( function() {
 	var dragEnterHandler = function() {
 
 		// Don't open ANOTHER media manager when there's one open already.
+		var root, elem;
 		var mediaModals = document.querySelectorAll( '[tabindex="0"] .media-modal' );
 		var allModalsHidden = true;
 		Array.prototype.forEach.call( mediaModals, function( el ) {
-			if ( el.offsetHeight !== 0 ) {
+			if ( 0 !== el.offsetHeight ) {
 				allModalsHidden = false;
 			}
 		} );
@@ -20501,8 +24323,8 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 		}
 
 		// Open the media manager.
-		var root = ContentEdit.Root.get();
-		var elem = root.focused();
+		root = ContentEdit.Root.get();
+		elem = root.focused();
 		if ( elem ) {
 			window.PBSEditor.getToolUI( 'pbs-media' ).apply( elem, null );
 		}
@@ -20510,14 +24332,14 @@ ContentTools.Tools.pbsMedia = (function(_super) {
 
 	window.addEventListener( 'DOMContentLoaded', function() {
 		var editor = ContentTools.EditorApp.get();
-		editor.bind('start', function() {
-			document.addEventListener('dragenter', dragEnterHandler);
-		});
-		editor.bind('stop', function() {
-			document.removeEventListener('dragenter', dragEnterHandler);
-		});
-	});
-})();
+		editor.bind( 'start', function() {
+			document.addEventListener( 'dragenter', dragEnterHandler );
+		} );
+		editor.bind( 'stop', function() {
+			document.removeEventListener( 'dragenter', dragEnterHandler );
+		} );
+	} );
+} )();
 
 /* globals ContentTools */
 
@@ -20634,209 +24456,1302 @@ ContentTools.Tools.Underline = (function(_super) {
 
 })(ContentTools.Tool);
 
+
+
+
+
+
+
 /* globals ContentTools, ContentEdit, __extends, pbsParams */
-ContentTools.Tools.paragraphPicker = (function(_super) {
-	__extends(paragraphPicker, _super);
+
+
+
+
+
+ContentTools.Tools.paragraphPicker = (function( _super ) {
+
+
+
+
+
+	__extends( paragraphPicker, _super );
+
+
+
+
+
+
+
+
+
+
 
 	function paragraphPicker() {
-		return paragraphPicker.__super__.constructor.apply(this, arguments);
+
+
+
+
+
+		return paragraphPicker.__super__.constructor.apply( this, arguments );
+
+
+
+
+
 	}
 
-	ContentTools.ToolShelf.stow(paragraphPicker, 'paragraphPicker');
+
+
+
+
+
+
+
+
+
+
+	ContentTools.ToolShelf.stow( paragraphPicker, 'paragraphPicker' );
+
+
+
+
+
+
+
+
+
+
 
 	paragraphPicker.label = pbsParams.labels.text_style;
 
+
+
+
+
+
+
+
+
+
+
 	paragraphPicker.icon = 'paragraph-picker';
+
+
+
+
+
+
+
+
+
+
 
 	paragraphPicker.tagName = 'p';
 
+
+
+
+
+
+
+
+
+
+
 	paragraphPicker.types = {
+
+
+
+
+
 		p: { className: 'Paragraph', label: pbsParams.labels.paragraph },
+
+
+
+
+
 		h1: { className: 'Heading1', label: pbsParams.labels.heading_1 },
+
+
+
+
+
 		h2: { className: 'Heading2', label: pbsParams.labels.heading_2 },
+
+
+
+
+
 		h3: { className: 'Heading3', label: pbsParams.labels.heading_3 },
+
+
+
+
+
 		h4: { className: 'Heading4', label: pbsParams.labels.heading_4 },
+
+
+
+
+
 		h5: { className: 'Heading5', label: pbsParams.labels.heading_5 },
+
+
+
+
+
 		h6: { className: 'Heading6', label: pbsParams.labels.heading_6 },
+
+
+
+
+
 		blockquote: { className: 'Blockquote', label: '"' + pbsParams.labels.blockquote + '"' },
+
+
+
+
+
 		pre: { className: 'Preformatted', label: pbsParams.labels.preformatted }
+
+
+
+
+
 	};
 
-	paragraphPicker.canApply = function(element) {
+
+
+
+
+
+
+
+
+
+
+	paragraphPicker.canApply = function( element ) {
+
+
+
+
+
+		var tag;
+
+
+
+
+
 		if ( this.types.hasOwnProperty( element.tagName() ) ) {
-			for ( var tag in this.types ) {
+
+
+
+
+
+			for ( tag in this.types ) {
+
+
+
+
+
 				if ( ! this.types.hasOwnProperty( tag ) ) {
+
+
+
+
+
 					continue;
+
+
+
+
+
 				}
+
+
+
+
+
 				if ( element.tagName() === tag ) {
+
+
+
+
+
 					continue;
+
+
+
+
+
 				}
+
+
+
+
+
 				if ( this._ceElement._domElement.classList.contains( 'pbs-paragraph-picker-type-' + tag ) ) {
+
+
+
+
+
 					this._ceElement._domElement.classList.remove( 'pbs-paragraph-picker-type-' + tag );
+
+
+
+
+
 				}
+
+
+
+
+
 			}
+
+
+
+
+
 			if ( ! this._ceElement._domElement.classList.contains( 'pbs-paragraph-picker-type-' + element.tagName() ) ) {
+
+
+
+
+
 				this._ceElement._domElement.classList.add( 'pbs-paragraph-picker-type-' + element.tagName() );
+
+
+
+
+
 				this._ceElement._domElement.firstChild.textContent = this.types[ element.tagName() ].label;
+
+
+
+
+
 			}
+
+
+
+
+
 		}
-		if ( element._domElement.tagName === 'LABEL' ) {
+
+
+
+
+
+		if ( 'LABEL' === element._domElement.tagName ) {
+
+
+
+
+
 			return false;
+
+
+
+
+
 		}
-  		return element !== void 0;
+
+
+
+
+
+		return element !== void 0;
+
+
+
+
+
 	};
+
+
+
+
+
+
+
+
+
+
 
 	paragraphPicker.isApplied = function() {
+
+
+
+
+
 		return ! this._ceElement._domElement.classList.contains( 'pbs-paragraph-picker-type-p' );
+
+
+
+
+
 	};
 
-	paragraphPicker.apply = function(element, selection, callback) {
+
+
+
+
+
+
+
+
+
+
+	paragraphPicker.apply = function( element, selection, callback ) {
+
+
+
+
+
 		return this.applyTag( element, this._selectedType, selection, callback );
+
+
+
+
+
 	};
 
 
-	paragraphPicker.applyTag = function(element, tag, selection, callback) {
-		var app, forceAdd, paragraph, region;
+
+
+
+
+
+
+
+
+
+	paragraphPicker.applyTag = function( element, tag, selection, callback ) {
+
+
+
+
+
+		var app, forceAdd, paragraph, region, prevColor;
+
+
+
+
+
 		app = ContentTools.EditorApp.get();
+
+
+
+
+
 		forceAdd = app.ctrlDown();
+
+
+
+
+
+
+
+
+
+
+
+		if ( element.storeState ) {
+
+
+
+
+
+			element.storeState();
+
+
+
+
+
+		}
+
+
+
+
+
+
+
+
+
+
 
 		// Reset some styles.
 
-		if ( ContentTools.Tools.Bold.isApplied( element, selection ) ) {
-			ContentTools.Tools.Bold.apply( element, selection, function() {} );
-		}
+
+
+
+
+
+
+
+
+
+
+		// Keep the color if we have one.
+
+
+
+
+
+		prevColor = ContentTools.Tools.Color.canApply( element, selection );
+
+
+
+
+
+
+
+
+
+
+
+		// Clear all the styles.
+
+
+
+
+
+		ContentTools.Tools.ClearFormatting.apply( element, selection, function() {} );
+
+
+
+
+
+
+
+
+
+
 
 		if ( ContentTools.Tools.Heading.canApply( element ) && ! forceAdd ) {
-			return ContentTools.Tools[ paragraphPicker.types[ tag ].className ].apply( element, selection, callback );
+
+
+
+
+
+			ContentTools.Tools[ paragraphPicker.types[ tag ].className ].apply( element, selection, callback );
+
+
+
+
+
 		} else {
-		  if (element.parent().type() !== 'Region') {
-			element = element.closest(function(node) {
-			  return node.parent().type() === 'Region';
+
+
+
+
+
+		  if ( 'Region' !== element.parent().type() ) {
+
+
+
+
+
+			element = element.closest(function( node ) {
+
+
+
+
+
+			  return 'Region' === node.parent().type();
+
+
+
+
+
 			});
+
+
+
+
+
 		  }
+
+
+
+
+
 		  region = element.parent();
+
+
+
+
+
 		  paragraph = new ContentEdit.Text( tag );
-		  region.attach(paragraph, region.children.indexOf(element) + 1);
+
+
+
+
+
+		  region.attach( paragraph, region.children.indexOf( element ) + 1 );
+
+
+
+
+
 		  paragraph.focus();
-		  return callback(true);
+
+
+
+
+
+		  callback( true );
+
+
+
+
+
 		}
+
+
+
+
+
+
+
+
+
+
+
+		// If there previously was a color (not the default color), re-apply it.
+
+
+
+
+
+		if ( prevColor !== element.defaultStyle( 'color' ) ) {
+
+
+
+
+
+			ContentTools.Tools.Color.applyColor( prevColor, element, selection );
+
+
+
+
+
+		}
+
+
+
+
+
+
+
+
+
+
+
+		if ( element.restoreState ) {
+
+
+
+
+
+			element.restoreState();
+
+
+
+
+
+		}
+
+
+
+
+
+		return;
+
+
+
+
+
 	};
+
+
+
+
+
+
+
+
+
 
 
 	paragraphPicker._paragraphPickerMount = function() {
-		var _this = this;
-		var d = document.createElement('DIV');
-		for ( var tag in this.types ) {
+
+
+
+
+
+		var tag, label, _this = this;
+
+
+
+
+
+		var d = document.createElement( 'DIV' );
+
+
+
+
+
+		for ( tag in this.types ) {
+
+
+
+
+
 			if ( ! this.types.hasOwnProperty( tag ) ) {
+
+
+
+
+
 				continue;
+
+
+
+
+
 			}
 
-			var label = document.createElement( tag );
+
+
+
+
+
+
+
+
+
+
+			label = document.createElement( tag );
+
+
+
+
+
 			label.innerHTML = this.types[ tag ].label;
+
+
+
+
+
 			label.setAttribute( 'data-tag', tag );
+
+
+
+
+
 			label.setAttribute( 'data-class', this.types[ tag ].className );
+
+
+
+
+
 			d.appendChild( label );
 
-			label.addEventListener( 'mousedown', function(ev) {
+
+
+
+
+
+
+
+
+
+
+			label.addEventListener( 'mousedown', function( ev ) {
+
+
+
+
+
 				ev.preventDefault();
+
+
+
+
+
 				this._selectedType = ev.target.getAttribute( 'data-tag' );
+
+
+
+
+
 				this._selectedClass = ev.target.getAttribute( 'data-class' );
+
+
+
+
+
 				this._ceElement._mouseDown = true;
+
+
+
+
+
 				this._ceElement._onMouseUp();
 
+
+
+
+
+
+
+
+
+
+
 				this.hidePicker();
+
+
+
+
+
 			}.bind( this ) );
+
+
+
+
+
+
+
+
+
+
 
 		}
 
-		this._ceElement._domElement.innerHTML = pbsParams.labels.paragraph;
-		this._ceElement._domElement.appendChild(d);
 
-		// Hide the paragraphpicker when going out of the inspector
-		document.querySelector('.ct-toolbox').addEventListener('mouseleave', function() {
-			_this.hidePicker();
-		});
+
+
+
+
+
+
+
+
+
+		this._ceElement._domElement.innerHTML = pbsParams.labels.paragraph;
+
+
+
+
+
+		this._ceElement._domElement.appendChild( d );
+
+
+
+
+
+
+
+
+
+
+
+		// Hide the picker when clicking outside.
+
+
+
+
+
+		document.body.addEventListener( 'mousedown', function( e ) {
+
+
+
+
+
+			if ( ! window.pbsSelectorMatches( e.target, '.ct-tool--paragraph-picker, .ct-tool--paragraph-picker *' ) ) {
+
+
+
+
+
+				_this.hidePicker();
+
+
+
+
+
+			}
+
+
+
+
+
+		} );
+
+
+
+
+
+
+
+
+
+
 
 		// Close popup if other popups open.
+
+
+
+
+
 		wp.hooks.addAction( 'pbs.tool.popup.open', function() {
+
+
+
+
+
 			this.hidePicker();
-		}.bind(this));
+
+
+
+
+
+		}.bind( this ) );
+
+
+
+
+
 	};
+
+
+
+
+
+
+
+
+
 
 
 	paragraphPicker.hidePicker = function() {
+
+
+
+
+
+
+
+
+
+
+
 		// Hide the paragraphpicker container.
-		this._ceElement._domElement.querySelector('div').style.display = '';
+
+
+
+
+
+		this._ceElement._domElement.querySelector( 'div' ).style.display = '';
+
+
+
+
+
+
+
+
+
+
 
 		// Forget the previously selected text.
+
+
+
+
+
 		this.rememberedSelection = null;
+
+
+
+
+
 	};
+
+
+
+
+
+
+
+
+
+
 
 	return paragraphPicker;
 
-})(ContentTools.Tool);
+
+
+
+
+
+
+
+
+
+
+} )( ContentTools.Tool );
+
+
+
+
+
+
+
+
 
 
 
 // If another element is selected, hide the paragraph picker
-ContentEdit.Root.get().bind('blur', function() {
+
+
+
+
+
+ContentEdit.Root.get().bind( 'blur', function() {
+
+
+
+
+
 	var tool = window.PBSEditor.getToolUI( 'paragraph' );
-	// var tool = ContentTools.EditorApp.get()._toolbox._toolUIs.paragraph;
-	if ( typeof tool !== 'undefined' ) {
+
+
+
+
+
+	if ( 'undefined' !== typeof tool ) {
+
+
+
+
+
 		tool.tool.hidePicker();
+
+
+
+
+
 	}
-});
+
+
+
+
+
+} );
+
+
+
+
+
+
+
+
+
 
 
 // Implement our own mount event handler.
-(function() {
+
+
+
+
+
+( function() {
+
+
+
+
+
 	var proxied = ContentTools.ToolUI.prototype.mount;
-	ContentTools.ToolUI.prototype.mount = function(domParent, before) {
+
+
+
+
+
+	ContentTools.ToolUI.prototype.mount = function( domParent, before ) {
+
+
+
+
+
 		var ret = proxied.call( this, domParent, before );
+
+
+
+
+
 		this.tool._ceElement = this;
-		if ( typeof this.tool._paragraphPickerMount !== 'undefined' ) {
+
+
+
+
+
+		if ( 'undefined' !== typeof this.tool._paragraphPickerMount ) {
+
+
+
+
+
 			this.tool._paragraphPickerMount();
+
+
+
+
+
 		}
+
+
+
+
+
 		return ret;
+
+
+
+
+
 	};
-})();
+
+
+
+
+
+} )();
+
+
+
+
+
+
+
+
+
 
 
 // Remove the existing event handlers for the paragraph tool. We are going to use our own
+
+
+
+
+
 (function() {
+
+
+
+
+
 	var proxied = ContentTools.ToolUI.prototype._addDOMEventListeners;
- 	ContentTools.ToolUI.prototype._addDOMEventListeners = function() {
-		if ( this.tool.name === 'paragraphPicker' ) {
-			var _this = this;
+
+
+
+
+
+	ContentTools.ToolUI.prototype._addDOMEventListeners = function() {
+
+
+
+
+
+		var _this = this;
+
+
+
+
+
+		if ( 'paragraphPicker' === this.tool.name ) {
+
+
+
+
+
+
+
+
+
+
 
 			// Cancel the mouse down event to prevent focusing
-	        this._domElement.addEventListener('mousedown', function(e) {
-				if ( e.target.classList.contains('ct-tool') ) {
+
+
+
+
+
+			this._domElement.addEventListener( 'mousedown', function( e ) {
+
+
+
+
+
+				if ( e.target.classList.contains( 'ct-tool' ) ) {
+
+
+
+
+
 					e.preventDefault();
+
+
+
+
+
 				}
+
+
+
+
+
 			});
 
+
+
+
+
+
+
+
+
+
+
 			// Show the paragraphpicker on click
-	        this._domElement.addEventListener('click', function(e) {
-				if ( e.target.classList.contains('ct-tool') ) {
+
+
+
+
+
+			this._domElement.addEventListener( 'click', function( e ) {
+
+
+
+
+
+				if ( e.target.classList.contains( 'ct-tool' ) ) {
+
+
+
+
+
+
+
+
+
+
 
 					// Let others know that we're going to open a popup.
-					if ( _this._domElement.querySelector('div').style.display === '' ) {
+
+
+
+
+
+					if ( '' === _this._domElement.querySelector( 'div' ).style.display ) {
+
+
+
+
+
 						wp.hooks.doAction( 'pbs.tool.popup.open' );
+
+
+
+
+
 					}
 
+
+
+
+
+
+
+
+
+
+
 					// Show the paragraph picker
-					_this._domElement.querySelector('div').style.display = _this._domElement.querySelector('div').style.display ? '' : 'block';
+
+
+
+
+
+					_this._domElement.querySelector( 'div' ).style.display = _this._domElement.querySelector( 'div' ).style.display ? '' : 'block';
+
+
+
+
+
+
+
+
+
+
 
 				}
-	        });
+
+
+
+
+
+			});
+
+
+
+
+
+
+
+
+
+
 
 		// Normal process
+
+
+
+
+
 		} else {
+
+
+
+
+
 			return proxied.call( this );
+
+
+
+
+
 		}
+
+
+
+
+
 	};
+
+
+
+
+
 })();
+
+
+
+
+
 
 /* globals ContentTools, __extends, pbsParams */
 
@@ -20923,11 +25838,11 @@ ContentTools.Tools.Strikethrough = (function(_super) {
 
 PBSEditor.shortcuts = {
 
-	'ctrl+r': function( element, selection, callback ) {
+	'ctrl+r': function( element, selection ) {
 
-		if ( ContentTools.Tools.AlignRight.canApply( element, selection ) ) {
+		if ( ContentTools.Tools.Align.canApply( element, selection ) ) {
 
-			ContentTools.Tools.AlignRight.apply( element, selection, callback );
+			ContentTools.Tools.Align._apply( 'right' );
 
 		}
 
@@ -20943,31 +25858,31 @@ PBSEditor.shortcuts = {
 
 	},
 
-	'ctrl+e': function( element, selection, callback ) {
+	'ctrl+e': function( element, selection ) {
 
-		if ( ContentTools.Tools.AlignCenter.canApply( element, selection ) ) {
+		if ( ContentTools.Tools.Align.canApply( element, selection ) ) {
 
-			ContentTools.Tools.AlignCenter.apply( element, selection, callback );
-
-		}
-
-	},
-
-	'ctrl+l': function( element, selection, callback ) {
-
-		if ( ContentTools.Tools.AlignLeft.canApply( element, selection ) ) {
-
-			ContentTools.Tools.AlignLeft.apply( element, selection, callback );
+			ContentTools.Tools.Align._apply( 'center' );
 
 		}
 
 	},
 
-	'ctrl+j': function( element, selection, callback ) {
+	'ctrl+l': function( element, selection ) {
 
-		if ( ContentTools.Tools.AlignJustify.canApply( element, selection ) ) {
+		if ( ContentTools.Tools.Align.canApply( element, selection ) ) {
 
-			ContentTools.Tools.AlignJustify.apply( element, selection, callback );
+			ContentTools.Tools.Align._apply( 'left' );
+
+		}
+
+	},
+
+	'ctrl+j': function( element, selection ) {
+
+		if ( ContentTools.Tools.Align.canApply( element, selection ) ) {
+
+			ContentTools.Tools.Align._apply( 'justify' );
 
 		}
 
@@ -21065,9 +25980,9 @@ PBSEditor.shortcuts = {
 
 	'ctrl+=': function( element, selection, callback ) {
 
-		if ( ContentTools.Tools.FontUp.canApply( element, selection ) ) {
+		if ( ContentTools.Tools.FontSizeUp.canApply( element, selection ) ) {
 
-			ContentTools.Tools.FontUp.apply( element, selection, callback, 'up' );
+			ContentTools.Tools.FontSizeUp.apply( element, selection, callback, 'up' );
 
 		}
 
@@ -21075,9 +25990,9 @@ PBSEditor.shortcuts = {
 
 	'ctrl+-': function( element, selection, callback ) {
 
-		if ( ContentTools.Tools.FontUp.canApply( element, selection ) ) {
+		if ( ContentTools.Tools.FontSizeDown.canApply( element, selection ) ) {
 
-			ContentTools.Tools.FontUp.apply( element, selection, callback, 'down' );
+			ContentTools.Tools.FontSizeDown.apply( element, selection, callback, 'down' );
 
 		}
 
@@ -21135,13 +26050,14 @@ ContentTools.Tools.Underline.label += ' (ctrl+u)';
 
 ContentTools.Tools.Link.label += ' (ctrl+k)';
 
-ContentTools.Tools.AlignLeft.label += ' (ctrl+l)';
+ContentTools.Tools.Align.labelLeft += ' (ctrl+l)';
 
-ContentTools.Tools.AlignCenter.label += ' (ctrl+e)';
+ContentTools.Tools.Align.labelCenter += ' (ctrl+e)';
 
-ContentTools.Tools.AlignRight.label += ' (ctrl+r)';
+ContentTools.Tools.Align.labelRight += ' (ctrl+r)';
 
-ContentTools.Tools.AlignJustify.label += ' (ctrl+j)';
+ContentTools.Tools.Align.labelJustify += ' (ctrl+j)';
+
 
 
 ContentTools.Tools.Code.label += ' (ctrl+o)';
@@ -21434,6 +26350,18 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 	document.addEventListener( 'keydown', function(ev) {
 
+
+
+		// Don't allow saving when editing in smaller screens.
+
+		if ( window.innerWidth <= 800 ) {
+
+			return;
+
+		}
+
+
+
 		if ( ! window.PBSEditor.isEditing() ) {
 
 
@@ -21510,18 +26438,161 @@ window.addEventListener( 'DOMContentLoaded', function() {
 
 
 
+/* globals ContentTools, __extends */
+
+/**
+ * This is a dummy tool that does nothing, and is meant to be placed in the
+ * formatting toolbar as placeholders for premium buttons when built as a lite
+ * version. The label and icon properties are meant to be overridden.
+ */
+
+ContentTools.Tools.PremiumFormatting = (function(_super) {
+  __extends(PremiumFormatting, _super);
+
+  function PremiumFormatting() {
+    return PremiumFormatting.__super__.constructor.apply(this, arguments);
+  }
+
+  ContentTools.ToolShelf.stow( PremiumFormatting, 'premium-formatting' );
+
+  PremiumFormatting.label = '';
+  PremiumFormatting.labelReset = '';
+
+  PremiumFormatting.icon = '';
+
+  PremiumFormatting.canApply = function(element, selection) {
+  	return ContentTools.Tools.Bold.canApply( element, selection );
+  };
+
+  PremiumFormatting.isApplied = function() {
+	  return false;
+  };
+
+  PremiumFormatting.apply = function(element, selection, callback) {
+	  return callback(true);
+  };
+
+  return PremiumFormatting;
+
+})(ContentTools.Tool);
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* globals pbsParams */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /**
 
+
+
+
+
+
+
+
+
+
+
  * Click handler for the "Get Premium" Admin bar button.
+
+
+
+
+
+
+
+
+
+
 
  */
 
+
+
+
+
+
+
+
+
+
+
 document.addEventListener( 'DOMContentLoaded', function() {
+
+
+
+
+
+
+
+
+
+
 
 	var goPremiumButton = document.querySelector( '#wp-admin-bar-pbs_go_premium' );
 
+
+
+
+
+
+
+
+
+
+
 	if ( goPremiumButton ) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -21529,191 +26600,1588 @@ document.addEventListener( 'DOMContentLoaded', function() {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			// Create the modal.
+
+
+
+
+
+
+
+
+
+
 
 			var div = document.createElement( 'DIV' );
 
+
+
+
+
+
+
+
+
+
+
 			div.innerHTML = wp.template( 'pbs-learn-premium' )();
 
+
+
+
+
+
+
+
+
+
+
 			div.setAttribute( 'id', 'pbs-learn-premium-wrapper' );
+
+
+
+
+
+
+
+
+
+
 
 			document.body.appendChild( div );
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			// Play the entrance animation.
+
+
+
+
+
+
+
+
+
+
 
 			setTimeout( function() {
 
+
+
+
+
+
+
+
+
+
+
 				div.classList.add( 'pbs-shown' );
+
+
+
+
+
+
+
+
+
+
 
 			}, 50 );
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			// Close handler.
+
+
+
+
+
+
+
+
+
+
 
 			document.querySelector( '#pbs-learn-premium-wrapper .pbs-tour-close' ).addEventListener( 'click', function() {
 
+
+
+
+
+
+
+
+
+
+
 				document.body.removeChild( div );
+
+
+
+
+
+
+
+
+
+
 
 			} );
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			/**
+
+
+
+
+
+
+
+
+
+
 
 			 * All these below are for the feature carousel.
 
+
+
+
+
+
+
+
+
+
+
 			 */
 
+
+
+
+
+
+
+
+
+
+
 			var carousel = document.querySelector( '.pbs-learn-carousel' );
+
+
+
+
+
+
+
+
+
+
 
 			var speed = 7000; // 5 seconds
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			function carouselHide(num) {
 
+
+
+
+
+
+
+
+
+
+
 			    indicators[num].setAttribute('data-state', '');
+
+
+
+
+
+
+
+
+
+
 
 			    slides[num].setAttribute('data-state', '');
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			    slides[num].style.opacity=0;
 
+
+
+
+
+
+
+
+
+
+
 			}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 			function carouselShow(num) {
 
+
+
+
+
+
+
+
+
+
+
 			    indicators[num].checked = true;
 
+
+
+
+
+
+
+
+
+
+
 			    indicators[num].setAttribute('data-state', 'active');
+
+
+
+
+
+
+
+
+
+
 
 			    slides[num].setAttribute('data-state', 'active');
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			    slides[num].style.opacity=1;
 
+
+
+
+
+
+
+
+
+
+
 			}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 			function setSlide(slide) {
 
+
+
+
+
+
+
+
+
+
+
 			    return function() {
+
+
+
+
+
+
+
+
+
+
 
 			        // Reset all slides
 
+
+
+
+
+
+
+
+
+
+
 			        for (var i = 0; i < indicators.length; i++) {
 
+
+
+
+
+
+
+
+
+
+
 			            indicators[i].setAttribute('data-state', '');
+
+
+
+
+
+
+
+
+
+
 
 			            slides[i].setAttribute('data-state', '');
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			            carouselHide(i);
 
+
+
+
+
+
+
+
+
+
+
 			        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 			        // Set defined slide as active
 
+
+
+
+
+
+
+
+
+
+
 			        indicators[slide].setAttribute('data-state', 'active');
 
+
+
+
+
+
+
+
+
+
+
 			        slides[slide].setAttribute('data-state', 'active');
+
+
+
+
+
+
+
+
+
+
 
 			        carouselShow(slide);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			        // Stop the auto-switcher
+
+
+
+
+
+
+
+
+
+
 
 			        clearInterval(switcher);
 
+
+
+
+
+
+
+
+
+
+
 			    };
 
+
+
+
+
+
+
+
+
+
+
 			}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 			function switchSlide() {
 
+
+
+
+
+
+
+
+
+
+
 			    var nextSlide = 0;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 			    // Reset all slides
 
+
+
+
+
+
+
+
+
+
+
 			    for (var i = 0; i < indicators.length; i++) {
+
+
+
+
+
+
+
+
+
+
 
 			        // If current slide is active & NOT equal to last slide then increment nextSlide
 
+
+
+
+
+
+
+
+
+
+
 			        if ( ( indicators[i].getAttribute('data-state') === 'active' ) && ( i !== (indicators.length-1))) {
 
+
+
+
+
+
+
+
+
+
+
 			            nextSlide = i + 1;
+
+
+
+
+
+
+
+
+
+
 
 			        }
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			        // Remove all active states & hide
+
+
+
+
+
+
+
+
+
+
 
 			        carouselHide(i);
 
+
+
+
+
+
+
+
+
+
+
 			    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 			    // Set next slide as active & show the next slide
 
+
+
+
+
+
+
+
+
+
+
 			    carouselShow(nextSlide);
 
+
+
+
+
+
+
+
+
+
+
 			}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 			if (carousel) {
 
+
+
+
+
+
+
+
+
+
+
 			    var slides = carousel.querySelectorAll('.pbs-learn-slide');
+
+
+
+
+
+
+
+
+
+
 
 			    var indicators = carousel.querySelectorAll('.pbs-learn-indicators label');
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			    var switcher = setInterval(function() {
 
+
+
+
+
+
+
+
+
+
+
 			        switchSlide();
+
+
+
+
+
+
+
+
+
+
 
 			    }, speed);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			    for (var i = 0; i < indicators.length; i++) {
+
+
+
+
+
+
+
+
+
+
 
 			        indicators[i].querySelector( 'input' ).addEventListener( 'click', setSlide(i));
 
+
+
+
+
+
+
+
+
+
+
 			    }
+
+
+
+
+
+
+
+
+
+
 
 			}
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 		} );
 
+
+
+
+
+
+
+
+
+
+
 	}
+
+
+
+
+
+
+
+
+
+
 
 } );
 
 
-/* globals pbsParams, ContentTools */
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+document.addEventListener( 'DOMContentLoaded', function() {
+
+
+
+
+
+
+
+
+
+
+
+	if ( ! pbsParams.is_lite ) {
+
+
+
+
+
+
+
+
+
+
+
+		return;
+
+
+
+
+
+
+
+
+
+
+
+	}
+
+
+
+
+
+
+
+
+
+
+
+	var shownPremiumNotice = false;
+
+
+
+
+
+
+
+
+
+
+
+	document.addEventListener( 'click', function( ev ) {
+
+
+
+
+
+
+
+
+
+
+
+		if ( ev.target ) {
+
+
+
+
+
+
+
+
+
+
+
+			if ( ev.target.getAttribute( 'id' ) === 'pbs-learn-premium-wrapper' ) {
+
+
+
+
+
+
+
+
+
+
+
+				document.querySelector( '#pbs-learn-premium-wrapper .pbs-tour-close' ).dispatchEvent( new CustomEvent( 'click' ) );
+
+
+
+
+
+
+
+
+
+
+
+				return;
+
+
+
+
+
+
+
+
+
+
+
+			}
+
+
+
+
+
+
+
+
+
+
+
+		}
+
+
+
+
+
+
+
+
+
+
+
+		if ( window.pbsSelectorMatches( ev.target, '.pbs-premium-flag:not(.pbs-collapsable-title), .pbs-premium-flag:not(.pbs-collapsable-title) *' ) ) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+			if ( shownPremiumNotice ) {
+
+
+
+
+
+
+
+
+
+
+
+				// return;
+
+
+
+
+
+
+
+
+
+
+
+			}
+
+
+
+
+
+
+
+
+
+
+
+			shownPremiumNotice = true;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+			// Create the modal.
+
+
+
+
+
+
+
+
+
+
+
+			var div = document.createElement( 'DIV' );
+
+
+
+
+
+
+
+
+
+
+
+			div.innerHTML = wp.template( 'pbs-learn-premium-elements' )();
+
+
+
+
+
+
+
+
+
+
+
+			div.setAttribute( 'id', 'pbs-learn-premium-wrapper' );
+
+
+
+
+
+
+
+
+
+
+
+			document.body.appendChild( div );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+			// Play the entrance animation.
+
+
+
+
+
+
+
+
+
+
+
+			setTimeout( function() {
+
+
+
+
+
+
+
+
+
+
+
+				div.classList.add( 'pbs-shown' );
+
+
+
+
+
+
+
+
+
+
+
+			}, 50 );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+			// Close handler.
+
+
+
+
+
+
+
+
+
+
+
+			document.querySelector( '#pbs-learn-premium-wrapper .pbs-tour-close' ).addEventListener( 'click', function() {
+
+
+
+
+
+
+
+
+
+
+
+				document.body.removeChild( div );
+
+
+
+
+
+
+
+
+
+
+
+			} );
+
+
+
+
+
+
+
+
+
+
+
+		}
+
+
+
+
+
+
+
+
+
+
+
+	} );
+
+
+
+
+
+
+
+
+
+
+
+} );
+
+
+
+
+
+
+
+
+
+
+
+
+/* globals pbsParams, ContentTools */
 
 /**
  * Plays the tour. Should be only called when the editor is running.
@@ -21723,10 +28191,10 @@ window.pbsPlayTour = function() {
 	// If the tour has started before, possible from another page, don't show it again.
 	// Helpful for the PBS demo site.
 	if ( localStorage ) {
-		if ( localStorage.getItem( 'pbs_did_intro' ) ) {
+		if ( localStorage.getItem( 'pbs_did_intro_v4' ) ) {
 			return;
 		}
-		localStorage.setItem( 'pbs_did_intro', 1 );
+		localStorage.setItem( 'pbs_did_intro_v4', 1 );
 	}
 
 	var tourModalWrapper = document.createElement( 'DIV' );
@@ -21763,69 +28231,62 @@ window.pbsPlayTour = function() {
 
 	var editor = ContentTools.EditorApp.get();
 	editor.unbind( 'start', window.pbsPlayTour );
+
+	// Tell the backend that we played the tour.
+	var payload = new FormData();
+	payload.append( 'action', 'pbs_did_tour' );
+	payload.append( 'nonce', pbsParams.nonce );
+
+	var xhr = new XMLHttpRequest();
+	xhr.open( 'POST', pbsParams.ajax_url );
+	xhr.send( payload );
 };
 
 
 /**
  * Start the tour if it's the first time playing.
  */
-wp.hooks.addAction( 'pbs.ct.ready', function() {
-	if ( ! pbsParams.do_intro ) {
-		return;
+( function() {
+	var ready = function() {
+		if ( pbsParams.do_intro ) {
+			var editor = ContentTools.EditorApp.get();
+			editor.bind( 'start', window.pbsPlayTour );
+		}
+	};
+
+	if ( document.readyState !== 'loading' ) {
+		ready();
+	} else {
+		document.addEventListener( 'DOMContentLoaded', ready );
 	}
-
-	var editor = ContentTools.EditorApp.get();
-	editor.bind( 'start', window.pbsPlayTour );
-});
-
-/* globals pbsParams */
+} )();
 
 /**
- * Asks the user to rate PBS.
+ * Sends a heartbeat on the amount of editing time.
  */
-window.addEventListener( 'DOMContentLoaded', function() {
 
- 	// Send out heartbeat stuff.
- 	jQuery( document ).on( 'heartbeat-send', function( e, data ) {
+( function() {
+	var ready = function() {
 
- 		// Only do this when editing.
- 		if ( ! window.PBSEditor.isEditing() ) {
- 			return;
- 		}
+		// Send out heartbeat stuff.
+		jQuery( document ).on( 'heartbeat-send', function( e, data ) {
 
-		data.tracking_interval = wp.heartbeat.interval();
-	} );
+			// Only do this when editing.
+			if ( ! window.PBSEditor.isEditing() ) {
+				return;
+			}
 
-	// Handle heartbeat responses.
-	jQuery( document ).on( 'heartbeat-tick', function( e, data ) {
+			data.tracking_interval = wp.heartbeat.interval();
+		} );
 
-		// Only do this when editing.
-		if ( ! window.PBSEditor.isEditing() ) {
-			return;
-		}
+	};
 
-		if ( data.ask_for_rating ) {
-			document.querySelector( '#pbs-rate-desc' ).innerHTML = data.ask_for_rating;
-			document.querySelector( '#wp-admin-bar-pbs_rate' ).classList.remove( 'pbs-hidden' );
-			document.querySelector( '#pbs-rate-no' ).addEventListener( 'click', function( ev ) {
-				ev.preventDefault();
-				document.querySelector( '#wp-admin-bar-pbs_rate' ).classList.add( 'pbs-hidden' );
-			} );
-			document.querySelector( '#pbs-rate-go' ).addEventListener( 'click', function( ev ) {
-				ev.preventDefault();
-				document.querySelector( '#wp-admin-bar-pbs_rate' ).classList.add( 'pbs-hidden' );
-
-				var payload = new FormData();
-				payload.append( 'action', 'pbs_ask_rating_rated' );
-				payload.append( 'nonce', pbsParams.nonce );
-
-				var xhr = new XMLHttpRequest();
-				xhr.open( 'POST', pbsParams.ajax_url );
-				xhr.send( payload );
-			} );
-		}
-	} );
-} );
+	if ( 'loading' !== document.readyState ) {
+		ready();
+	} else {
+		document.addEventListener( 'DOMContentLoaded', ready );
+	}
+} )();
 
 /**
  * Send usage stats to PBS.com if opted in.
@@ -22241,6 +28702,178 @@ window.PBSEditor.rgbToHsl = function( r, g, b ) {
     return { h: h, s: s, l: l };
 };
 
+/* globals ContentTools, pbsParams, ContentEdit */
+
+
+// When the editor is started, and we're not in an iframe, then open the
+// page with the iframed link and start the editor.
+( function() {
+	var proxy = ContentTools.IgnitionUI.prototype._addDOMEventListeners;
+	ContentTools.IgnitionUI.prototype._addDOMEventListeners = function() {
+		this._domEdit.addEventListener( 'click', function( ev ) {
+			if ( ! window.parent.pbsGoResponsive ) {
+
+				if ( ev.target.firstChild ) {
+					if ( ev.target.firstChild.getAttribute( 'href' ) !== '#' ) {
+
+						ev.stopImmediatePropagation();
+						ev.stopPropagation();
+
+						if ( localStorage ) {
+							localStorage.setItem( 'pbs-open-' + pbsParams.post_id, '1' );
+						}
+
+						window.location.href = ev.target.firstChild.getAttribute( 'href' );
+					}
+				}
+			}
+		} );
+
+		proxy.call( this );
+	};
+} )();
+
+
+/**
+ * Bind the responsive buttons.
+ */
+window.addEventListener( 'DOMContentLoaded', function() {
+
+	// Responsive buttons.
+	document.querySelector( '#wp-admin-bar-pbs_responsive_phone' ).addEventListener( 'click', function(ev) {
+		ev.preventDefault();
+		if ( window.parent ) {
+			window.parent.pbsGoResponsive( 'phone' );
+		}
+	} );
+	document.querySelector( '#wp-admin-bar-pbs_responsive_tablet' ).addEventListener( 'click', function(ev) {
+		ev.preventDefault();
+		if ( window.parent ) {
+			window.parent.pbsGoResponsive( 'tablet' );
+		}
+	} );
+	document.querySelector( '#wp-admin-bar-pbs_responsive_desktop' ).addEventListener( 'click', function(ev) {
+		ev.preventDefault();
+		if ( window.parent ) {
+			window.parent.pbsGoResponsive( 'desktop' );
+		}
+	} );
+
+	// When the editor stops, make sure we're in desktop view.
+	var editor = ContentTools.EditorApp.get();
+	editor.bind( 'stop', function() {
+		if ( window.parent ) {
+			window.parent.pbsGoResponsive( 'desktop' );
+		}
+	} );
+} );
+
+
+// If we are in a responsive iframe, post a message when our URL has changed.
+// (When the user has clicked on a link after editing)
+if ( window.parent.pbsGoResponsive ) {
+	window.onunload = function() {
+	    window.top.postMessage( 'pbs_iframe_change', '*' );
+	};
+}
+
+
+// Disable dragging for small screens.
+( function() {
+	var _Root = ContentEdit.Root.get();
+	var proxiedStartDragging = _Root.startDragging;
+	_Root.startDragging = function( element, x, y ) {
+		if ( window.innerWidth <= 800 ) {
+			return;
+		}
+		return proxiedStartDragging.call( this, element, x, y );
+	};
+} )();
+
+
+// Disable the media manager (when images are clicked) for small screens.
+( function() {
+	var proxy = ContentEdit.Image.prototype.openMediaManager;
+	ContentEdit.Image.prototype.openMediaManager = function() {
+		if ( window.innerWidth <= 800 ) {
+			return;
+		}
+		proxy.call( this );
+	};
+} )();
+
+
+// Switch styles when switching between views
+// This is called by iframe.js (the parent iframe window) when switching between
+// different responsive views.
+window.pbsSwitchResponsiveStyles = function( screenSize, oldScreenSize ) {
+
+	// Don't do anything if we're still in the same screen size.
+	if ( screenSize === oldScreenSize ) {
+		return;
+	}
+
+	// All our styles.
+	var styles = {
+		'margin-top': '.pbs-main-wrapper [style*="margin:"], .pbs-main-wrapper [style*="margin-top:"]',
+		'margin-bottom': '.pbs-main-wrapper [style*="margin:"], .pbs-main-wrapper [style*="margin-bottom:"]'
+	};
+
+	// The different non-desktop screen sizes.
+	var sizes = ['tablet', 'phone'];
+
+	for ( var style in styles ) {
+		if ( ! styles.hasOwnProperty( style ) ) {
+			continue;
+		}
+
+		// Selector for all the different styles we need to switch out.
+		var selector = styles[ style ];
+		for ( var i = 0; i < sizes.length; i++ ) {
+			selector += ', [data-pbs-' + sizes[ i ] + '-' + style + ']';
+		}
+
+		// Loop through all the affected elements and switch out the styles.
+		var elements = document.querySelectorAll( selector );
+		Array.prototype.forEach.call( elements, function( el ) { // jshint ignore:line
+			var element = el._ceElement;
+			if ( element ) {
+				if ( element.style( style ) ) {
+					element.attr( 'data-pbs-' + oldScreenSize + '-' + style, element.style( style ) );
+				}
+				if ( element.attr( 'data-pbs-' + screenSize + '-' + style ) ) {
+					element.style( style, element.attr( 'data-pbs-' + screenSize + '-' + style ) );
+				} else if ( screenSize === 'phone' && element.attr( 'data-pbs-tablet-' + style ) ) {
+					element.style( style, element.attr( 'data-pbs-tablet-' + style ) );
+				} else if ( element.attr( 'data-pbs-desktop-' + style ) ) {
+					element.style( style, element.attr( 'data-pbs-desktop-' + style ) );
+				} else {
+					element.style( style, '' );
+				}
+
+				if ( element.attr( 'data-pbs-phone-' + style ) === element.attr( 'data-pbs-tablet-' + style ) ) {
+					element.removeAttr( 'data-pbs-phone-' + style );
+				}
+				if ( element.attr( 'data-pbs-tablet-' + style ) === element.attr( 'data-pbs-desktop-' + style ) ) {
+					element.removeAttr( 'data-pbs-tablet-' + style );
+				}
+			}
+		} );
+
+		// After switching and we end up in the desktop view, remove the desktop attribute
+		// because we don't need to keep it.
+		if ( screenSize === 'desktop' ) {
+			elements = document.querySelectorAll( '[data-pbs-' + screenSize + '-' + style + ']' );
+			Array.prototype.forEach.call( elements, function( el ) { // jshint ignore:line
+				var element = el._ceElement;
+				if ( element ) {
+					element.removeAttr( 'data-pbs-' + screenSize + '-' + style );
+				}
+			} );
+		}
+	}
+};
+
 
 /***************************************************************************
  * These are the tools in the inspector, overriding the defaults of CT.
@@ -22259,14 +28892,28 @@ window.PBSEditor.formattingTools[0].push(
 	'link',
 	// 'unlink',
 	// 'blockquote',
-	'|',
-	'align-left',
-	'align-center',
-	'align-right',
-	'align-justify',
-	'|',
-	'hr'
+	// '|',
+	'align',
+	// 'align-left',
+	// 'align-center',
+	// 'align-right',
+	// 'align-justify',
+	'|'
 );
+// if ( ! pbsParams.is_lite ) {
+	window.PBSEditor.formattingTools[0].push(
+		'uppercase',
+		'font-size-down',
+		'font-size-up',
+		'line-height'
+	);
+// }
+window.PBSEditor.premiumTools = {
+	'uppercase': pbsParams.labels.uppercase + ' (' + pbsParams.labels.premium + ')',
+	'font-size-down': pbsParams.labels.increase_font_size + ' (' + pbsParams.labels.premium + ')',
+	'font-size-up': pbsParams.labels.decrease_font_size + ' (' + pbsParams.labels.premium + ')',
+	'line-height': pbsParams.labels.increase_line_height + ' (' + pbsParams.labels.premium + ')'
+};
 window.PBSEditor.formattingTools[0].push(
 	'code',
 	'|',
@@ -22279,25 +28926,158 @@ window.PBSEditor.formattingTools[0].push(
 	'undo', 'redo'				// These are automatically moved into the admin bar.
 );
 window.PBSEditor.insertElements = [[]];
-window.PBSEditor.insertElements[0].push(
-	'onecolumn',
-	'twocolumn',
-	'threecolumn',
-	'fourcolumn',
-	'text',
-	'pbs-media',
-	'shortcode'
-);
-window.PBSEditor.insertElements[0].push(
-	'widget',
-	'sidebar',
-	'icon'
-);
-window.PBSEditor.insertElements[0].push(
-	'html',
-	'map',
-	'tabs'
-);
+
+// Button arrangement.
+if ( ! pbsParams.is_lite ) {
+	window.PBSEditor.insertElements[0].push(
+		'onecolumn',
+		'twocolumn',
+		'threecolumn',
+		'fourcolumn',
+		'text',
+		'pbs-media',
+		'button',
+		'icon',
+		'hr',
+		'spacer',
+		'shortcode',
+		'widget',
+		'sidebar',
+		'html',
+		'map',
+		'icon-label',
+		'carousel',
+		'tabs',
+		'table',
+		'toggle',
+
+		pbsParams.labels.special_elements,
+
+		'woocommerce',
+		'acf',
+		'nextgen',
+		'contact-form7',
+		'events-calendar',
+		'instagram-feed',
+
+		'predesigned',
+		'countup',
+		'countdown',
+		'page-heading',
+		'social-icons',
+		'call-to-action',
+		'contact-details',
+		'pricing-table',
+		'image-box',
+		'newsletter',
+		'testimonial',
+		'featurette',
+		'team-members',
+		'gallery'
+	);
+} else {
+
+	// Lite version button arrangement.
+	window.PBSEditor.insertElements[0].push(
+		'onecolumn',
+		'twocolumn',
+		'threecolumn',
+		'fourcolumn',
+		'text',
+		'pbs-media',
+		'icon',
+		'hr',
+		'spacer',
+		'shortcode',
+		'widget',
+		'sidebar',
+		'html',
+		'map',
+		'tabs',
+		'icon-label',
+		'button',
+		'carousel',
+		'table',
+		'toggle',
+
+		pbsParams.labels.special_elements,
+
+		'woocommerce',
+		'acf',
+		'nextgen',
+		'contact-form7',
+		'events-calendar',
+		'instagram-feed',
+
+		'predesigned',
+		'countup',
+		'countdown',
+		'page-heading',
+		'social-icons',
+		'call-to-action',
+		'contact-details',
+		'pricing-table',
+		'image-box',
+		'newsletter',
+		'testimonial',
+		'featurette',
+		'team-members',
+		'gallery'
+	);
+}
+
+
+/**
+ * Remove plugin buttons if the associated plugin isn't activated.
+ */
+if ( ! pbsParams.has_woocommerce ) {
+	window.PBSEditor.insertElements[0].splice( window.PBSEditor.insertElements[0].indexOf( 'woocommerce' ), 1 );
+}
+if ( ! pbsParams.has_nextgen_gallery ) {
+	window.PBSEditor.insertElements[0].splice( window.PBSEditor.insertElements[0].indexOf( 'nextgen' ), 1 );
+}
+if ( ! pbsParams.has_events_calendar ) {
+	window.PBSEditor.insertElements[0].splice( window.PBSEditor.insertElements[0].indexOf( 'events-calendar' ), 1 );
+}
+if ( ! pbsParams.has_acf ) {
+	window.PBSEditor.insertElements[0].splice( window.PBSEditor.insertElements[0].indexOf( 'acf' ), 1 );
+}
+if ( ! pbsParams.has_wpcf7 ) {
+	window.PBSEditor.insertElements[0].splice( window.PBSEditor.insertElements[0].indexOf( 'contact-form7' ), 1 );
+}
+if ( ! pbsParams.has_instagram_feed ) {
+	window.PBSEditor.insertElements[0].splice( window.PBSEditor.insertElements[0].indexOf( 'instagram-feed' ), 1 );
+}
+
+window.PBSEditor.premiumElements = {
+	'button': pbsParams.labels.button,
+	'carousel': pbsParams.labels.carousel,
+	'newsletter': pbsParams.labels.newsletter,
+	'table': pbsParams.labels.table,
+	'predesigned': pbsParams.labels.pre_designed_sections,
+	'toggle': pbsParams.labels.toggle,
+	'countdown': pbsParams.labels.countdown,
+	'countup': pbsParams.labels.count_up,
+	'icon-label': pbsParams.labels.icon_label,
+
+	'woocommerce': pbsParams.labels.woocommerce,
+	'acf': pbsParams.labels.advanced_custom_fields,
+	'nextgen': pbsParams.labels.nextgen,
+	'contact-form7': pbsParams.labels.contact_form7,
+	'events-calendar': pbsParams.labels.events_calendar,
+	'instagram-feed': pbsParams.labels.instagram_feed,
+
+	'page-heading': pbsParams.labels.page_heading,
+	'call-to-action': pbsParams.labels.call_to_action,
+	'testimonial': pbsParams.labels.testimonial,
+	'contact-details': pbsParams.labels.contact_details,
+	'pricing-table': pbsParams.labels.pricing_table,
+	'image-box': pbsParams.labels.image_box,
+	'social-icons': pbsParams.labels.social_icons,
+	'featurette': pbsParams.labels.featurette,
+	'team-members': pbsParams.labels.team_members,
+	'gallery': pbsParams.labels.gallery
+};
 
 // We're not using CT's default tools.
 ContentTools.DEFAULT_TOOLS = [[]];
@@ -22340,7 +29120,10 @@ window.addEventListener( 'DOMContentLoaded', function() {
 	new PBSEditor.ToolbarTabContainer();
 	new PBSEditor.ToolbarTable();
 	new PBSEditor.ToolbarTitle();
+	new PBSEditor.ToolbarHr();
+	new PBSEditor.ToolbarSpacer();
 	if ( ! pbsParams.is_lite ) {
+
 
 	}
 

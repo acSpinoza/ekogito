@@ -35,16 +35,17 @@ if ( ! class_exists( 'PBSAskRating' ) ) {
 				return;
 			}
 
+			// Display the rating notice.
+			add_action( 'admin_notices', array( $this, 'ask_for_rating' ) );
+
 			// Checks whether we need to ask for a rating.
 			add_filter( 'heartbeat_received', array( $this, 'check_if_need_to_ask_for_rating' ), 10, 2 );
 
-			// Handler for when the user clicked on "rate".
-			add_action( 'wp_ajax_pbs_ask_rating_rated', array( $this, 'rated' ) );
+			// Handler for when the user clicked on "no thanks".
+			add_action( 'wp_ajax_pbs_rating_no', array( $this, 'no_thanks' ) );
 
-			// Add our rate button in the front end.
-			if ( ! is_admin() ) {
-				add_action( 'admin_bar_menu', array( $this, 'add_admin_bar_rate_button' ), 9999 );
-			}
+			// Handler for when the user clicked on "rate".
+			add_action( 'wp_ajax_pbs_rating_yes', array( $this, 'rated' ) );
 		}
 
 
@@ -60,6 +61,7 @@ if ( ! class_exists( 'PBSAskRating' ) ) {
 		 * @return array The heartbeat response
 		 */
 		public function check_if_need_to_ask_for_rating( $response, $data ) {
+
 			if ( ! empty( $data['tracking_interval'] ) && ! empty( $data['post_id'] ) ) {
 
 				$asked_editing_time = get_option( 'pbs_asked_rate_editing_time' );
@@ -75,13 +77,8 @@ if ( ! class_exists( 'PBSAskRating' ) ) {
 
 				// Update the number of seconds PBS has been used.
 				if ( ! $asked_editing_time ) {
-					$seconds = (int) get_option( 'pbs_ask_total_editing_time' ) + 15;
+					$seconds = (int) get_option( 'pbs_ask_total_editing_time' ) + (int) $data['tracking_interval'];
 					update_option( 'pbs_ask_total_editing_time', $seconds );
-
-					if ( $seconds > 18000 ) {
-						$response['ask_for_rating'] = __( 'Hey, I noticed you&apos;ve been building your pages for 5 hours already! Please do us a huge favor and give a rating for Page Builder Sandwich on WordPress. This will help spread the word, and help us provide more features.', PAGE_BUILDER_SANDWICH );
-						update_option( 'pbs_asked_rate_editing_time', '1' );
-					}
 				}
 
 				// Update the number of posts that we have edited.
@@ -93,11 +90,6 @@ if ( ! class_exists( 'PBSAskRating' ) ) {
 					if ( ! in_array( $data['post_id'], $posts_edited, true ) ) {
 						$posts_edited[] = $data['post_id'];
 						update_option( 'pbs_ask_posts_edited', $posts_edited );
-					}
-
-					if ( count( $posts_edited ) >= 5 ) {
-						$response['ask_for_rating'] = __( 'Hey, I noticed you&apos;ve edited 5 pages already! Please do us a huge favor and give a rating for Page Builder Sandwich on WordPress. This will help spread the word, and help us provide more features.', PAGE_BUILDER_SANDWICH );
-						update_option( 'pbs_asked_rate_edited_posts', '1' );
 					}
 				}
 			}
@@ -111,12 +103,19 @@ if ( ! class_exists( 'PBSAskRating' ) ) {
 		 * @since 2.8.2
 		 */
 		public function rated() {
-			if ( empty( $_POST['nonce'] ) ) { // Input var: okay.
+			if ( empty( $_POST['nonce'] ) || empty( $_POST['type'] ) ) { // Input var: okay.
 				die();
 			}
 			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
 			if ( ! wp_verify_nonce( $nonce, 'pbs' ) ) {
 				die();
+			}
+
+			$type = sanitize_text_field( wp_unslash( $_POST['type'] ) ); // Input var: okay.
+			if ( 'edit_time' === $type ) {
+				update_option( 'pbs_asked_rate_editing_time', '1' );
+			} else {
+				update_option( 'pbs_asked_rate_edited_posts', '1' );
 			}
 
 			update_option( 'pbs_has_rated', true );
@@ -126,33 +125,77 @@ if ( ! class_exists( 'PBSAskRating' ) ) {
 
 
 		/**
-		 * Adds the rate box to the admin bar.
+		 * No thanks was clicked.
 		 *
-		 * @since 2.8.2
-		 *
-		 * @param Object $wp_admin_bar The admin bar object.
-		 *
-		 * @return Object The modified admin bar object.
+		 * @since 4.0.1
 		 */
-		public function add_admin_bar_rate_button( $wp_admin_bar ) {
-			if ( ! PageBuilderSandwich::is_editable_by_user() ) {
-				return $wp_admin_bar;
+		public function no_thanks() {
+			if ( empty( $_POST['nonce'] ) || empty( $_POST['type'] ) ) { // Input var: okay.
+				die();
+			}
+			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
+			if ( ! wp_verify_nonce( $nonce, 'pbs' ) ) {
+				die();
 			}
 
-			$args = array(
-				'id' => 'pbs_rate',
-				'title' => '<span class="ab-icon"></span>'
-					. __( 'Rate PB Sandwich!', PAGE_BUILDER_SANDWICH )
-					. '<span id="pbs-rate-info">'
-					. '<span id="pbs-rate-desc"></span>'
-					. '<span id="pbs-rate-go">' . __( "Awesome, I'll Rate", PAGE_BUILDER_SANDWICH )
-					. '</span><span id="pbs-rate-no">' . __( 'Later', PAGE_BUILDER_SANDWICH ) . '</span>',
-				'href'  => '#',
-				'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-hidden' ),
-			);
-			$wp_admin_bar->add_node( $args );
+			$type = sanitize_text_field( wp_unslash( $_POST['type'] ) ); // Input var: okay.
+			if ( 'edit_time' === $type ) {
+				update_option( 'pbs_asked_rate_editing_time', '1' );
+			} else {
+				update_option( 'pbs_asked_rate_edited_posts', '1' );
+			}
 
-			return $wp_admin_bar;
+			die();
+		}
+
+
+		/**
+		 * Displays an admin notice to rate PBS.
+		 *
+		 * @since 4.0.1
+		 */
+		public function ask_for_rating() {
+			$has_rated = get_option( 'pbs_has_rated' );
+
+			if ( ! empty( $has_rated ) ) {
+				return;
+			}
+
+			$notice = '';
+			$notice_type = '';
+
+			$asked_editing_time = get_option( 'pbs_asked_rate_editing_time' );
+			if ( ! $asked_editing_time ) {
+				$seconds = (int) get_option( 'pbs_ask_total_editing_time' );
+				if ( $seconds > 18000 ) {
+					$notice_type = 'edit_time';
+					$notice = __( 'Hey, I\'ve noticed that you\'ve been using Page Builder Sandwich for 5 hours now! Could you do us a huge favor and give our plugin a rating on WordPress? We\'re continually enhancing PBS, bringing you more and more features. Rate PBS to help spread the word and inspire us so we can bring you more cool stuff.', PAGE_BUILDER_SANDWICH );
+				}
+			}
+
+			$asked_edited_posts = get_option( 'pbs_asked_rate_edited_posts' );
+			if ( ! $asked_edited_posts ) {
+				$posts_edited = get_option( 'pbs_ask_posts_edited' );
+				if ( ! empty( $posts_edited ) && count( $posts_edited ) >= 5 ) {
+					$notice_type = 'edit_post';
+					$notice = __( 'Hey, I\'ve noticed that you\'ve now designed 5 pages using Page Builder Sandwich! Could you do us a huge favor and give our plugin a rating on WordPress? We\'re continually enhancing PBS, bringing you more and more features. Rate PBS to help spread the word and inspire us so we can bring you more cool stuff.', PAGE_BUILDER_SANDWICH );
+				}
+			}
+
+			$no_label = $asked_editing_time || $asked_edited_posts ? __( 'No, don\'t ask me again', PAGE_BUILDER_SANDWICH ) : __( 'No, maybe later', PAGE_BUILDER_SANDWICH );
+
+			if ( $notice ) {
+				?>
+				<div class="notice notice-info is-dismissible pbs-rate-notice" data-pbs-rate-type="<?php echo esc_attr( $notice_type ) ?>">
+					<img src="<?php echo esc_url( plugins_url( 'page_builder_sandwich/images/pbs-logo.png', PBS_FILE ) ) ?>" alt="PBS Logo" height="70" width="70"/>
+				    <p><?php echo esc_html( $notice ) ?></p>
+					<p>
+						<a class="button button-primary pbs-rate-yes" href="https://wordpress.org/plugins/page-builder-sandwich/" target="_blank"><?php esc_html_e( 'Rate us on WordPress', PAGE_BUILDER_SANDWICH ) ?></a>
+						<a class="button button-default pbs-rate-no"><?php echo esc_html( $no_label ) ?></a>
+					</p>
+				</div>
+				<?php
+			}
 		}
 	}
 }

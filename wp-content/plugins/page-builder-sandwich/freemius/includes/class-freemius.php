@@ -582,8 +582,10 @@
 		private function _find_caller_plugin_file( $is_init = false ) {
 			// Try to load the cached value of the file path.
 			if ( isset( $this->_storage->plugin_main_file ) ) {
-				if ( file_exists( $this->_storage->plugin_main_file->path ) ) {
-					return $this->_storage->plugin_main_file->path;
+				if ( property_exists( $this->_storage->plugin_main_file, 'path' ) ) {
+					if ( file_exists( $this->_storage->plugin_main_file->path ) ) {
+						return $this->_storage->plugin_main_file->path;
+					}
 				}
 			}
 

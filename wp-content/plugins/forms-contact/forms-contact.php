@@ -2,17 +2,18 @@
 
 /*
 Plugin Name: Huge IT Forms
-Plugin URI: http://huge-it.com/forms
+Plugin URI: https://huge-it.com/forms
 Description: Form Builder. this is one of the most important elements of WordPress website because without it you cannot to always keep in touch with your visitors
-Version: 1.4.1
+Version: 1.4.4
 Author: Huge-IT
-Author: http://huge-it.com/
-License: GNU/GPLv3 http://www.gnu.org/licenses/gpl-3.0.html
+Author URI: https://huge-it.com/
+License: GNU/GPLv3 https://www.gnu.org/licenses/gpl-3.0.html
 */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
 /*INCLUDING HUGE IT AJAX FILE*/
 require_once( "admin/hugeit_contact_ajax.php" );
 
@@ -22,8 +23,6 @@ function hugeit_contact_tinymce_readonly( $args ) {
 	if ( $args['selector'] == '#hugeit_contact_admin_message' || $args['selector'] == '#hugeit_contact_user_message' ){
 		$args['readonly'] = 1;
 	}
-
-
 	return $args;
 }
 
@@ -32,6 +31,16 @@ function hugeit_contact_formBuilder_ajax_action_callback() {
 	require( "admin/hugeit_contact_formBuilder_ajax.php" );
 	die();
 }
+
+
+// Include simple captcha generation file
+require_once( "admin/hugeit_contact_captcha.php" );
+
+add_action( 'wp_ajax_hugeit_refresh_simple_captcha', 'hugeit_contact_create_new_captcha' );
+add_action( 'wp_ajax_nopriv_hugeit_refresh_simple_captcha', 'hugeit_contact_create_new_captcha' );
+
+
+
 
 /*INCLUDING HUGE IT EMAIL MANAGER SCHEDULE FILE*/
 require_once( "hugeit_contact_function/huge_it_email_manager_schedule.php" );
@@ -51,7 +60,7 @@ function hugeit_contact_frontend_scripts_and_styles($id) {
 	foreach ($rowim as $key=>$rowimages) {
 		if ( $rowimages->conttype == 'captcha' ) {
 			$recaptcha = 'https://www.google.com/recaptcha/api.js?onload=hugeit_forms_onloadCallback&render=explicit';
-			wp_enqueue_script( 'recaptcha', $recaptcha, array( 'jquery' ), '1.0.0', true );
+			wp_enqueue_script( 'hugeit_contact_recaptcha', $recaptcha, array( 'jquery' ), '1.0.0', true );
 		}
 	}
 	wp_enqueue_script( "hugeit_forms_front_end_js", plugins_url( "js/recaptcha_front.js", __FILE__ ), false );
@@ -70,6 +79,8 @@ function hugeit_contact_scripts_async( $tag, $handle ) {
 }
 
 add_filter( 'script_loader_tag', 'hugeit_contact_scripts_async', 10, 2 );
+
+//Add Form Button in editor tools
 add_action( 'media_buttons_context', 'hugeit_contact_add_contact_button' );
 function hugeit_contact_add_contact_button( $context ) {
 	$img          = plugins_url( '/images/huge_it_contactLogoHover-for_menu.png', __FILE__ );
@@ -81,6 +92,7 @@ function hugeit_contact_add_contact_button( $context ) {
 
 	return $context;
 }
+
 
 add_action('wp_ajax_hugeit_contact_duplicate_form', 'wp_ajax_hugeit_contact_duplicate_form_callback');
 function wp_ajax_hugeit_contact_duplicate_form_callback() {
@@ -129,6 +141,7 @@ function wp_ajax_hugeit_contact_duplicate_form_callback() {
 	wp_die();
 }
 
+//Add Form Popup Div
 add_action( 'admin_footer', 'hugeit_contact_add_inline_contact_popup_content' );
 function hugeit_contact_add_inline_contact_popup_content() {
 	?>
@@ -181,7 +194,7 @@ function hugeit_contact_images_list_shotrcode( $atts ) {
 	if ( ! ( is_numeric( $atts['id'] ) || $atts['id'] == 'ALL_CAT' ) ) {
 		return 'insert numerical or `ALL_CAT` shortcode in `id`';
 	}
- 	hugeit_contact_frontend_scripts_and_styles($atts['id']);
+	hugeit_contact_frontend_scripts_and_styles($atts['id']);
 	return hugeit_contact_cat_images_list( $atts['id'] );
 }
 
@@ -203,6 +216,10 @@ function hugeit_contact_cat_images_list( $id ) {
 
 	return hugeit_contact_show_published_contact_1( $id );
 }
+
+
+
+
 
 add_filter( 'admin_head', 'hugeit_contact_ShowTinyMCE' );
 function hugeit_contact_ShowTinyMCE() {
@@ -233,7 +250,8 @@ function hugeit_contact_options_panel() {
 	$page_allsubmissions  = add_submenu_page( 'hugeit_forms_main_page', 'All Submissions', 'All Submissions', 'manage_options', 'hugeit_forms_submissions', 'hugeit_contact_submissions' );
 	$page_emailmanager    = add_submenu_page( 'hugeit_forms_main_page', 'Newsletter Manager', 'Newsletter Manager', 'manage_options', 'hugeit_forms_email_manager', 'hugeit_contact_email_manager' );
 	$page_featuredplugins = add_submenu_page( 'hugeit_forms_main_page', 'Featured Plugins', 'Featured Plugins', 'manage_options', 'hugeit_forms_featured_plugins', 'hugeit_forms_featured_plugins' );
-	add_submenu_page( 'hugeit_forms_main_page', 'Licensing', 'Licensing', 'manage_options', 'huge_it_forms_licensing', 'hugeit_forms_licensing' );
+	$custom_scripts       = add_submenu_page( 'hugeit_forms_main_page', 'Custom CSS', 'Custom CSS', 'manage_options', 'hugeit_forms_custom_scripts', 'hugeit_forms_custom_scripts' );
+	$licensing            = add_submenu_page( 'hugeit_forms_main_page', 'Licensing', 'Licensing', 'manage_options', 'huge_it_forms_licensing', 'hugeit_forms_licensing' );
 
 	add_action( 'admin_print_styles-' . $page_main, 'hugeit_contact_less_options' );
 	add_action( 'admin_print_styles-' . $page_main, 'hugeit_contact_formBuilder_options' );
@@ -242,6 +260,8 @@ function hugeit_contact_options_panel() {
 	add_action( 'admin_print_styles-' . $page_allsubmissions, 'hugeit_contact_less_options' );
 	add_action( 'admin_print_styles-' . $page_emailmanager, 'hugeit_contact_less_options' );
 	add_action( 'admin_print_styles-' . $page_emailmanager, 'hugeit_contact_email_options' );
+
+	add_action( 'admin_print_styles-' . $custom_scripts, 'hugeit_contact_less_options' );
 }
 
 //Captcha
@@ -252,8 +272,11 @@ function hugeit_contact_admin_captcha() {
 function hugeit_contact_less_options() {
 	wp_enqueue_media();
 	wp_enqueue_script('jquery');
-	wp_enqueue_script('jquery-ui-core');
+	//wp_enqueue_script('jquery-ui-core');
 	wp_enqueue_script('jquery-ui-sortable');
+
+
+	wp_enqueue_script("jquery_ui_new2", "//code.jquery.com/ui/1.10.4/jquery-ui.js", FALSE);
 	wp_enqueue_style( "jquery_ui_new", plugins_url( "style/jquery-ui.css", __FILE__ ), false );
 	wp_enqueue_style( "hugeit_contact_hugeicons", plugins_url( "style/iconfonts/css/hugeicons.css", __FILE__ ), false );
 	add_action( 'admin_footer', 'hugeit_contact_admin_captcha' );
@@ -262,6 +285,7 @@ function hugeit_contact_less_options() {
 	$translation_array = array(
 		'nonce' => wp_create_nonce( 'admin_nonce' )
 	);
+	wp_enqueue_script('param_block3', plugins_url("elements/jscolor/jscolor.js", __FILE__));
 	wp_localize_script( 'hugeit_contact_admin_js', 'huge_it_obj', $translation_array );
 }
 
@@ -285,29 +309,7 @@ function hugeit_contact_formBuilder_options() {
 	wp_localize_script( 'hugeit_contact_formBuilder_script', 'huge_it_obj', $translation_array );
 }
 
-function hugeit_forms_licensing() {
-	?>
-	<div style="width:95%">
-		<p>
-			This plugin is the non-commercial version of the Huge IT Forms. If you want to use pro options,than you need
-			to buy a license.
-			Purchasing a license will add possibility to customize the themes of forms and use newsletter manager option
-			of the Huge IT Forms.
-		</p>
-		<br/><br/><br/>
-		<p>After the purchasing the commercial version follow this steps:</p>
-		<ol>
-			<li>Deactivate Forms Plugin</li>
-			<li>Delete Forms Plugin</li>
-			<li>Install the downloaded commercial version of the plugin</li>
-		</ol>
-		<br/><br/>
-		<a href="http://huge-it.com/forms/" class="button-primary" target="_blank">Purchase a License</a>
-	</div>
 
-	<?php
-
-}
 
 function hugeit_contact_with_options() {
 	wp_enqueue_media();
@@ -412,6 +414,7 @@ function hugeit_contacts_huge_it_contact() {
 	}
 }
 
+/* Theme Options Page */
 function hugeit_contact_contact_style_options() {
 	require_once( "admin/hugeit_contact_style_options_func.php" );
 	require_once( "admin/hugeit_contact_style_options_view.php" );
@@ -428,6 +431,7 @@ function hugeit_contact_contact_style_options() {
 	}
 }
 
+/* All Submissions Page */
 function hugeit_contact_submissions() {
 	require_once( "admin/hugeit_contact_submissions_func.php" );
 	require_once( "admin/hugeit_contact_submissions_view.php" );
@@ -476,6 +480,7 @@ function hugeit_contact_email_manager() {
 	}
 }
 
+/* General Options Page */
 function hugeit_contact_general_options() {
 	require_once( "admin/hugeit_contact_general_options_func.php" );
 	require_once( "admin/hugeit_contact_general_options_view.php" );
@@ -488,8 +493,62 @@ function hugeit_contact_general_options() {
 	hugeit_contact_show_settings();
 }
 
+/* Featured Plugins Page */
 function hugeit_forms_featured_plugins() {
+	wp_enqueue_style('featured-plugins-css',plugin_dir_url(__FILE__).'style/featured-plugins.css',true);
 	require_once( "admin/hugeit_contact_featured_plugins.php" );
+}
+
+/* Custom CSS/JS Page */
+function hugeit_forms_custom_scripts(){
+
+	wp_enqueue_style('hugeit-custom_scripts-css',plugin_dir_url(__FILE__).'style/custom-scripts.css',true);
+	require_once( "admin/hugeit_contact_custom_scripts.php" );
+
+	if(isset($_GET['task']) && $_GET['task']=='save'){hugeit_contact_save_custom_scripts();}
+	hugeit_generate_custom_scripts_page();
+}
+
+add_action('plugins_loaded','hugeit_print_custom_style');
+
+add_action('wp_enqueue_scripts','hugeit_regitser_custom_style');
+
+function hugeit_regitser_custom_style(){
+
+	$url = home_url();
+
+	if ( is_ssl() ) {
+		$url = home_url( '/', 'https' );
+	}
+
+	wp_register_style( 'hugeit_custom_style', add_query_arg( array( 'hugeit_custom_css' => 1 ), $url ) );
+
+	wp_enqueue_style( 'hugeit_custom_style' );
+}
+
+function hugeit_print_custom_style(){
+	// Only print CSS if this is a stylesheet request
+	if( ! isset( $_GET['hugeit_custom_css'] ) || intval( $_GET['hugeit_custom_css'] ) !== 1 ) {
+		return;
+	}
+
+	ob_start();
+	header( 'Content-type: text/css' );
+	require_once( "admin/hugeit_contact_custom_scripts.php" );
+
+	$style     = stripslashes(hugeit_get_option( 'hugeit_custom_css' ));
+	$raw_content = isset( $style ) ? $style : '';
+	$content     = wp_kses( $raw_content, array( '\'', '\"' ) );
+	$content     = str_replace( '&gt;', '>', $content );
+	echo $content; //xss okay
+	die();
+}
+
+/* Licensing Page */
+function hugeit_forms_licensing() {
+	wp_enqueue_style( 'licensing-style', plugin_dir_url(__FILE__) . 'style/licensing.css' );
+	require_once ( "admin/hugeit_contact_licensing.php" );
+
 }
 
 function hugeit_contact_subscriber_deactivate() {
@@ -515,7 +574,7 @@ class Hugeit_Contact_Form_Widget extends WP_Widget {
 		 * @var string $before_title;
 		 * @var string $after_title;
 		 * @var string $after_widget;
-		*/
+		 */
 		extract( $args );
 		if ( isset( $instance['contact_id'] ) ) {
 			$contact_id = $instance['contact_id'];
@@ -556,14 +615,14 @@ class Hugeit_Contact_Form_Widget extends WP_Widget {
 		<p>
 			<label for="<?php echo $this->get_field_id( 'title' ); ?>"><?php _e( 'Title:' ); ?></label>
 			<input class="widefat" id="<?php echo $this->get_field_id( 'title' ); ?>"
-			       name="<?php echo $this->get_field_name( 'title' ); ?>" type="text"
-			       value="<?php echo esc_attr( $title ); ?>"/>
+				   name="<?php echo $this->get_field_name( 'title' ); ?>" type="text"
+				   value="<?php echo esc_attr( $title ); ?>"/>
 		</p>
 		<label for="<?php echo $this->get_field_id( 'contact_id' ); ?>"><?php _e( 'Select Form:', 'huge_it_forms' ); ?></label>
 		<select id="<?php echo $this->get_field_id( 'contact_id' ); ?>" name="<?php echo $this->get_field_name( 'contact_id' ); ?>">
-		<?php foreach ( $row_widgets as $row_widget ) : ?>
-			<option <?php if ( isset( $row_widget->id ) && $row_widget->id == $instance['contact_id'] ) {	echo 'selected';} ?> value="<?php echo $row_widget->id; ?>"><?php echo $row_widget->name; ?></option>
-		<?php endforeach; ?>
+			<?php foreach ( $row_widgets as $row_widget ) : ?>
+				<option <?php if ( isset( $row_widget->id ) && $row_widget->id == $instance['contact_id'] ) {	echo 'selected';} ?> value="<?php echo $row_widget->id; ?>"><?php echo $row_widget->name; ?></option>
+			<?php endforeach; ?>
 		</select>
 		</p>
 		<?php
@@ -1249,6 +1308,30 @@ query1;
 	}
 	if ( ! $wpdb->get_var( "select count(*) from " . $wpdb->prefix . "huge_it_contact_contacts" ) ) {
 		$wpdb->query( $sql_3 );
+	}
+
+
+	/* change submission_date column type if required */
+	$type=$wpdb->get_var("SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS 
+  WHERE table_name = '" . $wpdb->prefix . "huge_it_contact_submission' AND COLUMN_NAME = 'submission_date'");
+
+	if($type=='text'){
+		$submissions=$wpdb->get_results("SELECT id,submission_date FROM " . $wpdb->prefix . "huge_it_contact_submission ");
+
+		/* change submission_date column type from text to datetime */
+		$column_type_changed=$wpdb->query("ALTER TABLE ".$wpdb->prefix."huge_it_contact_submission MODIFY submission_date datetime");
+
+		/* change submission_date column type from text to datetime */
+		if($column_type_changed){
+			foreach($submissions as $key=>$submission){
+				$submission_date=date('Y-m-d H:i:s',strtotime($submission->submission_date));
+				$id=$submission->id;
+				$wpdb->query("UPDATE ".$wpdb->prefix."huge_it_contact_submission
+            SET submission_date ='".$submission_date."'
+            WHERE id = ".$id." ");
+			}
+		}
+
 	}
 }
 

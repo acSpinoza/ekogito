@@ -349,8 +349,12 @@ function submitbutton(pressbutton){
 								                        data-formId="<?php echo $id; ?>"
 								                        data-themeId="<?php echo $row->hc_yourstyle; ?>">Captcha</a>
 								</li>
-							<?php endif;
-							if ( $fordisablebut == 0 ) : ?>
+							<?php endif;?>
+
+							<!-- simple captcha -->
+							<li><a onclick="" class="" id="simple_captcha_box" data-formId="<?php echo $id;?>" data-themeId="<?php echo $row->hc_yourstyle;?>">Simple Captcha</a></li>
+
+							<?php if ( $fordisablebut == 0 ) : ?>
 								<li class=""><a onclick="" class="" id="buttons" data-formId="<?php echo $id; ?>"
 								                data-themeId="<?php echo $row->hc_yourstyle; ?>">Buttons</a></li>
 							<?php else : ?>
@@ -450,6 +454,10 @@ function submitbutton(pressbutton){
 
 								echo hugeit_contact_captchaSettingsHtml( $rowimages );
 								break;
+							case 'simple_captcha_box':  //8.1
+
+								echo hugeit_contact_simple_captcha_settings_html( $rowimages );
+								break;
 							case 'buttons':  //9
 
 								echo hugeit_contact_buttonsSettingsHtml( $rowimages );
@@ -508,6 +516,11 @@ function submitbutton(pressbutton){
 						
 						echo hugeit_contact_captchaSettingsHtml($rowimages);
 						break;
+
+						case 'simple_captcha_box':  //8.1
+
+							echo hugeit_contact_simple_captcha_settings_html($rowimages);
+							break;
 
 						case 'buttons':  //9
 
@@ -1041,7 +1054,7 @@ function submitbutton(pressbutton){
 			</script>
 			<!--LIVE PREVIEW-->
 			<div id="hugeit-contact-preview-container">
-				<form onkeypress="doNothing()" id="hugeit-contact-preview-form">
+					<form onkeypress="doNothing()" id="hugeit-contact-preview-form">
 					<div id="hugeit-contact-wrapper" class="<?php echo $style_values['form_radio_size']; ?>-radio <?php echo $style_values['form_checkbox_size']; ?>-checkbox">
 					<div <?php foreach ($rowim as $key=>$rowimages){if($rowimages->hc_left_right == 'right'){echo 'class="multicolumn"';}} ?>>
 						<?php foreach($rowsld as $key=>$rowsldires) {if($id==$rowsldires->id) {echo "<h3><input class='text_area_title' type='text' maxlength='250' value='".$rowsldires->name."' /><span class='hugeItTitleOverlay'></span></h3>";}} ?>
@@ -1049,6 +1062,7 @@ function submitbutton(pressbutton){
 							<?php
 								$i=2;
 								foreach ($rowim as $key=>$rowimages){
+
 									if($rowimages->hc_left_right == 'left'){
 										$inputtype = $rowimages->conttype;
 										switch ($inputtype) {
@@ -1118,6 +1132,30 @@ function submitbutton(pressbutton){
 												</div>
 											<?php
 											break;
+
+											case 'simple_captcha_box': //8.1
+												?>
+												<?php if($rowimages->hc_input_show_default=='formsLeftAlign'){$hg_left_right_class='text-left';}
+											    else{$hg_left_right_class='text-right';}?>
+												<div class="hugeit-field-block simple-captcha-block <?php echo $hg_left_right_class;?>" rel="huge-contact-field-<?php echo $rowimages->id; ?>">
+													<?php $capPos='right';if($rowimages->hc_input_show_default=='2')$capPos="left";?>
+													<label  class="formsAboveAlign">
+                                                        <img src="<?php echo hugeit_contact_create_new_captcha($rowimages->id,'admin');?>">
+                                                        <span class="hugeit_captcha_refresh_button" data-captcha-id="<?php echo $rowimages->id;?>" data-digits="<?php echo $hc_other_field->digits;?>" data-form-id="<?php echo $frontendformid; ?>">
+                                                            <img src="<?php echo plugin_dir_url(__FILE__);?>../images/refresh-icon.png" width="32px">
+                                                        </span>
+                                                    </label>
+													<div class="field-block">
+														<input type="text" name="simple_captcha" placeholder="<?php echo $rowimages->name;?>">
+													</div>
+
+													<span class="hugeOverlay"></span>
+													<input type="hidden" class="ordering" name="hc_ordering<?php echo $rowimages->id; ?>" value="<?php echo $rowimages->ordering; ?>">
+													<input type="hidden" class="left-right-position" name="hc_left_right<?php echo $rowimages->id; ?>" value="<?php echo $rowimages->hc_left_right; ?>" />
+												</div>
+												<?php
+												break;
+
 											case 'buttons': //9									
 											
 											echo hugeit_contact_buttonsHtml($rowimages,$themeId);
@@ -1142,38 +1180,32 @@ function submitbutton(pressbutton){
 										$inputtype = $rowimages->conttype;
 										switch ($inputtype) {
 											case 'text'://1
-
-											echo hugeit_contact_textBoxHtml($rowimages);
-											break;
+												echo hugeit_contact_textBoxHtml($rowimages);
+												break;
 
 											case 'textarea'://2
-
-											echo hugeit_contact_textareaHtml($rowimages);
-											break;
+												echo hugeit_contact_textareaHtml($rowimages);
+												break;
 
 											case 'selectbox'://3
-											
-											echo hugeit_contact_selectboxHtml($rowimages);
-											break;
+												echo hugeit_contact_selectboxHtml($rowimages);
+												break;
 
 											case 'checkbox':  //4
-
-											echo hugeit_contact_checkboxHtml($rowimages,$themeId);
-											break;
+												echo hugeit_contact_checkboxHtml($rowimages,$themeId);
+												break;
 
 											case 'radio_box':  //5
-											
-											echo hugeit_contact_radioboxHtml($rowimages,$themeId);
-											break;
+												echo hugeit_contact_radioboxHtml($rowimages,$themeId);
+												break;
+
 											case 'file_box':  //6
-											
-											echo hugeit_contact_fileboxHtml($rowimages,$themeId);
-											break;
+												echo hugeit_contact_fileboxHtml($rowimages,$themeId);
+												break;
 
 											case 'custom_text':  //7
-
-											echo hugeit_contact_cutomtextHtml($rowimages);
-											break;
+												echo hugeit_contact_cutomtextHtml($rowimages);
+												break;
 
 											case 'captcha': //8
 											?>
@@ -1206,16 +1238,19 @@ function submitbutton(pressbutton){
 													<input type="hidden" class="left-right-position" name="hc_left_right<?php echo $rowimages->id; ?>" value="<?php echo $rowimages->hc_left_right; ?>" />
 												</div>
 											<?php
-											break;
-											case 'buttons': //9									
-											
-											echo hugeit_contact_buttonsHtml($rowimages,$themeId);
-											break;
+												break;
+											//here
+											case 'simple_captcha_box'://8.1
+												echo hugeit_contact_simple_captcha_html($rowimages,$themeId);
+												break;
+
+											case 'buttons': //9
+												echo hugeit_contact_buttonsHtml($rowimages,$themeId);
+												break;
 
 											case 'e_mail':  //10
-
-											echo hugeit_contact_emailHtml($rowimages);
-											break;
+												echo hugeit_contact_emailHtml($rowimages);
+												break;
 										}
 									}
 								}
@@ -1238,70 +1273,7 @@ function submitbutton(pressbutton){
 				</div>
 				<div class="hugeit_contact_custom_settings_dropdown_content -hidden">
 					<div class="hugeit_contact_custom_settings_outer_wrapper">
-						<div style="width:48%">
-							<p>
-								<label for="hugeit_contact_receivers_group">Send Email To:</label>
-								<select disabled="disabled" id="hugeit_contact_receivers_group" name="hugeit_contact_receivers_group">
-									<option value="default" <?php if ( get_option( 'hugeit_contact_receivers_group_' . $id ) === 'default' ) echo ' selected'; ?>>Default Receivers</option>
-									<option value="both" <?php if ( get_option( 'hugeit_contact_receivers_group_' . $id ) === 'both' ) echo ' selected'; ?>>Default &amp; Custom Receivers</option>
-									<option value="custom" <?php if ( get_option( 'hugeit_contact_receivers_group_' . $id ) === 'custom' ) echo ' selected'; ?>>Custom Recievers</option>
-								</select>
-							</p>
-							<p>
-								<label for="hugeit_contact_form_custom_admin_receivers">Admin Custom Receivers:</label>
-								<input
-									disabled="disabled"
-									type="text"
-									id="hugeit_contact_form_custom_admin_receivers"
-									name="hugeit_contact_form_custom_admin_receivers"
-									placeholder="Use comma-separated email addresses"
-									value="<?php $custom_receivers = get_option( 'hugeit_contact_form_custom_admin_receivers_' . $id ); if ( $custom_receivers ) echo $custom_receivers; ?>"/>
-								<dfn class="huge_it_forms_mess_subject_help_box" data-info="Add multiple emails separating them with commas.">?</dfn>
-							</p>
-						</div>
-						<div class="hugeit_contact_custom_settings_inner_wrapper leftblock">
-							<div>
-								<p>
-									<input disabled="disabled" class="primary-check" type="checkbox" id="enable_custom_text_for_admin_email"
-										   name="enable_custom_text_for_admin_email"
-										   value="1" <?php if ( get_option( 'hugeit_contact_form_custom_text_for_admin_enabled_' . $id ) ) echo ' checked' ?> />
-									<label class="primary-label" for="enable_custom_text_for_admin_email">Custom settings for admin</label>
-								</p>
-							</div>
-							<h3>Email To Admin</h3>
-							<div>
-								<p>
-									<label class="small-label" for="hugeit_contact_form_admin_subject">Admin Subject:</label>
-									<input disabled="disabled" type="text" id="hugeit_contact_form_admin_subject"
-										   name="hugeit_contact_form_admin_subject"
-										   value="<?php echo $hugeit_contact_form_admin_subject; ?>"/>
-								</p>
-							</div>
-							<div class="autoheight">
-								<?php
-								wp_editor( get_option( 'hugeit_contact_form_admin_message_' . $id ), "hugeit_contact_admin_message", array( 'media_buttons' => false ) );
-								?>
-							</div>
-						</div>
-						<div class="hugeit_contact_custom_settings_inner_wrapper">
-							<p>
-								<input disabled="disabled" class="primary-check" type="checkbox" id="enable_custom_text_for_user_email"
-									   name="enable_custom_text_for_user_email"
-									   value="1" <?php if ( get_option( 'hugeit_contact_form_custom_text_for_user_enabled_' . $id ) ) echo ' checked' ?> />
-								<label class="primary-label" for="enable_custom_text_for_user_email">Custom settings for user</label>
-							</p>
-							<h3>Email To User</h3>
-							<p>
-								<label class="small-label" for="hugeit_contact_form_user_subject">User Subject:</label>
-								<input disabled="disabled" type="text" id="hugeit_contact_form_user_subject" name="hugeit_contact_form_user_subject"
-									   value="<?php echo $hugeit_contact_form_user_subject; ?>"/>
-							</p>
-							<div class="autoheight">
-								<?php
-								wp_editor( get_option( 'hugeit_contact_form_user_message_' . $id ), "hugeit_contact_user_message", array( 'media_buttons' => false ) );
-								?>
-							</div>
-						</div>
+						<img src="<?php echo plugins_url('../images/hugeit_contact_pro_advanced_options.png',__FILE__);?>" width="100%">
 					</div>
 				</div>
 			</div>

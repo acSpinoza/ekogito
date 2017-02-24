@@ -19,7 +19,12 @@ if ( ! class_exists( 'PBSHelpScout' ) ) {
 		 * Hook into the frontend.
 		 */
 		function __construct() {
+
+			// Add the HelpScout script in the editor.
 			add_action( 'wp_footer', array( $this, 'add_helpscout_beacon' ) );
+
+			// Add the HelpScout script in the iframe template.
+			add_action( 'pbs_iframe_footer', array( $this, 'add_helpscout_beacon' ) );
 		}
 
 

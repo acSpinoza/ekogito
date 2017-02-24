@@ -1,12 +1,11 @@
 === Page Builder Sandwich - Front-End Drag and Drop Page Builder  ===
 Contributors: bfintal, gambitph, freemius
-Donate link: https://pagebuildersandwich.com
-Tags: page builder, page builder plugin, builder, layout builder, page, landing page builder, home page builder, landing page builder, page layout, drag and drop builder, frontend editor, visual, frontend builder, front-end builder, site builder, drag and drop, editor, column, columns, shortcode mapping, website builder, website builder plugin
+Tags: page builder, page builder plugin, page, builder, visual editor, front-end editor, drag and drop builder, front-end builder, home page builder, landing page builder, site builder, template builder, visual builder, site builder, layout builder, website builder, editor, wysiwyg
 Requires at least: 4.2
-Tested up to: 4.6.1
-Stable tag: 3.3
-License: GPLv2 or later
-License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Tested up to: 4.7.2
+Stable tag: 4.2
+License: GPLv3
+License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
 A revolutionary frontend drag & drop page builder. Create pages effortlessly & without any code. Get amazing results from any theme.
 
@@ -16,7 +15,7 @@ A revolutionary frontend drag & drop page builder. Create pages effortlessly & w
 
 Page Builder Sandwich is quite possibly the the last page builder you'll ever need. With its front-end drag and drop capabilities, Page Builder Sandwich allows you to create and design your site the way your visitors see it. Get access to numerous features such as shortcode mapping, hassle-free and pop up-less editing, and more. With us, you're sure to have a page building experience like no other.
 
-> [Live Demo](http://demo.pagebuildersandwich.com/?utm_source=wordpress.org&utm_medium=description&utm_campaign=Demo) | [Main Website](https://pagebuildersandwich.com/?utm_source=wordpress.org&utm_medium=description&utm_campaign=Page%20Builder%20Sandwich) | [Lite vs. Premium](https://pagebuildersandwich.com/compare?utm_source=wordpress.org&utm_medium=description&utm_campaign=Page%20Builder%20Sandwich)
+> [Live Demo](http://demo.pagebuildersandwich.com/?utm_source=wordpress.org&utm_medium=description&utm_campaign=Demo) | [Main Website](https://pagebuildersandwich.com/?utm_source=wordpress.org&utm_medium=description&utm_campaign=Page%20Builder%20Sandwich) | [Documentation](http://docs.pagebuildersandwich.com)
 
 = Okay.. What's Unique? =
 
@@ -80,6 +79,8 @@ Page Builder Sandwich integrates with how WordPress deals with content, so it sh
 
 The premium version gives you some awesome [features](https://pagebuildersandwich.com/compare?utm_source=wordpress.org&utm_medium=description&utm_campaign=Page%20Builder%20Sandwich):
 
+* 10 Page Templates
+* Special elements like page headings, call to action, and more
 * Enhanced Shortcode Mapping Controls
 * Map Element with advanced styling options
 * Button Element with advanced styling options
@@ -90,7 +91,6 @@ The premium version gives you some awesome [features](https://pagebuildersandwic
 * Tables
 * 40 Pre-Designed Sections that you can mix and match
 * Customer Support
-* [Theme Builder](https://pagebuildersandwich.com/theme/)
 
 == Installation ==
 
@@ -137,6 +137,130 @@ Watch this video for a tour of the new interface:
 The new Page Builder Sandwich is completely different from the old one. We've ditched the old backend page builder for the more awesome frontend page building experience. If you're upgrading from version 1.x, a migration notice should appear on the top of your admin which should help you migrate your content into the new system.
 
 == Changelog ==
+
+= 4.2 =
+* Enhanced: Huge speed and performance optimizations.
+* New: Gallery element (Premium)
+* New: Team members element (Premium)
+* New: Featurette element (Premium)
+* New: 4 Pricing table designs (Premium)
+* New: Spacer element
+* Change: Buttons now have a default label
+* Enhanced: An image placeholder now shows up while a newly added image is loading.
+* Fixed: In some rare cases the_title filter returned a PHP warning regarding missing the 2nd argument.
+* Fixed: It's possible for HRs to go outside their containers.
+* Fixed: Adjusting images to a larger size while the content area is smaller makes images squished.
+* Fixed: Some markdown shortcuts were triggering errors.
+* Fixed: The map element's zoom parameter triggered an error.
+* Fixed: Adding an element inside a column retains a blank paragraph inside.
+* Fixed: The margin drag handle shows momentarily when hovering from a text element to another text element.
+* Fixed: Turning a bullet text into a heading triggers an error.
+* Fixed: Selecting different a text style when focused on a preformatted text triggers an error.
+* Fixed: If a page queries other pages, it's possible that the edit button may forward to another page/post.
+* Fixed: Adding a full-width pre-designed element inside a row made it invisible.
+* Fixed: Holding down ctrl inside a blank paragraph may cause a JS error.
+* Fixed: It's now easier to click on carousel thumbs when a carousel is inside a row.
+
+= 4.1 =
+* New: Added same-page smooth scroll anchor links (Premium)
+* New: Added Wedding Page Template (Premium)
+* Change: Added a preview of all the page templates (lite)
+* Change: The premium button now links to the site instead of a slider popup.
+* Change: Moved the rating asker from the frontend into the backend.
+* Change: The font size buttons now display the current size in px instead of x.
+* Enhanced: Refreshed the modal appearance to match the new neutral look.
+* Enhanced: Some code cleanup
+* Enhanced: Added a "click here to add text" label to empty paragraphs.
+* Enhanced: Added a slider to the line height button (Premium)
+* Enhanced: The font size button is now split into two increase and decrease buttons. (Premium)
+* Enhanced: The color style now selects the text when it opens.
+* Enhanced: The alignment buttons have been combined into one button.
+* Enhanced: Horizontal rules can now be easily selected.
+* Enhanced: Added new and better colors across all color pickers.
+* Enhanced: You can now use the color picker to change an HR's color.
+* Enhanced: The main color picker now has a transparent pattern background to easier see opacity in colors.
+* Fixed: Video tour was not playing on the first open of the editor.
+* Fixed: Changing tab options stalled the editor.
+* Fixed: When the body doesn't have a background color, it becomes see through (black) when editing.
+* Fixed: PHP 5.3 and below error
+* Fixed: The newsletter element always returned an invalid newsletter settings message.
+* Fixed: Elements that count up are not visible on mobile screens
+* Fixed: The add elements panel scrolled up when touching the left edge of the panel.
+* Fixed: Full-width rows are temporarily hidden during loading to prevent the white flickering on its sides.
+* Fixed: The edit button cannot be clicked anymore when it's not visible.
+* Fixed: In some rare cases, multiple contents placed in the page add multiple pbs editors and prevents the page from being saved.
+* Fixed: If you have colored text, then you delete all the text and type again, the default browser behavior would be to add a <font> tag with a color attribute. This fixes it into a span tag instead.
+* Fixed: The color picker now closes properly when clicking on another thing.
+* Fixed: The paragraph picker now closes properly when clicking on another thing.
+* Fixed: When changing text styles (paragraph, h1, etc), the formatting is now cleared.
+* Fixed: Clear formatting now clears out the line-height & alignment.
+* Fixed: The bullet & numbered list buttons incorrectly showed as being applied.
+* Fixed: Now hides the tooltip when the color popup is open.
+
+= 4.0 =
+* New: Responsive views! Use the responsive buttons to switch between desktop, tablet and mobile phone screen sizes.
+* New: Page Templates!
+* New: Count up animation option!
+* New: Parallax backgrounds!
+* New: Video backgrounds for rows! (self-hosted / uploaded webm & mp4 videos)
+* New: Video backgrounds for rows from YouTube and Vimeo URLs!
+* New: Ken Burns background effect!
+* New: Countdown element!
+* New: Responsive headings, this can be turned off in the admin settings.
+* New: Added toolbar button for hiding rows in tablets and mobile phones.
+* New: Icon Label element!
+* New: Contact details element
+* New: Pricing table element
+* New: Page Heading element
+* New: Testimonials element
+* New: Call to action element
+* New: Supported plugin elements, these will show up when the plugin is active: WooCommerce, Contact Form 7, Advanced Custom Fields, Instagram Feed, and Events Calendar
+* New: Image box element
+* New: Social Icons element
+* New: Icons can now have links.
+* New: Horizontal content option for columns. Useful for side-by-side buttons and icons.
+* Enhancement: Icons which already have colors can now be re-colored.
+* Enhancement: The toolbar goes on top of the element if the element gets too small.
+* Enhancement: The add elements panel now closes when leaving the add elements button.
+* Enhancement: Tweaked the design of the top admin bar.
+* Enhancement: Container outlines are now dual colored for better visibility inside dark backgrounds.
+* Enhancement: A more neutral highlight color.
+* Enhancement: Resizing images larger than the available size now makes them have 100% width.
+* Enhancement: Toolbars for rows, columns and other containers are now larger and have neutral colors.
+* Enhancements: Better responsive styles row rows and columns.
+* Enhancement: Creating a single row now has the content centered vertically by default.
+* Enhancement: Changing the font size now gives responsive font sizes!
+* Fixed: The line height button now reads "increase line height" and not "Insert"
+* Fixed: Performance issue with the line height button.
+* Fixed: Embedded videos are now resized properly using fluidvids.js
+* Fixed: In Twenty Seventeen, images added using PBS always had a border.
+* Fixed: The Edit with PBS button (in the backend) messes up the URL sometimes because of escaping.
+* Fixed: After changing the column width, the corresponding class is now properly removed.
+* Fixed: When clicking the resize handles of an image, the toolbar overlaps with the size indicator unless moved.
+* Fixed: Better showing & hiding of overlays for better performance.
+* Fixed: Bullet buttons are no longer enabled when non-text elements are selected.
+
+= 3.4 =
+* New: You can now adjust row heights with your mouse.
+* New: Newly added columns now have a minimum height of 350px.
+* New: Added a settings page for lite users for hiding the premium yellow flag.
+* Enhanced: Edit with PBS button in the backend now always saves your changes first.
+* Enhanced: Edit with PBS button in the backend now works for newly created posts.
+* Enhanced: More awesome welcome screen.
+* Enhanced: The add elements panel now shows up when the start edit button is clicked for the first time.
+* Enhanced: Images now use the link dialog when adding links.
+* Enhanced: Premium elements are now shown with a yellow flag. (Lite)
+* Change: The add elements panel no longer hides when hovering over the admin bar.
+* Fixed: Pages that pull content from other posts are now properly handled during saving.
+* Fixed: In some themes, a minor JS error occurs when the PBS wrapper is applied in fallback-mode.
+* Fixed: Corrected some editor styles for TwentySeventeen.
+* Fixed: Dragging (outside the content area) sometimes skip elements with smaller widths.
+* Fixed: An error occurs occasionally when editing tabs.
+* Fixed: The premium modal now closes when you click on the background overlay.
+* Fixed: Faster response times when hovering over elements while editing.
+* Fixed: Animations cannot be removed on an element once added.
+* Fixed: Backslashes in the content are no longer being stripped out.
+* Fixed: Saving using the dropdown button gives an error and doesn't change the save button label.
 
 = 3.3 =
 * New: Page/Post titles can now be changed!

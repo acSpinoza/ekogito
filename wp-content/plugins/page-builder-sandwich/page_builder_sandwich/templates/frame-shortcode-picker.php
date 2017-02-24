@@ -34,15 +34,9 @@ global $pbs_fs;
 					}
 
 					esc_html_e( 'Tip: You can also type in shortcodes directly in the content.', PAGE_BUILDER_SANDWICH );
-					if ( PBS_IS_LITE || ! $pbs_fs->can_use_premium_code() ) {
-						echo '<br><strong>';
-						printf( __( 'The lite version only provides simple text fields for all mapped shortcodes. The %sPremium version%s has more controls like image pickers, switched, post drop downs and color pickers. We have %s and %s in the mapping database.', PAGE_BUILDER_SANDWICH ), '<a href="http://pagebuildersandwich.com" target="_blank">', '</a>', $total_label, $total_sc_label ); // WPCS: XSS ok.
-						echo '</strong>';
-					} else {
-						echo '<br><strong>';
-						printf( esc_html__( 'Fun fact: There are a total of %s and %s in our shortcode mapping database.', PAGE_BUILDER_SANDWICH ), $total_label, $total_sc_label ); // WPCS: XSS ok.
-						echo '</strong>';
-					}
+					echo '<br><strong>';
+					printf( esc_html__( 'Fun fact: There are a total of %s and %s in our shortcode mapping database.', PAGE_BUILDER_SANDWICH ), $total_label, $total_sc_label ); // WPCS: XSS ok.
+					echo '</strong>';
 					?>
 
 					<br>

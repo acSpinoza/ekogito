@@ -20,6 +20,8 @@ if ( ! class_exists( 'PBSIntro' ) ) {
 		 */
 		function __construct() {
 			add_filter( 'pbs_localize_scripts', array( $this, 'localize_scripts' ) );
+
+			add_action( 'wp_ajax_pbs_did_tour', array( $this, 'did_tour' ) );
 		}
 
 		/**
@@ -30,10 +32,28 @@ if ( ! class_exists( 'PBSIntro' ) ) {
 		 * @return array The modified localization array.
 		 */
 		public function localize_scripts( $args ) {
-			$args['do_intro'] = get_option( 'pbs_first_load_intro_v3' ) === false;
-
-			update_option( 'pbs_first_load_intro_v3', 'done' );
+			$args['do_intro'] = get_option( 'pbs_first_load_intro_v4' ) === false;
 			return $args;
+		}
+
+
+		/**
+		 * When the tour plays in the frontend, update the did play tour.
+		 *
+		 * @since 4.0.1
+		 */
+		public function did_tour() {
+			if ( empty( $_POST['nonce'] ) ) { // Input var: okay.
+				die();
+			}
+			$nonce = sanitize_key( $_POST['nonce'] ); // Input var: okay.
+			if ( ! wp_verify_nonce( $nonce, 'pbs' ) ) {
+				die();
+			}
+
+			update_option( 'pbs_first_load_intro_v4', 'done' );
+
+			die();
 		}
 	}
 }

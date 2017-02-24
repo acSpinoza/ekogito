@@ -84,6 +84,7 @@ class wfWAFWordPressRequest extends wfWAFRequest {
 			foreach (array(',', ' ', "\t") as $char) {
 				if (strpos($item, $char) !== false) {
 					$sp = explode($char, $item);
+					$sp = array_reverse($sp);
 					foreach ($sp as $j) {
 						$j = trim($j);
 						if (!$this->_isValidIP($j)) {
@@ -247,7 +248,7 @@ class wfWAFWordPress extends wfWAF {
 	 * @param wfWAFBlockException $e
 	 * @param int $httpCode
 	 */
-	public function blockAction($e, $httpCode = 403, $redirect = false) {
+	public function blockAction($e, $httpCode = 403, $redirect = false, $template = null) {
 		if ($this->isInLearningMode() && !$e->getRequest()->getMetadata('finalAction')) {
 			register_shutdown_function(array(
 				$this, 'whitelistFailedRulesIfNot404',
@@ -259,6 +260,7 @@ class wfWAFWordPress extends wfWAF {
 			if (empty($failedRules)) {
 				$finalAction = $e->getRequest()->getMetadata('finalAction');
 				if (is_array($finalAction)) {
+					$isLockedOut = isset($finalAction['lockout']) && $finalAction['lockout'];
 					$finalAction = $finalAction['action'];
 					if ($finalAction == wfWAFIPBlocksController::WFWAF_BLOCK_COUNTRY_REDIR) {
 						$redirect = wfWAFIPBlocksController::currentController()->countryRedirURL();
@@ -277,11 +279,15 @@ class wfWAFWordPress extends wfWAF {
 					else if (is_string($finalAction) && strlen($finalAction) > 0) {
 						wfWAF::getInstance()->getRequest()->setMetadata(array_merge(wfWAF::getInstance()->getRequest()->getMetadata(), array('503Reason' => $finalAction, '503Time' => 3600)));
 						$httpCode = 503;
+						
+						if ($isLockedOut) {
+							parent::blockAction($e, $httpCode, $redirect, '503-lockout'); //exits
+						}
 					}
 				}
 			}
 			
-			parent::blockAction($e, $httpCode, $redirect);
+			parent::blockAction($e, $httpCode, $redirect, $template);
 		}
 	}
 

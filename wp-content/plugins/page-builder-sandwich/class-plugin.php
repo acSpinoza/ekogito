@@ -1,22 +1,19 @@
 <?php
 /**
- * The main plugin file
- *
- * @package Page Builder Sandwich
- */
-
-/**
 Plugin Name: Page Builder Sandwich
 Description: The easiest way to build your website without any code. A true drag & drop page builder for WordPress.
 Author: Gambit Technologies
-Version: 3.3
+Version: 4.2
 Author URI: http://gambit.ph
 Plugin URI: http://pagebuildersandwich.com
 Text Domain: page-builder-sandwich
 Domain Path: /languages/
 SKU: PBS
+ *
+ * The main plugin file
+ *
+ * @package Page Builder Sandwich
  */
-
 
 if ( ! defined( 'ABSPATH' ) ) { exit; // Exit if accessed directly.
 }
@@ -31,7 +28,7 @@ if ( defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) ) {
 }
 
 // Identifies the current plugin version.
-defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '3.3' );
+defined( 'VERSION_PAGE_BUILDER_SANDWICH' ) or define( 'VERSION_PAGE_BUILDER_SANDWICH', '4.2' );
 
 // The slug used for translations & other identifiers.
 defined( 'PAGE_BUILDER_SANDWICH' ) or define( 'PAGE_BUILDER_SANDWICH', 'page-builder-sandwich' );
@@ -43,6 +40,12 @@ define( 'PBS_IS_LITE', true );
 
 // Shows/hides Pro code.
 define( 'PBS_IS_PRO', false );
+
+// Shows/hides Envato code.
+define( 'PBS_IS_ENVATO', false );
+
+// Shows/hides Developer License code.
+define( 'PBS_IS_DEVELOPER', false );
 
 if ( ! function_exists( 'pbs_is_dev' ) ) {
 	/**
@@ -89,14 +92,27 @@ require_once( 'class-frame-admin.php' );
 require_once( 'class-heartbeat.php' );
 require_once( 'class-ask-rating.php' );
 require_once( 'class-admin-welcome.php' );
+require_once( 'class-admin-settings.php' );
 require_once( 'class-title.php' );
+require_once( 'class-responsive-iframe.php' );
+require_once( 'class-page-template.php' );
 
 global $pbs_fs;
 if ( ! PBS_IS_LITE && $pbs_fs->can_use_premium_code() ) {
 	require_once( 'class-icons-uploader.php' );
 	require_once( 'class-element-newsletter.php' );
 	require_once( 'class-element-carousel.php' );
+	require_once( 'class-element-countdown.php' );
 	require_once( 'class-element-pretext.php' );
+	require_once( 'class-admin-settings-responsive.php' );
+	// require_once( 'class-fonts.php' );
+	// Supported plugins.
+	require_once( 'class-element-cf7.php' );
+	require_once( 'class-element-acf.php' );
+	require_once( 'class-element-nextgen-gallery.php' );
+	require_once( 'class-element-events-calendar.php' );
+	require_once( 'class-element-woocommerce.php' );
+	require_once( 'class-element-instagram-feed.php' );
 }
 
 // Initializes plugin class.

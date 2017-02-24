@@ -18,10 +18,7 @@ function pbs_fs() {
 
 	if ( ! isset( $pbs_fs ) ) {
 
-		// Include Freemius SDK.
-		require_once dirname( __FILE__ ) . '/freemius/start.php';
-
-		$pbs_fs = fs_dynamic_init( array(
+		$module = array(
 			'id' => '203',
 			'slug' => 'page-builder-sandwich',
 			'type' => 'plugin',
@@ -36,7 +33,22 @@ function pbs_fs() {
 			),
 
 
-		) );
+		);
+
+		// Include Freemius SDK.
+		require_once dirname( __FILE__ ) . '/freemius/start.php';
+
+		if ( ! PBS_IS_ENVATO && ! PBS_IS_DEVELOPER ) {
+			$pbs_fs = Freemius::instance( $module['slug'], true );
+		} else if ( PBS_IS_ENVATO ) {
+			require_once( 'class-freemius-envato.php' );
+			$pbs_fs = FreemiusEnvato::instance( $module['slug'], true );
+		} else if ( PBS_IS_DEVELOPER ) {
+			require_once( 'class-freemius-developer.php' );
+			$pbs_fs = FreemiusDeveloper::instance( $module['slug'], true );
+		}
+
+		$pbs_fs->dynamic_init( $module );
 	}
 
 	return $pbs_fs;
@@ -90,57 +102,3 @@ function pbs_fs_custom_connect_message( $message, $user_first_name, $plugin_titl
 }
 
 pbs_fs()->add_filter( 'connect_message', 'pbs_fs_custom_connect_message', 10, 6 );
-
-
-/**
- * Migrate right away to Freemius when PBS has been activated if there is
- * an existing EDD license.
- *
- * @param string $plugin The activated plugin.
- */
-// function pbs_auto_apply_existing_license( $plugin ) {
-//
-// Only do this when PBS is activated.
-// if ( plugin_basename( PBS_FILE ) === $plugin && function_exists( 'pbs_try_migrate_on_activation' ) ) {
-//
-// Only do this when there's a stored PBS license.
-// (It's okay if it's invalid since migration checks it again).
-// $license = get_option( 'pbs_license' );
-// if ( get_option( 'pbs_license_status' ) === 'valid' && ! empty( $license ) ) {
-//
-// Don't do this again if we just did it.
-// if ( get_transient( 'pbs_license_migration' ) ) {
-// return;
-// }
-//
-// Emulate an invalid key response, because migration needs this.
-// $response = new stdClass();
-// $response->error = new stdClass();
-// $response->error->code = 'invalid_license_key';
-//
-// Our stored license key.
-// $args = array();
-// $args['license_key'] = get_option( 'pbs_license' );
-//
-// Delete the stored licenses since we don't need them anymore.
-// delete_option( 'pbs_license_status' );
-// delete_option( 'pbs_license' );
-//
-// Make sure we don't do this again.
-// set_transient( 'pbs_license_migration', '1', 60 );
-//
-// Trigger a migration of our EDD license key to Freemius.
-// $next_page = pbs_try_migrate_on_activation( $response, $args );
-//
-// If we got a URL, follow it.
-// if ( ! empty( $next_page ) && fs_redirect( $next_page ) ) {
-// exit();
-// }
-//
-// If it fails somehow.
-// wp_redirect( admin_url( 'admin.php?page=page-builder-sandwich' ) );
-// die();
-// }
-// }
-// }
-// add_action( 'activated_plugin', 'pbs_auto_apply_existing_license', 9 );

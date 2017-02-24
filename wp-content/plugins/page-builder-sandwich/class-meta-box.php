@@ -25,6 +25,7 @@ if ( ! class_exists( 'PBSMetaBox' ) ) {
 
 			add_filter( 'pbs_localize_admin_scripts', array( $this, 'localize_admin_scripts' ) );
 			add_action( 'add_meta_boxes', array( $this, 'add_side_meta_box' ), 0 );
+			add_filter( 'redirect_post_location', array( $this, 'redirect_after_save' ) );
 		}
 
 
@@ -47,7 +48,7 @@ if ( ! class_exists( 'PBSMetaBox' ) ) {
 			$params['is_editing'] = true;
 			$params['meta_is_page'] = 'page' === $screen->id;
 			$params['meta_not_saved'] = get_post_status() === 'auto-draft';
-			$params['meta_permalink'] = get_permalink();
+			$params['meta_permalink'] = apply_filters( 'pbs_meta_box_permalink', get_permalink() );
 
 			global $post;
 			if ( $post ) {
@@ -63,35 +64,8 @@ if ( ! class_exists( 'PBSMetaBox' ) ) {
 		 * @since 2.9
 		 */
 		public function add_side_meta_box() {
-			$is_saved = get_post_status() !== 'auto-draft';
-			$callback = $is_saved ? 'meta_box_content_saved' : 'meta_box_content_not_saved';
-			add_meta_box( 'pbs-meta-box', 'Page Builder Sandwich', array( $this, $callback ), 'post', 'side', 'high' );
-			add_meta_box( 'pbs-meta-box', 'Page Builder Sandwich', array( $this, $callback ), 'page', 'side', 'high' );
-		}
-
-
-		/**
-		 * The meta box contents for auto-draft posts.
-		 *
-		 * @since 2.9
-		 */
-		public function meta_box_content_not_saved() {
-			$post_type = get_post_type_object( get_post_type() );
-			if ( empty( $post_type ) ) {
-				return;
-			}
-			?>
-			<p>
-				<em>
-					<?php
-					printf(
-						esc_html__( 'You will need to save your %s first before you can edit it with Page Builder Sandwich.', PAGE_BUILDER_SANDWICH ),
-						esc_html__( strtolower( $post_type->labels->singular_name ) )
-					);
-					?>
-				</em>
-			</p>
-			<?php
+			add_meta_box( 'pbs-meta-box', 'Page Builder Sandwich', array( $this, 'meta_box_content_saved' ), 'post', 'side', 'high' );
+			add_meta_box( 'pbs-meta-box', 'Page Builder Sandwich', array( $this, 'meta_box_content_saved' ), 'page', 'side', 'high' );
 		}
 
 
@@ -115,6 +89,26 @@ if ( ! class_exists( 'PBSMetaBox' ) ) {
 			</p>
 			<input value='<?php echo esc_attr( __( 'Edit with Page Builder Sandwich', PAGE_BUILDER_SANDWICH ) ) ?>' type='button' id='pbs-admin-edit-with-pbs' class='button button-large'/>
 			<?php
+		}
+
+
+		/**
+		 * Redirect URL after saving a post. Triggered by the backend edit button.
+		 *
+		 * @since 3.4
+		 *
+		 * @param string $location The URL to direct to.
+		 *
+		 * @return string The modified URL to redirect to.
+		 */
+		public function redirect_after_save( $location ) {
+			if ( isset( $_POST['pbs-save-redirect'] ) ) { // Input var okay. WPCS: CSRF ok.
+				$location = wp_unslash( $_POST['pbs-save-redirect'] ); // Input var okay. WPCS: CSRF ok. sanitization ok.
+
+				$location = apply_filters( 'pbs_redirect_after_save', $location );
+			}
+
+			return $location;
 		}
 	}
 }

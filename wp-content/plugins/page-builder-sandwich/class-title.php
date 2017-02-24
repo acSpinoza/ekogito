@@ -69,11 +69,14 @@ if ( ! class_exists( 'PBSTitle' ) ) {
 		 * @param string $title The title.
 		 * @param int    $post_id The post id.
 		 */
-		public function add_title_markers( $title, $post_id ) {
+		public function add_title_markers( $title, $post_id = null ) {
 			if ( ! PageBuilderSandwich::is_editable_by_user() ) {
 				return $title;
 			}
 			global $post;
+			if ( empty( $post_id ) ) {
+				return $title;
+			}
 			if ( $post->ID !== $post_id || ! is_main_query() ) {
 				return $title;
 			}

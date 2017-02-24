@@ -354,9 +354,10 @@ if ( ! class_exists( 'PBSHeartbeat' ) ) {
 		public function autosave( $response, $data ) {
 			if ( ! empty( $data['content'] ) && ! empty( $data['post_id'] ) ) {
 				$post_id = absint( $data['post_id'] ); // Input var okay.
-				$content = wp_unslash( $data['content'] ); // Input var okay. WPCS: sanitization ok.
+				$content = $data['content']; // Input var okay. WPCS: sanitization ok.
 
 				// Clean up the content, this is the same cleaning we do during saving.
+				define( 'PBS_DOING_AUTOSAVE', 'true' );
 				$content = sanitize_post_field( 'post_content', $content, $post_id, 'db' );
 				$content = apply_filters( 'pbs_save_content', $content, $post_id );
 
@@ -408,6 +409,7 @@ if ( ! class_exists( 'PBSHeartbeat' ) ) {
 			$content = wp_unslash( $_POST['content'] ); // Input var okay. WPCS: sanitization ok.
 
 			// Clean up the content, this is the same cleaning we do during saving.
+			define( 'PBS_DOING_AUTOSAVE', 'true' );
 			$content = sanitize_post_field( 'post_content', $content, $post_id, 'db' );
 			$content = apply_filters( 'pbs_save_content', $content, $post_id );
 

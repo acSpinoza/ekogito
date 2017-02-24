@@ -16,6 +16,26 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 	 */
 	class PageBuilderSandwich {
 
+
+		/**
+		 * If the page contains multiple contents from other posts, multiple
+		 * PBS wrappers can be added in. This makes sure that it's only added once.
+		 *
+		 * @var boolean
+		 */
+		private $added_builder_wrapper_once = false;
+
+
+		/**
+		 * If the page contains multiple contents from other posts, multiple
+		 * PBS wrappers can be added in. This makes sure that it's only added once
+		 * during the fallback function.
+		 *
+		 * @var boolean
+		 */
+		private $added_builder_wrapper_fallback_once = false;
+
+
 		/**
 		 * Hook into WordPress.
 		 *
@@ -209,6 +229,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			include 'page_builder_sandwich/templates/option-button2.php';
 			include 'page_builder_sandwich/templates/option-shortcode-generic.php';
 			include 'page_builder_sandwich/templates/option-image.php';
+			include 'page_builder_sandwich/templates/option-file.php';
 			include 'page_builder_sandwich/templates/option-number.php';
 			include 'page_builder_sandwich/templates/frame-admin.php';
 			include 'page_builder_sandwich/templates/frame-shortcode-picker.php';
@@ -237,6 +258,10 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				include 'page_builder_sandwich/templates/design-element-testimonials-5.php';
 				include 'page_builder_sandwich/templates/design-element-testimonials-6.php';
 				include 'page_builder_sandwich/templates/design-element-pricing-tables.php';
+				include 'page_builder_sandwich/templates/design-element-pricing-tables-2.php';
+				include 'page_builder_sandwich/templates/design-element-pricing-tables-3.php';
+				include 'page_builder_sandwich/templates/design-element-pricing-tables-4.php';
+				include 'page_builder_sandwich/templates/design-element-pricing-tables-5.php';
 				include 'page_builder_sandwich/templates/design-element-large-features.php';
 				include 'page_builder_sandwich/templates/design-element-large-features-2.php';
 				include 'page_builder_sandwich/templates/design-element-large-features-3.php';
@@ -262,6 +287,8 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			} else {
 				include 'page_builder_sandwich/templates/learn-premium-modal.php';
+				include 'page_builder_sandwich/templates/learn-premium-elements-modal.php';
+				include 'page_builder_sandwich/templates/option-text-dummy.php';
 			}
 		}
 
@@ -305,10 +332,34 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			$args = array(
 				'id'    => 'gambit_builder_edit',
 				'title' => '<span class="ab-icon"></span>' . __( 'Page Builder Sandwich', PAGE_BUILDER_SANDWICH ),
-				'href'  => '#',
+				'href'  => apply_filters( 'pbs_admin_bar_edit_button_url', '#' ),
 				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
 			);
 			$wp_admin_bar->add_node( $args );
+
+			global $pbs_fs;
+			if ( PBS_IS_LITE || ! $pbs_fs->can_use_premium_code() ) {
+				$args = array(
+					'id'    => 'pbs_go_premium',
+					'title' => '<span class="ab-icon"></span>'
+						. __( 'Learn More About Premium', PAGE_BUILDER_SANDWICH ),
+					'href'  => '#',
+					'meta'  => array(
+						'class' => 'pbs-adminbar-icon',
+						// 'target' => 'pbs_premium',
+					),
+				);
+				$wp_admin_bar->add_node( $args );
+			}
+
+			/**
+			 * Allow others to add more admin bar buttons.
+			 *
+			 * @since 4.0
+			 *
+			 * @param object $wp_admin_bar The admin bar object.
+			 */
+			do_action( 'pbs_pre_add_edit_admin_bar_button', $wp_admin_bar );
 
 			// Make the label for the save button.
 			$save_label = __( 'Save and Update', PAGE_BUILDER_SANDWICH );
@@ -322,6 +373,13 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				}
 			}
 			$args = array(
+				'id'    => 'gambit_builder_save',
+				'title' => $save_label,
+				'href'  => '#',
+				'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-adminbar-right' ),
+			);
+			$wp_admin_bar->add_node( $args );
+			$args = array(
 				'id'    => 'gambit_builder_save_options',
 				'title' => '<span class="ab-icon"></span>
 							<span id="pbs-save-button" data-current-post-type="' . esc_attr( $post_status ) . '">
@@ -330,50 +388,40 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 								<span id="pbs-save-draft">' . esc_html__( 'Save as Draft', PAGE_BUILDER_SANDWICH ) . '</span>
 							</span>',
 				'href'  => '#',
-				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
-			);
-			$wp_admin_bar->add_node( $args );
-			$args = array(
-				'id'    => 'gambit_builder_save',
-				'title' => $save_label,
-				'href'  => '#',
-				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
+				'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-adminbar-right' ),
 			);
 			$wp_admin_bar->add_node( $args );
 			$args = array(
 				'id'    => 'gambit_builder_cancel',
 				'title' => __( 'Cancel', PAGE_BUILDER_SANDWICH ),
 				'href'  => '#',
-				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
+				'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-adminbar-right' ),
 			);
 			$wp_admin_bar->add_node( $args );
 			$args = array(
 				'id'    => 'gambit_builder_busy',
-				'title' => '<span class="ab-icon"></span>' . __( 'Please wait...', PAGE_BUILDER_SANDWICH ),
+				'title' => '<span class="ab-icon"></span>' . __( 'Saving, Please wait...', PAGE_BUILDER_SANDWICH ),
 				'href'  => '#',
 				'meta'  => array( 'class' => 'pbs-adminbar-icon' ),
 			);
 			$wp_admin_bar->add_node( $args );
 
-			global $pbs_fs;
-			if ( PBS_IS_LITE || ! $pbs_fs->can_use_premium_code() ) {
-				$args = array(
-					'id'    => 'pbs_go_premium',
-					'title' => '<span class="ab-icon"></span>'
-						. __( 'Learn More About Premium', PAGE_BUILDER_SANDWICH ),
-					'href'  => '#',
-					'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-adminbar-right' ),
-				);
-				$wp_admin_bar->add_node( $args );
-			}
-
 			$args = array(
 				'id'    => 'pbs_help_docs',
-				'title' => '<span class="ab-icon"></span> ' . __( 'Help', PAGE_BUILDER_SANDWICH ),
+				'title' => '<span class="ab-icon"></span>',
 				'href'  => '#',
 				'meta'  => array( 'class' => 'pbs-adminbar-icon pbs-adminbar-right' ),
 			);
 			$wp_admin_bar->add_node( $args );
+
+			/**
+			 * Allow others to add more admin bar buttons.
+			 *
+			 * @since 4.0
+			 *
+			 * @param object $wp_admin_bar The admin bar object.
+			 */
+			do_action( 'pbs_post_add_edit_admin_bar_button', $wp_admin_bar );
 
 			if ( PBS_IS_PRO ) {
 				$args = array(
@@ -467,7 +515,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			// Remove all data-shortcode and replace it with the decoded shortcode. Do this from last to first to preserve nesting.
 			$html = new simple_html_dom();
-			$html->load( stripslashes( $content ), true, false );
+			$html->load( $content, true, false );
 
 			$elements = $html->find( '[data-ce-tag="embed"]' );
 			for ( $i = count( $elements ) - 1; $i >= 0; $i-- ) {
@@ -500,7 +548,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			// Remove all data-shortcode and replace it with the decoded shortcode. Do this from last to first to preserve nesting.
 			$html = new simple_html_dom();
-			$html->load( stripslashes( $content ), true, false );
+			$html->load( $content, true, false );
 
 			$elements = $html->find( 'pre' );
 			for ( $i = count( $elements ) - 1; $i >= 0; $i-- ) {
@@ -517,9 +565,9 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 		 *
 		 * @since 3.0.1
 		 *
-		 * @param array $matches The matches which are non-html tags.
+		 * @param string $content The post content.
 		 *
-		 * @return string The string to replace the match with.
+		 * @return string The modified content.
 		 */
 		public function _add_shortcode_markers( $content ) {
 
@@ -657,10 +705,18 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 		 * @return string The wrapped content.
 		 */
 		public function add_builder_wrapper( $content ) {
+
+			// Make sure that the wrapper is only added once.
+			if ( ! is_main_query() || $this->added_builder_wrapper_once ) {
+				return $content;
+			}
+
 			if ( ! self::is_editable_by_user() ) {
 				$content = '<div class="pbs-main-wrapper">' . $content . '</div>';
 			} else {
 				$content = '<div data-editable data-name="main-content" class="pbs-main-wrapper">' . $content . '</div>';
+
+				$this->added_builder_wrapper_once = true;
 			}
 			return apply_filters( 'pbs_add_builder_wrapper', $content );
 		}
@@ -683,7 +739,14 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			// Only do this if the wrap isn't found.
 			if ( stripos( $content, 'data-editable data-name="main-content"' ) === false ) {
-				$content = '<div data-editable data-name="main-content">' . $content . '</div>';
+				$content = '<div data-editable data-name="main-content" class="pbs-main-wrapper">' . $content . '</div>';
+
+				// Make sure that the wrapper is only added once.
+				if ( ! is_main_query() || $this->added_builder_wrapper_fallback_once ) {
+					return $content;
+				}
+				$this->added_builder_wrapper_fallback_once = true;
+
 				return apply_filters( 'pbs_add_builder_wrapper', $content );
 			}
 
@@ -708,13 +771,15 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			// Remove all data-shortcode and replace it with the decoded shortcode. Do this from last to first to preserve nesting.
 			$html = new simple_html_dom();
-			$html->load( stripslashes( $content ), true, false );
+			$html->load( $content, true, false );
 
 			$shortcodes = $html->find( '[data-shortcode]' );
 			for ( $i = count( $shortcodes ) - 1; $i >= 0; $i-- ) {
 				$shortcode_container = $shortcodes[ $i ];
 				$shortcode = base64_decode( $shortcode_container->{'data-shortcode'} );
-
+				if ( ! defined( 'PBS_DOING_AUTOSAVE' ) ) {
+					$shortcode = addslashes( $shortcode );
+				}
 				$shortcodes[ $i ]->outertext = $shortcode;
 			}
 			$content = (string) $html;
@@ -867,6 +932,8 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			global $pbs_fs;
 			$localize_params = array(
 				'is_lite' => PBS_IS_LITE || ! $pbs_fs->can_use_premium_code(),
+				'nonce' => wp_create_nonce( 'pbs' ),
+				'ajax_url' => admin_url( 'admin-ajax.php' ),
 			);
 			$localize_params = apply_filters( 'pbs_localize_admin_scripts', $localize_params );
 
@@ -902,6 +969,9 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 			wp_enqueue_style( __CLASS__ , plugins_url( 'page_builder_sandwich/css/style.min.css', __FILE__ ), array(), VERSION_PAGE_BUILDER_SANDWICH );
 
 			wp_enqueue_script( __CLASS__, plugins_url( 'page_builder_sandwich/js/' . $js_dir . '/frontend' . $js_suffix . '.js', __FILE__ ), array(), VERSION_PAGE_BUILDER_SANDWICH );
+
+			$localize_params = apply_filters( 'pbs_localize_frontend_scripts', array() );
+			wp_localize_script( __CLASS__, 'pbsFrontendParams', $localize_params );
 		}
 
 
@@ -916,6 +986,11 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 
 			$js_dir = defined( 'WP_DEBUG' ) && WP_DEBUG ? 'dev' : 'min';
 			$js_suffix = defined( 'WP_DEBUG' ) && WP_DEBUG ? '' : '-min';
+
+			if ( isset( $_GET['pbsdebug'] ) ) { // Input var okay.
+				$js_dir = 'dev';
+				$js_suffix = '';
+			}
 
 			if ( ! self::is_editable_by_user() ) {
 				return;
@@ -1009,6 +1084,7 @@ if ( ! class_exists( 'PageBuilderSandwich' ) ) {
 				'post_status' => ! empty( $GLOBALS['post']->ID ) ? get_post_status( $GLOBALS['post']->ID ) : '',
 				'dummy_image_id' => $dummy_image_id,
 				'buy_url' => admin_url( '/admin.php?page=page-builder-sandwich-pricing' ),
+				'site_url' => get_site_url(),
 			);
 			$localize_params = apply_filters( 'pbs_localize_scripts', $localize_params );
 

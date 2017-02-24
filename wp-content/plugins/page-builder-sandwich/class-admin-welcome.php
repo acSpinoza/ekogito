@@ -62,51 +62,130 @@ if ( ! class_exists( 'PBSAdminWelcome' ) ) {
 				<img class="pbs-logo" src="<?php echo esc_url( plugins_url( 'page_builder_sandwich/images/pbs-logo.png', __FILE__ ) ) ?>"/>
 				<h1><?php esc_html_e( 'Welcome to Page Builder Sandwich', PAGE_BUILDER_SANDWICH ) ?> v<?php esc_html_e( VERSION_PAGE_BUILDER_SANDWICH ) ?></h1>
 				<p class="pbs-subheading"><?php esc_html_e( 'Creating Stunning Webpages Is Now as Easy as Making a Sandwich', PAGE_BUILDER_SANDWICH ) ?></p>
-				<p class="pbs-notice"><a class="button button-primary" href="<?php echo esc_url( admin_url( 'edit.php?post_type=page' ) ) ?>"><?php esc_html_e( 'View Pages', PAGE_BUILDER_SANDWICH ) ?></a> <?php esc_html_e( 'To start, go to your list of pages and click on the "Edit with Page Builder Sandwich" link below each page entry.', PAGE_BUILDER_SANDWICH ) ?></p>
 				<div class="welcome-panel">
-					<div class="pbs-whats-new-wrapper">
-						<h2><?php esc_html_e( "What's New", PAGE_BUILDER_SANDWICH ) ?></h2>
-						<div class="pbs-whats-new">
-							<div>
-								<h3>Edit Post Titles</h3>
-								<p>Now you can change page and post titles when editing. Just click on your title and type away.</p>
-							</div>
-							<div>
-								<h3>Carousel Fade</h3>
-								<p>There are a few new options available in carousels: fade sliding animation and animation speed. (Premium)</p>
-							</div>
-							<div>
-								<h3>Autosave</h3>
-								<p>Never lose your work again! Your changes are saved every 15 minutes.</p>
-							</div>
-							<div>
-								<h3>Post Locking</h3>
-								<p>Other users will know that you're building your page, and you can also take over other posts being edited by others.</p>
-							</div>
-							<div>
-								<h3>Toggle Element</h3>
-								<p>We just added a new toggle element, use this to create FAQ pages. (Premium)</p>
-							</div>
-							<div>
-								<h3>Animations</h3>
-								<p>Each element can now have animations on them that play when you scroll. (Premium)</p>
-							</div>
-							<div>
-								<h3>Shadows</h3>
-								<p>Add subtle, yet cool shadows on your images, rows and columns. (Premium)</p>
-							</div>
-							<div>
-								<h3>Tab Styles</h3>
-								<p>You can now style your tabs to match your page design. (Premium)</p>
+					<div class="welcome-panel-column">
+						<div class="pbs-welcome-column-wrapper">
+							<h3><?php esc_html_e( "Let's Get Started", PAGE_BUILDER_SANDWICH ) ?></h3>
+							<a class="button button-primary button-hero" href="<?php echo esc_url( admin_url( 'post-new.php?post_type=page' ) ) ?>"><?php esc_html_e( 'Create New Page', PAGE_BUILDER_SANDWICH ) ?></a>
+							<p><?php esc_html_e( 'To start, create a new page then click on the awesome "Edit with Page Builder Sandwich" button.', PAGE_BUILDER_SANDWICH ) ?></p>
+						</div>
+					</div>
+					<div class="welcome-panel-column">
+						<div class="pbs-welcome-column-wrapper">
+							<h3><?php esc_html_e( 'Join The Community', PAGE_BUILDER_SANDWICH ) ?></h3>
+							<p><?php esc_html_e( 'Join fellow PBSandwich aficionados in our community, ask questions, give feedback, suggest features, and discuss your projects!', PAGE_BUILDER_SANDWICH ) ?></p>
+							<ul>
+								<li><a href="https://pbsandwich.herokuapp.com/" target="_pbsadmin"><span class="dashicons dashicons-admin-comments"></span> <?php esc_html_e( 'Join our new community in Slack', PAGE_BUILDER_SANDWICH ) ?></a></li>
+								<li><a href="https://twitter.com/WP_PBSandwich" target="_pbsadmin"><span class="dashicons dashicons-twitter"></span> <?php esc_html_e( 'Follow @WP_PBSandwich in Twitter', PAGE_BUILDER_SANDWICH ) ?></a></li>
+							</ul>
+						</div>
+					</div>
+					<div class="welcome-panel-column welcome-panel-last">
+						<div class="pbs-welcome-column-wrapper">
+							<h3><?php esc_html_e( 'Need Help?', PAGE_BUILDER_SANDWICH ) ?></h3>
+							<p>
+								<?php
+								printf(
+									__( 'Stuck with something? Check out our %sknowledge base%s. You can also contact us for %sbug reports%s here in your dashboard.', PAGE_BUILDER_SANDWICH ),
+								 	'<a href="http://docs.pagebuildersandwich.com/" target="_pbsadmin">',
+									'</a>',
+								 	'<a href="' . esc_url( admin_url( 'admin.php?page=page-builder-sandwich-contact' ) ) . '" target="_pbsadmin">',
+									'</a>'
+								);
+								?>
+							</p>
+							<?php
+							if ( PBS_IS_LITE ) {
+								?>
+								<p>
+									<?php
+									printf(
+										'If you need more extensive help, please consider %sgoing premium%s to get support.',
+										'<a href="' . esc_url( admin_url( 'admin.php?page=page-builder-sandwich-pricing' ) ) . '">',
+										'</a>'
+									);
+									?>
+								</p>
+								<?php
+							}
+							?>
+						</div>
+					</div>
+				</div>
+				<div class="welcome-panel">
+					<div class="welcome-panel-column" style="width: 50%;">
+						<div class="pbs-welcome-column-wrapper">
+							<h3><?php esc_html_e( "What's New", PAGE_BUILDER_SANDWICH ) ?></h3>
+							<div class="pbs-whats-new">
+								<div>
+									<p><strong>Same Page Links</strong><br>
+										Use the ".class" or "#ID" of an element in a link and the page will smoothly scroll to it. (Premium)</p>
+								</div>
+								<div>
+									<p><strong>Better Formatting Bar</strong><br>
+										We've reworked a few of the buttons to make them easier to use. We added in prettier colors options too.</p>
+								</div>
+								<div>
+									<p><strong>Page Templates</strong><br>
+										We have 10 page templates that you can use as a starting point for your designs. (Premium)</p>
+								</div>
+								<div>
+									<p><strong>Responsive Views</strong><br>
+										Switch between desktop, tablet and mobile phone views while editing.</p>
+								</div>
+								<div>
+									<p><strong>New Row Backgrounds</strong><br>
+										Add image parallax, video backgrounds and Ken Burns background sliders to your rows. (Premium)</p>
+								</div>
+								<div>
+									<p><strong>Lote of New Elements</strong><br>
+										Count up, page heading, icon label, pricing tables, social icons and more! (Premium)</p>
+								</div>
+								<div>
+									<p><strong>More Responsive</strong><br>
+										Enhanced responsiveness, we now perform a lot of tweaks to make your site look good.</p>
+								</div>
+								<div>
+									<p><strong>Edit Post Titles</strong><br>
+										Now you can change page and post titles when editing. Just click on your title and type away.</p>
+								</div>
 							</div>
 						</div>
 					</div>
-					<div class="pbs-tour-wrapper">
-						<h2><?php esc_html_e( 'Watch the Tour', PAGE_BUILDER_SANDWICH ) ?></h2>
-						<div class="pbs-tour">
-							<iframe src="https://www.youtube.com/embed/dSU2l1Vhp50?rel=0&showinfo=0&autohide=1&controls=0" width="800" height="450" frameborder="0" allowfullscreen="1"></iframe>
+					<div class="welcome-panel-column welcome-panel-last" style="width: 50%;">
+						<div class="pbs-welcome-column-wrapper">
+							<h3><?php esc_html_e( 'Watch the Tour', PAGE_BUILDER_SANDWICH ) ?></h3>
+							<div class="pbs-tour">
+								<iframe src="https://www.youtube.com/embed/dSU2l1Vhp50?rel=0&showinfo=0&autohide=1&controls=0" width="800" height="450" frameborder="0" allowfullscreen="1"></iframe>
+							</div>
 						</div>
 					</div>
+				</div>
+				<div class="welcome-panel pbs-welcome-changelog">
+					<h3><?php esc_html_e( "A Stickler for details? Here's everything's that changed in this version", PAGE_BUILDER_SANDWICH ) ?></h3>
+					<ul>
+<li style="color: #f39c12"><code>Enhanced</code> Huge speed and performance optimizations.</li>
+<li style="color: #3498db"><code>New</code> Gallery element (Premium)</li>
+<li style="color: #3498db"><code>New</code> Team members element (Premium)</li>
+<li style="color: #3498db"><code>New</code> Featurette element (Premium)</li>
+<li style="color: #3498db"><code>New</code> 4 Pricing table designs (Premium)</li>
+<li style="color: #3498db"><code>New</code> Spacer element</li>
+<li style="color: #f39c12"><code>Change</code> Buttons now have a default label</li>
+<li style="color: #f39c12"><code>Enhanced</code> An image placeholder now shows up while a newly added image is loading.</li>
+<li style="color: #e74c3c"><code>Fixed</code> In some rare cases the_title filter returned a PHP warning regarding missing the 2nd argument.</li>
+<li style="color: #e74c3c"><code>Fixed</code> It's possible for HRs to go outside their containers.</li>
+<li style="color: #e74c3c"><code>Fixed</code> Adjusting images to a larger size while the content area is smaller makes images squished.</li>
+<li style="color: #e74c3c"><code>Fixed</code> Some markdown shortcuts were triggering errors.</li>
+<li style="color: #e74c3c"><code>Fixed</code> The map element's zoom parameter triggered an error.</li>
+<li style="color: #e74c3c"><code>Fixed</code> Adding an element inside a column retains a blank paragraph inside.</li>
+<li style="color: #e74c3c"><code>Fixed</code> The margin drag handle shows momentarily when hovering from a text element to another text element.</li>
+<li style="color: #e74c3c"><code>Fixed</code> Turning a bullet text into a heading triggers an error.</li>
+<li style="color: #e74c3c"><code>Fixed</code> Selecting different a text style when focused on a preformatted text triggers an error.</li>
+<li style="color: #e74c3c"><code>Fixed</code> If a page queries other pages, it's possible that the edit button may forward to another page/post.</li>
+<li style="color: #e74c3c"><code>Fixed</code> Adding a full-width pre-designed element inside a row made it invisible.</li>
+<li style="color: #e74c3c"><code>Fixed</code> Holding down ctrl inside a blank paragraph may cause a JS error.</li>
+<li style="color: #e74c3c"><code>Fixed</code> It's now easier to click on carousel thumbs when a carousel is inside a row.</li>
+					</ul>
 				</div>
 			</div>
 			<?php

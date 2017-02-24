@@ -23,6 +23,11 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 			add_filter( 'pbs_error_notice_localize_scripts', array( $this, 'add_error_labels' ) );
 		}
 
+
+		/**
+		 * Checks plugins for
+		 */
+
 		/**
 		 * Add our translatable text.
 		 *
@@ -48,8 +53,10 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 
 				// Used in _get-premium.js.
 				'get_the_premium_plugin' => __( 'Get the Premium Plugin to get more tools and features', PAGE_BUILDER_SANDWICH ),
+				'premium' => __( 'Premium', PAGE_BUILDER_SANDWICH ),
 
 				// Used in _inspector-newsletter.js.
+				'icon_label' => __( 'Icon Label', PAGE_BUILDER_SANDWICH ),
 				'newsletter' => __( 'Newsletter', PAGE_BUILDER_SANDWICH ),
 				'show_button_when_typed_on' => __( 'Show Button When Typed On', PAGE_BUILDER_SANDWICH ),
 				'error_message_color' => __( 'Error Message Color', PAGE_BUILDER_SANDWICH ),
@@ -83,22 +90,71 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'note_options_are_detected' => __( 'Options are detected from usage of this shortcode', PAGE_BUILDER_SANDWICH ),
 				'note_shortcode_not_appearing' => __( "Note: If the element doesn't show up, you may need to refresh the page.", PAGE_BUILDER_SANDWICH ),
 
-				// Used in _pbs-intro.js.
-				// TODO continue adding this.
-				// 'tour_intro_title' => __( "Hello! I See You're New to Page Builder Sandwich", PAGE_BUILDER_SANDWICH ),
-				// 'tour_intro_body' => __( 'This quick tour will teach you how to get started. Click the <strong>Edit button</strong> above to start editing this page.', PAGE_BUILDER_SANDWICH ),
-				// 'tour_content_area_title' => __( 'Your Content Area', PAGE_BUILDER_SANDWICH ),
-				// 'tour_content_area_body' => __( 'In Page Builder Sandwich, everything is simple. This is your content area, and you can start typing right away to start building your site.<br><br><em>Go ahead and type the word "<strong>Sandwich</strong>" to proceed.</em>', PAGE_BUILDER_SANDWICH ),
-				// 'tour_inspector_title' => __( 'This Is the Inspector', PAGE_BUILDER_SANDWICH ),
-				// 'tour_inspector_body' => __( "This panel area contains all the styling tools that you'll ever need. Each icon is a button that you can click to apply styles on the item you have currently selected.<br><br>Hover your mouse over each tool to get a description of what they do. Some even have shortcut keys that you can perform to quickly apply them.<br><br><em>Go hover your mouse over the text formatting buttons on the top part to proceed.</em>", PAGE_BUILDER_SANDWICH ),
-				// 'tour_done_title' => __( "That's It!", PAGE_BUILDER_SANDWICH ),
-				// 'tour_done_body' => __( "Finally, when you're done editing, click on this save button to finalize your changes.", PAGE_BUILDER_SANDWICH ),
 				// Used in _pbs-stats-tracking.js.
 				'optin_error' => __( 'Communication error, please refresh the page and try again', PAGE_BUILDER_SANDWICH ),
 
 				// Inspector labels.
+				'spacer' => __( 'Spacer', PAGE_BUILDER_SANDWICH ),
+				'click_to_add_text' => __( 'Click here to add text', PAGE_BUILDER_SANDWICH ),
+				'social_icons' => __( 'Social Icons', PAGE_BUILDER_SANDWICH ),
+				'vertical' => __( 'Vertical', PAGE_BUILDER_SANDWICH ),
+				'horizontal' => __( 'Horizontal', PAGE_BUILDER_SANDWICH ),
+				'content_orientation' => __( 'Content Orientation', PAGE_BUILDER_SANDWICH ),
+				'desc_content_orientation' => __( 'Elements are placed vertically by default, you can change it here.', PAGE_BUILDER_SANDWICH ),
+				'desc_icon_url' => __( 'You can turn your icon into a link by entering a URL to go to here', PAGE_BUILDER_SANDWICH ),
+				'pricing_table' => __( 'Pricing Table', PAGE_BUILDER_SANDWICH ),
+				'special_elements' => __( 'Special Elements', PAGE_BUILDER_SANDWICH ),
+				'use_page_template' => __( 'Use Page Template', PAGE_BUILDER_SANDWICH ),
+				'page_templates' => __( 'Page Templates', PAGE_BUILDER_SANDWICH ),
+				'replace_contents_with_template' => __( 'Replace Contents With Template', PAGE_BUILDER_SANDWICH ),
+				'hide_in_tablets' => __( 'Hide in tablets', PAGE_BUILDER_SANDWICH ),
+				'hide_in_phones' => __( 'Hide in phones', PAGE_BUILDER_SANDWICH ),
 				'properties_inspector' => __( 'Properties Inspector', PAGE_BUILDER_SANDWICH ),
 				'general' => __( 'General', PAGE_BUILDER_SANDWICH ),
+				'page_heading' => __( 'Page Heading', PAGE_BUILDER_SANDWICH ),
+				'team_members' => __( 'Team Members', PAGE_BUILDER_SANDWICH ),
+				'featurette' => __( 'Featurette', PAGE_BUILDER_SANDWICH ),
+				'gallery' => __( 'Gallery', PAGE_BUILDER_SANDWICH ),
+				'testimonial' => __( 'Testimonial', PAGE_BUILDER_SANDWICH ),
+				'call_to_action' => __( 'Call To Action', PAGE_BUILDER_SANDWICH ),
+				'pricing' => __( 'Pricing', PAGE_BUILDER_SANDWICH ),
+				'icon_list_one' => __( 'Icon List 1', PAGE_BUILDER_SANDWICH ),
+				'icon_list_two' => __( 'Icon List 2', PAGE_BUILDER_SANDWICH ),
+				'image_box' => __( 'Image Box', PAGE_BUILDER_SANDWICH ),
+				'instagram_feed' => __( 'Instagram Feed', PAGE_BUILDER_SANDWICH ),
+				'youtube' => __( 'Youtube', PAGE_BUILDER_SANDWICH ),
+				'contact_details' => __( 'Contact Details', PAGE_BUILDER_SANDWICH ),
+				'contact_form7' => __( 'Contact Form 7', PAGE_BUILDER_SANDWICH ),
+				'woocommerce' => __( 'WooCommerce', PAGE_BUILDER_SANDWICH ),
+				'advanced_custom_fields' => __( 'ACF', PAGE_BUILDER_SANDWICH ),
+				'nextgen' => __( 'NextGEN', PAGE_BUILDER_SANDWICH ),
+				'events_calendar' => __( 'Events Calendar', PAGE_BUILDER_SANDWICH ),
+				'countdown_to_date' => __( 'Countdown to Date', PAGE_BUILDER_SANDWICH ),
+				'desc_countdown_to_date' => __( 'Enter a future date to countdown to. Use the format YYYY/MM/DD HH:MM:SS. This can also be a past date. For Example: 2018/01/20 00:00:00', PAGE_BUILDER_SANDWICH ),
+				'display_size' => __( 'Display Size', PAGE_BUILDER_SANDWICH ),
+				'display_these_dates' => __( 'Display these dates', PAGE_BUILDER_SANDWICH ),
+				'years' => __( 'Years', PAGE_BUILDER_SANDWICH ),
+				'months' => __( 'Months', PAGE_BUILDER_SANDWICH ),
+				'weeks' => __( 'Weeks', PAGE_BUILDER_SANDWICH ),
+				'days' => __( 'Days', PAGE_BUILDER_SANDWICH ),
+				'hours' => __( 'Hours', PAGE_BUILDER_SANDWICH ),
+				'minutes' => __( 'Minutes', PAGE_BUILDER_SANDWICH ),
+				'seconds' => __( 'Seconds', PAGE_BUILDER_SANDWICH ),
+				'countdown' => __( 'Countdown', PAGE_BUILDER_SANDWICH ),
+				'count_up' => __( 'Count Up', PAGE_BUILDER_SANDWICH ),
+				'years_label' => sprintf( __( '%s Label', PAGE_BUILDER_SANDWICH ), __( 'Years', PAGE_BUILDER_SANDWICH ) ),
+				'months_label' => sprintf( __( '%s Label', PAGE_BUILDER_SANDWICH ), __( 'Months', PAGE_BUILDER_SANDWICH ) ),
+				'weeks_label' => sprintf( __( '%s Label', PAGE_BUILDER_SANDWICH ), __( 'Weeks', PAGE_BUILDER_SANDWICH ) ),
+				'days_label' => sprintf( __( '%s Label', PAGE_BUILDER_SANDWICH ), __( 'Days', PAGE_BUILDER_SANDWICH ) ),
+				'hours_label' => sprintf( __( '%s Label', PAGE_BUILDER_SANDWICH ), __( 'Hours', PAGE_BUILDER_SANDWICH ) ),
+				'minutes_label' => sprintf( __( '%s Label', PAGE_BUILDER_SANDWICH ), __( 'Minutes', PAGE_BUILDER_SANDWICH ) ),
+				'seconds_label' => sprintf( __( '%s Label', PAGE_BUILDER_SANDWICH ), __( 'Seconds', PAGE_BUILDER_SANDWICH ) ),
+				'count_up_numbers' => __( 'Count Up Numbers', PAGE_BUILDER_SANDWICH ),
+				'count_up_time' => __( 'Count Up Time', PAGE_BUILDER_SANDWICH ),
+				'count_up_delay' => __( 'Count Up Delay', PAGE_BUILDER_SANDWICH ),
+				'desc_count_up_number' => __( 'Enable to animate number counting', PAGE_BUILDER_SANDWICH ),
+				'desc_count_up_time' => __( 'Count duration in milliseconds', PAGE_BUILDER_SANDWICH ),
+				'desc_count_up_delay' => __( 'Count delay per tick in milliseconds', PAGE_BUILDER_SANDWICH ),
 				'input_field' => __( 'Input Field', PAGE_BUILDER_SANDWICH ),
 				'edit_link' => sprintf( __( 'Edit %s', PAGE_BUILDER_SANDWICH ), __( 'Link', PAGE_BUILDER_SANDWICH ) ),
 				'button_padding' => __( 'Button Padding', PAGE_BUILDER_SANDWICH ),
@@ -146,12 +202,13 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'desc_row_width' => __( 'Let your row occupy the whole browser width. This only affects the outer-most row.', PAGE_BUILDER_SANDWICH ),
 				'full_width_retained_content_width' => __( 'Full-Width Retained Content Width', PAGE_BUILDER_SANDWICH ),
 				'normal' => __( 'Normal', PAGE_BUILDER_SANDWICH ),
-				'fixed_background' => __( 'Fixed Background', PAGE_BUILDER_SANDWICH ),
+				'fixed_image_background' => __( 'Fixed Image Background', PAGE_BUILDER_SANDWICH ),
+				'desc_fixed_image_background' => __( 'Make your background image stick to the window as an effect', PAGE_BUILDER_SANDWICH ),
 				'background_color' => __( 'Background Color', PAGE_BUILDER_SANDWICH ),
 				'background_color_focused' => __( 'Background Color (When Focused)', PAGE_BUILDER_SANDWICH ),
 				'desc_icon_tooltip' => __( 'Place something in this field to show a tooltip when the mouse is hovered on the icon.', PAGE_BUILDER_SANDWICH ),
 				'background' => __( 'Background', PAGE_BUILDER_SANDWICH ),
-				'desc_background_tint' => __( 'Add color to your background image. Use the color picker above to change the tint.', PAGE_BUILDER_SANDWICH ),
+				'desc_background_tint' => __( 'Add color to your background. Use the color picker above to change the tint. This works for image, parallax and video backgrounds.', PAGE_BUILDER_SANDWICH ),
 				'background_size' => __( 'Background Size', PAGE_BUILDER_SANDWICH ),
 				'desc_background_size' => __( 'Background image size in pixels. Can be used to make your background a pattern. Use 0 (or blank) to make the background cover the whole area.', PAGE_BUILDER_SANDWICH ),
 				'image' => __( 'Image', PAGE_BUILDER_SANDWICH ),
@@ -160,6 +217,7 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'desc_vertical_column_alignment' => __( 'The alignment of the column vertically. Helpful if the row is tall because of other columns, and this column is short.', PAGE_BUILDER_SANDWICH ),
 				'occupy_entire_space' => __( 'Occupy entire space', PAGE_BUILDER_SANDWICH ),
 				'alignment' => __( 'Alignment', PAGE_BUILDER_SANDWICH ),
+				'reset_alignment' => __( 'Reset Alignment', PAGE_BUILDER_SANDWICH ),
 				'vertical_content_alignment' => __( 'Vertical Content Alignment', PAGE_BUILDER_SANDWICH ),
 				'desc_vertical_content_alignment' => __( 'The alignment of the content inside this column vertically. Helpful if the column is tall and only has a short content.', PAGE_BUILDER_SANDWICH ),
 				'spread_evenly_top_to_bottom' => __( 'Spread evenly from top to bottom (space-between)', PAGE_BUILDER_SANDWICH ),
@@ -186,7 +244,7 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'border_style' => __( 'Border Style', PAGE_BUILDER_SANDWICH ),
 				'border_thickness' => __( 'Border Thickness', PAGE_BUILDER_SANDWICH ),
 				'border_radius' => __( 'Border Radius', PAGE_BUILDER_SANDWICH ),
-				'toggle_background_image_tint' => __( 'Toggle Background Image Tint', PAGE_BUILDER_SANDWICH ),
+				'toggle_background_image_tint' => __( 'Toggle Background Tint', PAGE_BUILDER_SANDWICH ),
 				'convert_to_1_column' => sprintf( __( 'Convert to %s', PAGE_BUILDER_SANDWICH ), __( '1 Column', PAGE_BUILDER_SANDWICH ) ),
 				'change_columns' => sprintf( __( 'Change %s', PAGE_BUILDER_SANDWICH ), __( 'Columns', PAGE_BUILDER_SANDWICH ) ),
 				'convert_to_even_2_columns' => sprintf( __( 'Convert to %s', PAGE_BUILDER_SANDWICH ), sprintf( __( 'Even %d Columns', PAGE_BUILDER_SANDWICH ), 2 ) ),
@@ -252,10 +310,11 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'heading_label' => __( 'Heading %d', PAGE_BUILDER_SANDWICH ),
 				'horizontal_rule' => __( 'Horizontal Rule', PAGE_BUILDER_SANDWICH ),
 				'map' => __( 'Map', PAGE_BUILDER_SANDWICH ),
+				'google_map' => __( 'Google Map', PAGE_BUILDER_SANDWICH ),
 				'text' => __( 'Text', PAGE_BUILDER_SANDWICH ),
 				'insert_icon' => sprintf( __( 'Insert %s', PAGE_BUILDER_SANDWICH ), __( 'Icon', PAGE_BUILDER_SANDWICH ) ),
 				'line_height' => __( 'Line Height', PAGE_BUILDER_SANDWICH ),
-				'increase_line_height' => sprintf( __( 'Insert %s', PAGE_BUILDER_SANDWICH ), __( 'Line Height', PAGE_BUILDER_SANDWICH ) ),
+				'increase_line_height' => sprintf( __( 'Increase %s', PAGE_BUILDER_SANDWICH ), __( 'Line Height', PAGE_BUILDER_SANDWICH ) ),
 				'decrease_line_height' => sprintf( __( 'Decrease %s', PAGE_BUILDER_SANDWICH ), __( 'Line Height', PAGE_BUILDER_SANDWICH ) ),
 				'reset_line_height' => sprintf( __( 'Reset %s', PAGE_BUILDER_SANDWICH ), __( 'Line Height', PAGE_BUILDER_SANDWICH ) ),
 				'text_formatting' => __( 'Text Formatting', PAGE_BUILDER_SANDWICH ),
@@ -357,6 +416,23 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'toggle' => __( 'Toggle', PAGE_BUILDER_SANDWICH ),
 				'fade_animation' => __( 'Fade Animation', PAGE_BUILDER_SANDWICH ),
 				'desc_fade_animation' => __( 'Check this to use fade instead of a sliding animation for each slide.', PAGE_BUILDER_SANDWICH ),
+				'parallax' => __( 'Parallax', PAGE_BUILDER_SANDWICH ),
+				'desc_parallax' => __( 'A positive number will add an upward parallax. You\'ll need to have a background image to make this work. You can also use tint. Enter blank or 0 to turn off parallax.', PAGE_BUILDER_SANDWICH ),
+				'video_background' => __( 'Video Background', PAGE_BUILDER_SANDWICH ),
+				'normal_background_image' => __( 'Normal Background Image', PAGE_BUILDER_SANDWICH ),
+				'fixed_background_image' => __( 'Fixed Background Image', PAGE_BUILDER_SANDWICH ),
+				'parallax_image' => __( 'Parallax Image', PAGE_BUILDER_SANDWICH ),
+				'video_background_youtube_vimeo' => __( 'Video Background (YouTube or Vimeo)', PAGE_BUILDER_SANDWICH ),
+				'video_background_uploaded' => __( 'Video Background (Uploaded Video)', PAGE_BUILDER_SANDWICH ),
+				'background_image_type' => __( 'Background Image Type', PAGE_BUILDER_SANDWICH ),
+				'desc_background_image_type' => __( 'You can select an effect or special background here.', PAGE_BUILDER_SANDWICH ),
+				'desc_video_background' => __( 'Paste a URL to a YouTube or Vimeo video here to turn it into a background. Video backgrounds do not work in mobile devices, the color or image above will be used as a fallback.', PAGE_BUILDER_SANDWICH ),
+				'webm_video' => __( 'Background .WEBM Video', PAGE_BUILDER_SANDWICH ),
+				'desc_webm_video' => __( 'Pick a video of a WEBM format. You\'ll need to pick this and the MP4 format below. Video backgrounds do not work in mobile devices, the color or image above will be used as a fallback.', PAGE_BUILDER_SANDWICH ),
+				'mp4_video' => __( 'Video Background .MP4 Video', PAGE_BUILDER_SANDWICH ),
+				'desc_mp4_video' => __( 'Pick a video of an MP4 format. You\'ll need to pick this and the WEBM format above. Video backgrounds do not work in mobile devices, the color or image above will be used as a fallback.', PAGE_BUILDER_SANDWICH ),
+				'kenburns_images' => __( 'Ken Burns Images', PAGE_BUILDER_SANDWICH ),
+				'desc_kenburns_images' => __( 'Pick 2-4 images which will be used for the Ken Burns effect.', PAGE_BUILDER_SANDWICH ),
 
 				// Tools.
 				'text_style' => __( 'Text Style', PAGE_BUILDER_SANDWICH ),
@@ -443,19 +519,16 @@ if ( ! class_exists( 'PBSTranslations' ) ) {
 				'next' => __( 'Next', PAGE_BUILDER_SANDWICH ),
 				'close' => __( 'Close', PAGE_BUILDER_SANDWICH ),
 				'select_image' => __( 'Select Image', PAGE_BUILDER_SANDWICH ),
+				'select_file' => __( 'Select File', PAGE_BUILDER_SANDWICH ),
 				'use_selected_image' => __( 'Use Selected Image', PAGE_BUILDER_SANDWICH ),
 				'your_email_address' => esc_attr( __( 'Your email address', PAGE_BUILDER_SANDWICH ) ),
 				'drag_an_element' => __( 'Drag an element below into your content', PAGE_BUILDER_SANDWICH ),
+				'view_template' => __( 'View Template', PAGE_BUILDER_SANDWICH ),
 
 				// Admin bar.
 				'save_and_update' => __( 'Save and Update', PAGE_BUILDER_SANDWICH ),
 				'save_as_draft' => __( 'Save as Draft', PAGE_BUILDER_SANDWICH ),
 				'save_as_pending' => __( 'Save as Pending Review', PAGE_BUILDER_SANDWICH ),
-
-				// Lite version notes.
-				'map_lite_footer' => sprintf( __( 'You can further stylize your maps with the %sPremium Version%s.', PAGE_BUILDER_SANDWICH ), '<a href="https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=map-inspector&utm_campaign=Page%20Builder%20Sandwich" target="_blank">', '</a>' ),
-				'tabs_lite_footer' => sprintf( __( 'Vertical tabs and more options are available with the %sPremium Version%s.', PAGE_BUILDER_SANDWICH ), '<a href="https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=tabs-inspector&utm_campaign=Page%20Builder%20Sandwich" target="_blank">', '</a>' ),
-				'icon_lite_footer' => sprintf( __( 'Get more icons, further style and add tooltips to your icons with the %sPremium Version%s.', PAGE_BUILDER_SANDWICH ), '<a href="https://pagebuildersandwich.com/compare?utm_source=lite-plugin&utm_medium=icon-inspector&utm_campaign=Page%20Builder%20Sandwich" target="_blank">', '</a>' ),
 			);
 			return $args;
 		}

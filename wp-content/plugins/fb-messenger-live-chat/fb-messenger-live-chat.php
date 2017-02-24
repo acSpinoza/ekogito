@@ -4,13 +4,13 @@
  * Plugin Name: FB Messenger Live Chat
  * Plugin URI: https://zotabox.com/zbv2/facebookchat?utm_source=wordpress.com&utm_medium=Facebook%20Live%20Chat&utm_campaign=ecommerce%20plugins&authuser=anonymous
  * Description: Support your customers via <strong>Facebook Live Chat</strong> conveniently from your own website. 10+ more popular marketing tools also included.
- * Version: 1.3.0
+ * Version: 1.3.1
  * Author: Zotabox
  * Author URI: https://zotabox.com/dashboard/?utm_source=wordpress.com&utm_medium=Facebook%20Live%20Chat&utm_campaign=ecommerce%20plugins&authuser=anonymous
  * License: SMB 1.0
  */
 
-//Fix display message box on iPad
+//Fix some small bugs
 
 add_action( 'admin_init', 'zb_fbc_admin_init' );
 function zb_fbc_admin_init(){

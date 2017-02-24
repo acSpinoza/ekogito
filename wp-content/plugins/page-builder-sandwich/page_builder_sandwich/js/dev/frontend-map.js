@@ -60,9 +60,10 @@ initPBSMaps = function( mapElem, successCallback, failCallback ) { // jshint ign
 
 	// Cleanup all other previously initialized maps.
 	var cleanup = function() {
-		for ( var i = pbsMapsInitialized.length - 1; i >= 0; i-- ) {
-			var elem = pbsMapsInitialized[ i ].getDiv();
-			while ( elem.parentNode && elem.parentNode.tagName !== 'BODY' ) {
+		var i, elem;
+		for ( i = pbsMapsInitialized.length - 1; i >= 0; i-- ) {
+			elem = pbsMapsInitialized[ i ].getDiv();
+			while ( elem.parentNode && 'BODY' !== elem.parentNode.tagName ) {
 				elem = elem.parentNode;
 			}
 			if ( ! elem.parentNode ) {
@@ -79,13 +80,15 @@ initPBSMaps = function( mapElem, successCallback, failCallback ) { // jshint ign
 	var geocoder;
 	var initMap = function( mapElem, successCallback, failCallback ) {
 
+		var center, latLonMatch;
+
 		// Do some cleanup first.
 		cleanup();
 
-		var center = mapElem.getAttribute( 'data-center' ) || '37.09024, -95.712891';
+		center = mapElem.getAttribute( 'data-center' ) || '37.09024, -95.712891';
 		center = center.trim();
 
-		var latLonMatch = center.match( /^([-+]?\d{1,2}([.]\d+)?)\s*,?\s*([-+]?\d{1,3}([.]\d+)?)$/ );
+		latLonMatch = center.match( /^([-+]?\d{1,2}([.]\d+)?)\s*,?\s*([-+]?\d{1,3}([.]\d+)?)$/ );
 		if ( latLonMatch ) {
 			mapElem.setAttribute( 'data-lat', latLonMatch[1] );
 			mapElem.setAttribute( 'data-lng', latLonMatch[3] );
@@ -97,118 +100,122 @@ initPBSMaps = function( mapElem, successCallback, failCallback ) { // jshint ign
 
 		} else {
 			geocoder.geocode( { 'address': center }, function( results, status ) {
-			    if ( status === google.maps.GeocoderStatus.OK ) {
+				var center;
+
+				if ( status === google.maps.GeocoderStatus.OK ) {
 					mapElem.setAttribute( 'data-lat', results[0].geometry.location.lat() );
 					mapElem.setAttribute( 'data-lng', results[0].geometry.location.lng() );
-					var center = { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() };
+					center = { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() };
 					_initMap( mapElem, center );
 					if ( successCallback ) {
 						successCallback();
 					}
-			    } else if ( failCallback ) {
+				} else if ( failCallback ) {
 					failCallback();
-			    }
+				}
 			  });
 		}
 	};
 
 	var _initMap = function( mapElem, center ) {
 		var zoom = mapElem.getAttribute( 'data-zoom' ) || 3;
-		var disableUI = mapElem.getAttribute( 'data-disable-ui' ) === '1';
+		var disableUI = '1' === mapElem.getAttribute( 'data-disable-ui' );
 		var color = mapElem.getAttribute( 'data-color' ) || false;
 		var customColor = mapElem.getAttribute( 'data-custom' ) || '';
-		var marker = mapElem.getAttribute( 'data-marker' ) === '1';
+		var marker = '1' === mapElem.getAttribute( 'data-marker' );
 		var markerImage = mapElem.getAttribute( 'data-marker-image' ) || '';
-
-		zoom = parseInt( zoom, 10 );
-
+		var customMapType, rgb, hsl, map;
 		var args = {
 			center: center,
 			zoom: zoom,
 			disableDefaultUI: disableUI
 		};
 
-		// If styled, add a new style label.
-		if ( customColor || color ) {
-			// args.mapTypeControlOptions = {
-			// 	mapTypeIds: [ google.maps.MapTypeId.ROADMAP, 'styled', google.maps.MapTypeId.SATELLITE ]
-		    // };
-		}
+		zoom = parseInt( zoom, 10 );
 
 		// Create the map.
-		var map = new google.maps.Map( mapElem, args );
+		if ( args.zoom ) {
+			args.zoom = parseInt( args.zoom, 10 );
+		}
+		map = new google.maps.Map( mapElem, args );
 		pbsMapsInitialized.push( map );
 		mapElem.map = map;
 	};
 
-	if ( typeof google === 'undefined' ) {
+	var maps;
+
+	if ( 'undefined' === typeof google ) {
 		return;
 	}
 	geocoder = new google.maps.Geocoder();
 
-	if ( typeof mapElem !== 'undefined' ) {
+	if ( 'undefined' !== typeof mapElem ) {
 		initMap( mapElem, successCallback, failCallback );
 		return;
 	}
 
-	var maps = document.querySelectorAll( '[data-ce-tag="map"]' );
-	Array.prototype.forEach.call( maps, function(el) {
+	maps = document.querySelectorAll( '[data-ce-tag="map"]' );
+	Array.prototype.forEach.call( maps, function( el ) {
 		initMap( el, successCallback, failCallback );
 	} );
 };
-
 
 /**
  * Re-centers the map to its settings.
  */
 window.pbsMapsReCenter = function( mapElem ) {
-	if ( typeof google !== 'undefined' ) {
+	var lat, lng, i;
+	if ( 'undefined' !== typeof google ) {
 		if ( mapElem && mapElem.nodeType ) {
-			var lat = parseFloat( mapElem.getAttribute( 'data-lat' ) );
-			var lng = parseFloat( mapElem.getAttribute( 'data-lng' ) );
+			lat = parseFloat( mapElem.getAttribute( 'data-lat' ) );
+			lng = parseFloat( mapElem.getAttribute( 'data-lng' ) );
 			if ( ! isNaN( lat ) ) {
 				google.maps.event.trigger( mapElem.map, 'resize' );
 				mapElem.map.setCenter( { lat: lat, lng: lng } );
 			}
 			return;
 		}
-		for ( var i = 0; i < pbsMapsInitialized.length; i++ ) {
+		for ( i = 0; i < pbsMapsInitialized.length; i++ ) {
 			window.pbsMapsReCenter( pbsMapsInitialized[ i ].getDiv() );
 		}
 	}
 };
 
+( function() {
+	var ready = function() {
 
-/**
- * Re-center the map on window resize.
- */
-window.addEventListener( 'DOMContentLoaded', function() {
-	window.addEventListener( 'resize', window.pbsMapsReCenter );
-} );
+		/**
+		 * Re-center the map on window resize.
+		 */
+		window.addEventListener( 'resize', window.pbsMapsReCenter );
 
-
-
-/**
- * Make maps work inside tabs.
- */
- window.addEventListener( 'DOMContentLoaded', function() {
- 	document.onclick = function( event ) {
-		var el = event.target;
-		if ( el.parentNode && el.parentNode.classList && el.parentNode.classList.contains( 'pbs-tab-tabs' ) ) {
-			var input = el.parentNode.parentNode.querySelector( '[id="' + el.getAttribute( 'for' ) + '"]' );
-			if ( ! input ) {
-				return;
+		/**
+		 * Make maps work inside tabs.
+		 */
+		document.onclick = function( event ) {
+			var el = event.target, input, panel, maps;
+			if ( el.parentNode && el.parentNode.classList && el.parentNode.classList.contains( 'pbs-tab-tabs' ) ) {
+				input = el.parentNode.parentNode.querySelector( '[id="' + el.getAttribute( 'for' ) + '"]' );
+				if ( ! input ) {
+					return;
+				}
+				panel = el.parentNode.parentNode.querySelector( '[data-panel="' + input.getAttribute( 'data-tab' ) + '"]' );
+				if ( ! panel ) {
+					return;
+				}
+				maps = panel.querySelectorAll( '[data-ce-tag="map"]' );
+				Array.prototype.forEach.call( maps, function( el ) {
+					setTimeout( function() {
+						window.pbsMapsReCenter( el );
+					}, 1 );
+				} );
 			}
-			var panel = el.parentNode.parentNode.querySelector( '[data-panel="' + input.getAttribute( 'data-tab' ) + '"]' );
-			if ( ! panel ) {
-				return;
-			}
-			var maps = panel.querySelectorAll( '[data-ce-tag="map"]' );
-			Array.prototype.forEach.call( maps, function( el ) {
-				setTimeout( function() {
-					window.pbsMapsReCenter( el );
-				}, 1 );
-			} );
-		}
- 	};
- } );
+		};
+	};
+
+	if ( 'loading' !== document.readyState ) {
+		ready();
+	} else {
+		document.addEventListener( 'DOMContentLoaded', ready );
+	}
+} )();

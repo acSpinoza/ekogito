@@ -587,7 +587,7 @@ function post_author(){
 			<img class="uk-comment-avatar" src="<?php echo get_avatar_url( get_the_author_meta( 'email' ) )?>" width="100" height="100" alt="" style="padding-top: 10px">
 		</div>
 		<div class="uk-width-4-6">
-			<h4 class="uk-comment-title">Ecrit par <a href="<?php echo get_author_posts_url( get_the_author_meta( 'ID' )) ?>"><?php echo get_the_author(); ?></a></h4>
+			<h4 class="uk-comment-title">Publié par <a href="<?php echo get_author_posts_url( get_the_author_meta( 'ID' )) ?>"><?php echo get_the_author(); ?></a></h4>
 			<div class="uk-comment-meta"><?php the_author_meta('description'); ?></br><a href="<?php echo get_author_posts_url( get_the_author_meta( 'ID' )) ?>">Lire les autres articles</a></div>
 		</div>
 </header>
